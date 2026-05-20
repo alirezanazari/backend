@@ -6,6 +6,8 @@ It intentionally does not define request or response fields. Field-level contrac
 
 For the global envelope, status format, and context rules, see [API Contract](./api-contract.md).
 
+For token, admin, internal, and debug access rules, see [System Access](./system-access.md).
+
 ## Requests Summary
 
 | Area | Request | Auth | Summary |

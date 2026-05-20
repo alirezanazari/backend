@@ -417,8 +417,8 @@ Suggested model:
 ```text
 ApiRequest<T>
 ApiResponse<T>
-RequestContext
-ResponseContext
+RequestEnvelopeContext
+ResponseEnvelopeContext
 Status
 StatusCode
 AccountContext

@@ -16,7 +16,9 @@ Important rules:
 - Return `401 Unauthorized` for missing, invalid, or expired tokens.
 - Require idempotency for financial write operations.
 - Audit sensitive actions.
-- Validate `RequestContext` against JWT, service data, and server-derived metadata.
+- Validate request `context` against JWT, service data, and server-derived metadata.
+
+For token access levels, admin/internal APIs, debug token generation, and mock OTP rules, see [System Access](./system-access.md).
 
 ## Password Handling
 
@@ -239,9 +241,9 @@ user can only freeze their own card
 user can only transfer from their own active account/card
 ```
 
-## RequestContext Trust
+## Context Trust
 
-Every public business request contains `RequestContext`, but client-provided context is not automatically trusted.
+Every public business request contains `context`, but client-provided context is not automatically trusted.
 
 Trusted values:
 

@@ -59,6 +59,7 @@ Tasks:
 - Add validation
 - Add correlation ID
 - Add gateway key-exchange and decryption boundary if app-level encryption is enabled
+- Add system access rules and debug safety guards
 - Add logging pattern
 - Add OpenAPI
 - Add health checks
@@ -84,7 +85,9 @@ Small steps:
 17. Implement `POST /api/v1/security/key-exchange` in gateway if app-level encryption is enabled.
 18. Decrypt encrypted request fields in gateway memory.
 19. Forward raw values to internal services.
-20. Test with Postman through gateway.
+20. Add debug startup guard for `prod`.
+21. Add local/dev-only debug token generator under `/debug/v1/**`.
+22. Test with Postman through gateway.
 
 Engineering focus:
 
@@ -93,6 +96,7 @@ Engineering focus:
 - API envelope design
 - Request context validation
 - Gateway-owned request decryption
+- Safe local/dev debug access
 - HTTP status codes
 - Why error formats should be consistent
 - Why logs need correlation IDs
@@ -132,8 +136,10 @@ Small steps:
 13. If device is not verified, return `DEVICE_VERIFICATION_REQUIRED`.
 14. Implement `POST /api/v1/iam/device-verify`.
 15. Return `401 Unauthorized` for missing, invalid, or expired access tokens.
-16. Add unit tests for password and device rules.
-17. Add integration tests for register and login.
+16. Add local/dev-only mock OTP support for `111111`.
+17. Add startup guard so mock OTP cannot be enabled in `prod`.
+18. Add unit tests for password and device rules.
+19. Add integration tests for register and login.
 
 Engineering focus:
 
@@ -142,6 +148,7 @@ Engineering focus:
 - Token expiration and `401 Unauthorized`
 - Why OTP should be hashed
 - Why token claims should be minimal
+- Why mock OTP must be local/dev-only
 - Why request encryption belongs at the gateway boundary
 
 ## Phase 3: Account Service
