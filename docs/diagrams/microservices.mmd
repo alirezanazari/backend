@@ -1,0 +1,24 @@
+flowchart LR
+  Client["Client / Postman / Mobile"] --> Gateway["API Gateway"]
+
+  Gateway --> IAM["iam-service"]
+  Gateway --> Account["account-service"]
+  Gateway --> Card["card-service"]
+  Gateway --> KYC["kyc-service"]
+  Gateway --> Flags["feature-flag-service"]
+  Gateway --> PFM["pfm-service"]
+  Gateway --> Transfer["transfer-service"]
+
+  Transfer --> Ledger["ledger-service"]
+  Transfer --> Account
+  Transfer --> Flags
+  Transfer --> Adapter["third-party adapter later"]
+
+  PFM --> Account
+  PFM --> Ledger
+  Card --> Account
+  KYC --> Account
+  KYC --> Transfer
+
+  IAM -. "JWT public key / token validation" .-> Gateway
+

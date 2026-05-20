@@ -1,0 +1,19 @@
+.DS_Store
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Java and Spring Boot builds
+target/
+build/
+out/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+

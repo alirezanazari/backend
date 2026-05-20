@@ -1,0 +1,26 @@
+flowchart TB
+  IAMDB[("iam_db")]
+  AccountDB[("account_db")]
+  CardDB[("card_db")]
+  KYCDB[("kyc_db")]
+  FlagDB[("feature_flag_db")]
+  PFMDB[("pfm_db")]
+  TransferDB[("transfer_db")]
+  LedgerDB[("ledger_db")]
+
+  IAM["iam-service"] --> IAMDB
+  Account["account-service"] --> AccountDB
+  Card["card-service"] --> CardDB
+  KYC["kyc-service"] --> KYCDB
+  Flags["feature-flag-service"] --> FlagDB
+  PFM["pfm-service"] --> PFMDB
+  Transfer["transfer-service"] --> TransferDB
+  Ledger["ledger-service"] --> LedgerDB
+
+  Transfer --> Ledger
+  Transfer --> Account
+  PFM --> Account
+  PFM --> Ledger
+  Card --> Account
+  KYC --> Transfer
+
