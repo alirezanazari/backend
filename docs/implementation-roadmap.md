@@ -123,16 +123,17 @@ Small steps:
 4. Create `credentials` table.
 5. Implement `POST /api/v1/iam/register`.
 6. Validate username, phone number, national ID, password, name, province, city, and address.
-7. Hash password.
-8. Return limited JWT and `ACCOUNT_REQUIRED`.
-9. Create `devices` table.
-10. Create `otp_challenges` table.
-11. Implement `POST /api/v1/iam/login`.
-12. If device is not verified, return `DEVICE_VERIFICATION_REQUIRED`.
-13. Implement `POST /api/v1/iam/device-verify`.
-14. Return `401 Unauthorized` for missing, invalid, or expired access tokens.
-15. Add unit tests for password and device rules.
-16. Add integration tests for register and login.
+7. Accept selected `jobId` as onboarding data.
+8. Hash password.
+9. Return limited JWT and `ACCOUNT_REQUIRED`.
+10. Create `devices` table.
+11. Create `otp_challenges` table.
+12. Implement `POST /api/v1/iam/login`.
+13. If device is not verified, return `DEVICE_VERIFICATION_REQUIRED`.
+14. Implement `POST /api/v1/iam/device-verify`.
+15. Return `401 Unauthorized` for missing, invalid, or expired access tokens.
+16. Add unit tests for password and device rules.
+17. Add integration tests for register and login.
 
 Engineering focus:
 
@@ -173,15 +174,22 @@ Small steps:
 5. Create `bank_accounts` table.
 6. Implement `POST /api/v1/accounts/register`.
 7. Create personal profile automatically.
-8. Create default saving account automatically.
-9. Return profile and account response.
-10. Implement `POST /api/v1/profiles/list`.
-11. Implement `POST /api/v1/accounts/list`.
-12. Implement `POST /api/v1/accounts/owner/get` as internal/admin style endpoint.
-13. Implement `POST /api/v1/accounts/close`.
-14. Prevent closing account if ledger balance is not zero.
-15. Add tests for max profile count.
-16. Add tests for account close rules.
+8. Validate selected `jobId` exists in KYC job list.
+9. Save selected `jobId` on created profile/account record.
+10. Create default saving account automatically.
+11. Auto-generate 10-digit account number.
+12. Auto-generate IBAN.
+13. Return profile and account response.
+14. Implement `POST /api/v1/profiles/create`.
+15. Implement `POST /api/v1/profiles/list`.
+16. Implement `POST /api/v1/profiles/active/set`.
+17. Implement `POST /api/v1/accounts/list`.
+18. Implement `POST /api/v1/accounts/balance/get`.
+19. Implement `POST /api/v1/accounts/owner/get` as client-facing destination lookup endpoint.
+20. Implement `POST /api/v1/accounts/close`.
+21. Prevent closing account if ledger balance is not zero.
+22. Add tests for max profile count.
+23. Add tests for account close rules.
 
 Engineering focus:
 
@@ -259,10 +267,12 @@ Small steps:
 6. Implement internal default card creation.
 7. Implement `POST /api/v1/cards/list`.
 8. Implement `POST /api/v1/cards/order`.
-9. Implement `POST /api/v1/cards/freeze`.
-10. Implement `POST /api/v1/cards/unfreeze`.
-11. Implement `POST /api/v1/cards/expire`.
-12. Add tests for status transitions.
+9. Implement `POST /api/v1/card/freeze`.
+10. Implement `POST /api/v1/card/unfreeze`.
+11. Implement `POST /api/v1/card/block`.
+12. Implement `POST /api/v1/card/unblock`.
+13. Implement `POST /api/v1/card/expire`.
+14. Add tests for status transitions.
 
 Engineering focus:
 

@@ -1,6 +1,6 @@
 # red-bank Backend
 
-Real production digital banking backend.
+Digital banking backend.
 
 This repository is designed as real microservices from the start, with production-grade boundaries, security, financial consistency, and operational concerns documented before implementation.
 
@@ -8,6 +8,7 @@ This repository is designed as real microservices from the start, with productio
 
 - [Architecture Overview](./docs/architecture.md)
 - [API Contract](./docs/api-contract.md)
+- [API Requests](./docs/api-requests.md)
 - [Microservices Design](./docs/microservices.md)
 - [Database Design](./docs/databases.md)
 - [Security Design](./docs/security.md)
@@ -16,5 +17,3 @@ This repository is designed as real microservices from the start, with productio
 ## Current Architectural Direction
 
 The system is a banking-style backend with separate services for identity, accounts, cards, KYC, personal finance, transfers, feature flags, and ledger.
-
-Implementation will start small, but the boundaries are designed so the project can grow without being rewritten.

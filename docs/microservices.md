@@ -82,10 +82,12 @@ Owns:
 - Profile limit: maximum 5 profiles per user
 - Default personal profile creation
 - Account metadata
+- Account number and IBAN generation
+- Account balance lookup through ledger
 - Account type: `VAULT`, `SAVING`, `CHEQUE`
 - Account status: `ACTIVE`, `CLOSED`, `INACTIVE`
 - Account closing lifecycle
-- Account owner lookup
+- Destination owner lookup for transfers
 
 Main APIs:
 
@@ -93,7 +95,10 @@ Main APIs:
 POST /api/v1/accounts/register
 POST /api/v1/accounts/close
 POST /api/v1/accounts/list
+POST /api/v1/accounts/balance/get
+POST /api/v1/profiles/create
 POST /api/v1/profiles/list
+POST /api/v1/profiles/active/set
 POST /api/v1/accounts/owner/get
 ```
 
@@ -120,7 +125,8 @@ Owns:
 - Default card creation after account registration
 - Expire card
 - Freeze/unfreeze by user
-- Block/unblock by admin/system
+- Block by user/admin/system
+- Unblock by admin/system
 - Card status: `ACTIVE`, `INACTIVE`, `BLOCKED`, `FROZEN`, `EXPIRED`
 
 Main APIs:
@@ -128,9 +134,11 @@ Main APIs:
 ```text
 POST /api/v1/cards/list
 POST /api/v1/cards/order
-POST /api/v1/cards/freeze
-POST /api/v1/cards/unfreeze
-POST /api/v1/cards/expire
+POST /api/v1/card/freeze
+POST /api/v1/card/unfreeze
+POST /api/v1/card/block
+POST /api/v1/card/unblock
+POST /api/v1/card/expire
 ```
 
 Current rule:
@@ -156,7 +164,7 @@ customer verification and referral registration
 Owns:
 
 - KYC state
-- Job list
+- Public job list
 - Referral code entered during registration flow
 - Referral reward eligibility
 - KYC completion events

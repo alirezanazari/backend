@@ -222,8 +222,10 @@ Important fields:
 ```text
 id
 user_id
+job_id
 type
 display_name
+image_url
 status
 is_active
 created_at
@@ -236,6 +238,7 @@ Rules:
 first profile is PERSONAL
 one user can have maximum 5 profiles
 only one active profile at a time
+job_id is selected from kyc-service jobs during registration
 ```
 
 ### bank_accounts
@@ -247,12 +250,21 @@ id
 profile_id
 user_id
 account_number
+iban
 type
 status
 currency
 created_at
 closed_at
 updated_at
+```
+
+Rules:
+
+```text
+account_number is auto-generated and exactly 10 digits
+iban is auto-generated using banking IBAN format rules
+account_number and iban must be unique
 ```
 
 Account types:
@@ -534,6 +546,8 @@ source_type
 source_id
 destination_type
 destination_id
+destination_display_name
+destination_account_or_card_number
 amount
 currency
 method
@@ -542,6 +556,13 @@ ledger_transaction_id nullable
 failure_reason nullable
 created_at
 updated_at
+```
+
+Important:
+
+```text
+destination_display_name and destination_account_or_card_number are stored as a transfer history snapshot for recent-list display
+do not store sensitive destination data in transfer history snapshots
 ```
 
 Transfer statuses:

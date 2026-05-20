@@ -16,14 +16,15 @@ The backend supports:
 - User profiles, up to 5 profiles per user
 - Default personal profile after registration
 - Default saving account and default card creation
-- Account listing, closing, owner lookup
+- Account listing, balance lookup, closing, destination owner lookup
 - Card listing, ordering, freezing, blocking, expiration
-- KYC job list and referral registration
+- Public KYC job list and referral registration
 - Referral reward after referred user completes KYC
 - Feature flag listing and updates
 - PFM transaction list and vault boxes
 - Internal transfers now, external-compatible design for later
 - Transfer history containing successful transfers only
+- Auto-generated 10-digit account numbers and IBANs
 
 ## Core Services
 
