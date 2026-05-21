@@ -16,4 +16,5 @@ out/
 .env
 .env.*
 !.env.example
-
+!.env.develop.example
+!.env.prod.example

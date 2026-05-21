@@ -20,6 +20,8 @@ Important rules:
 
 For token access levels, admin/internal APIs, debug token generation, and mock OTP rules, see [System Access](./system-access.md).
 
+For `develop` and `prod` configuration, environment variables, deployment, and profile switching, see [Environments](./environments.md).
+
 ## Password Handling
 
 Recommended:

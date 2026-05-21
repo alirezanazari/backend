@@ -7,7 +7,7 @@ This roadmap is intentionally small-step. The goal is to build a real production
 Topic:
 
 ```text
-prepare local development environment
+prepare develop/prod environment foundation
 ```
 
 Tasks:
@@ -19,6 +19,9 @@ Tasks:
 - Add root README and docs
 - Add root Docker Compose
 - Add shared local PostgreSQL containers
+- Define `develop` and `prod` profiles
+- Define environment variable strategy
+- Create environment example files
 
 Small steps:
 
@@ -29,14 +32,19 @@ Small steps:
 5. Create root Git repository.
 6. Create service folders one by one.
 7. Create first Spring Boot service with Maven Wrapper.
-8. Run first service locally.
-9. Call health endpoint from browser/Postman.
+8. Create `application.yml`, `application-develop.yml`, and `application-prod.yml`.
+9. Create `.env.develop.example` and `.env.prod.example`.
+10. Run first service with `SPRING_PROFILES_ACTIVE=develop`.
+11. Verify prod profile refuses unsafe debug config.
+12. Call health endpoint from browser/Postman.
 
 Engineering focus:
 
 - What a repository is
 - What Maven Wrapper does
 - Why Docker Compose helps local development
+- How Spring profiles switch configuration
+- Why secrets come from environment variables
 - How Spring Boot starts
 - What an actuator health endpoint means
 
@@ -59,7 +67,7 @@ Tasks:
 - Add validation
 - Add correlation ID
 - Add gateway key-exchange and decryption boundary if app-level encryption is enabled
-- Add system access rules and debug safety guards
+- Add environment profile rules and debug safety guards
 - Add logging pattern
 - Add OpenAPI
 - Add health checks
@@ -86,7 +94,7 @@ Small steps:
 18. Decrypt encrypted request fields in gateway memory.
 19. Forward raw values to internal services.
 20. Add debug startup guard for `prod`.
-21. Add local/dev-only debug token generator under `/debug/v1/**`.
+21. Add develop-only debug token generator under `/debug/v1/**`.
 22. Test with Postman through gateway.
 
 Engineering focus:
@@ -96,7 +104,7 @@ Engineering focus:
 - API envelope design
 - Request context validation
 - Gateway-owned request decryption
-- Safe local/dev debug access
+- Safe develop debug access
 - HTTP status codes
 - Why error formats should be consistent
 - Why logs need correlation IDs
@@ -136,7 +144,7 @@ Small steps:
 13. If device is not verified, return `DEVICE_VERIFICATION_REQUIRED`.
 14. Implement `POST /api/v1/iam/device-verify`.
 15. Return `401 Unauthorized` for missing, invalid, or expired access tokens.
-16. Add local/dev-only mock OTP support for `111111`.
+16. Add develop-only mock OTP support for `111111`.
 17. Add startup guard so mock OTP cannot be enabled in `prod`.
 18. Add unit tests for password and device rules.
 19. Add integration tests for register and login.
@@ -148,7 +156,7 @@ Engineering focus:
 - Token expiration and `401 Unauthorized`
 - Why OTP should be hashed
 - Why token claims should be minimal
-- Why mock OTP must be local/dev-only
+- Why mock OTP must be develop-only
 - Why request encryption belongs at the gateway boundary
 
 ## Phase 3: Account Service

@@ -374,4 +374,4 @@ key rotation support
 - Database migrations in version control
 - Tests around business rules
 - Health checks for every service
-- Separate local, test, and production configuration
+- Separate `develop` and `prod` configuration

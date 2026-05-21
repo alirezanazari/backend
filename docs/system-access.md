@@ -1,8 +1,10 @@
 # System Access
 
-This document defines access rules for public APIs, user-token APIs, admin/internal APIs, service-to-service APIs, and safe local/debug access.
+This document defines access rules for public APIs, user-token APIs, admin/internal APIs, service-to-service APIs, and safe develop/debug access.
 
 It also defines how developers can generate test tokens and bypass selected flows safely without weakening production security.
+
+For environment profiles, variables, and deployment rules, see [Environments](./environments.md).
 
 ## Access Levels
 
@@ -14,7 +16,7 @@ It also defines how developers can generate test tokens and bypass selected flow
 | `ADMIN` | Privileged operator/admin access. | Admin JWT | Feature flag update, KYC approval, card unblock/expire. |
 | `INTERNAL_SERVICE` | Service-to-service access. | Service credential | Ledger internal APIs and protected internal service calls. |
 | `ENVIRONMENT` | Infrastructure access. | Environment-dependent | Actuator health/info endpoints. |
-| `DEBUG_ONLY` | Local/dev-only testing access. | Debug guard required | Token generation, mock OTP, fake scenarios. |
+| `DEBUG_ONLY` | Develop-only testing access. | Debug guard required | Token generation, mock OTP, fake scenarios. |
 
 ## Enforcement Model
 
@@ -140,14 +142,14 @@ Rules:
 | Infrastructure | `GET /actuator/health` | `ENVIRONMENT` | Public or protected based on deployment. |
 | Infrastructure | `GET /actuator/info` | `ENVIRONMENT` | Must not expose secrets. |
 
-## Development Debug Access
+## Develop Debug Access
 
 Debug access must make development faster without creating production danger.
 
 The rule is:
 
 ```text
-debug tools are real code paths with fake authority, isolated to local/dev only
+debug tools are real code paths with fake authority, isolated to develop only
 ```
 
 Debug tools must never be enabled in production.
@@ -156,7 +158,7 @@ Debug tools must never be enabled in production.
 
 All debug endpoints and mock behavior must follow these rules:
 
-- Available only in `local` and `dev` profiles.
+- Available only in `develop` profile.
 - Disabled by default unless explicitly enabled.
 - Controlled by a clear property such as `redbank.debug.enabled=true`.
 - Application must fail startup if debug is enabled in `prod`.
@@ -164,7 +166,7 @@ All debug endpoints and mock behavior must follow these rules:
 - Debug endpoints must not be routed by production gateway.
 - Debug tokens must be short lived.
 - Debug token issuer must be clearly different from production issuer.
-- Debug tokens must use local/dev signing keys only.
+- Debug tokens must use develop-only signing keys.
 - Debug actions must be logged.
 - Debug actions should include request ID and developer identifier when available.
 - Debug endpoints must never access real production data.
@@ -172,7 +174,7 @@ All debug endpoints and mock behavior must follow these rules:
 Suggested Spring Boot guards:
 
 ```text
-@Profile({"local", "dev"})
+@Profile("develop")
 @ConditionalOnProperty(name = "redbank.debug.enabled", havingValue = "true")
 ```
 
@@ -189,7 +191,7 @@ if profile is prod and redbank.debug.enabled is true, fail application startup
 Purpose:
 
 ```text
-generate short-lived user access token for local/dev testing
+generate short-lived user access token for develop testing
 ```
 
 Access:
@@ -200,12 +202,12 @@ DEBUG_ONLY
 
 Rules:
 
-- Only available in local/dev.
+- Only available in develop.
 - Disabled unless `redbank.debug.enabled=true`.
-- Uses dev-only signing key.
+- Uses develop-only signing key.
 - Token lifetime should be short, such as 15 minutes.
 - Token must contain obvious debug issuer, such as `red-bank-debug`.
-- Should allow selecting existing local/dev user ID and profile ID.
+- Should allow selecting existing develop user ID and profile ID.
 - Should not create production-compatible tokens.
 - Should be logged as a debug token generation event.
 
@@ -227,7 +229,7 @@ exp = now + 15 minutes
 Purpose:
 
 ```text
-generate short-lived admin token for local/dev admin API testing
+generate short-lived admin token for develop admin API testing
 ```
 
 Access:
@@ -238,9 +240,9 @@ DEBUG_ONLY
 
 Rules:
 
-- Only available in local/dev.
-- Should require an additional debug secret or local-only network binding.
-- Uses dev-only signing key.
+- Only available in develop.
+- Should require an additional debug secret or localhost/develop-network binding.
+- Uses develop-only signing key.
 - Token lifetime should be very short, such as 10 minutes.
 - Should log admin token generation loudly.
 - Must never exist in production runtime.
@@ -250,7 +252,7 @@ Rules:
 Purpose:
 
 ```text
-generate short-lived service token for local service-to-service testing
+generate short-lived service token for develop service-to-service testing
 ```
 
 Access:
@@ -261,7 +263,7 @@ DEBUG_ONLY
 
 Rules:
 
-- Only available in local/dev.
+- Only available in develop.
 - Must specify service name.
 - Must specify allowed scopes.
 - Should be used for internal ledger and service-to-service tests.
@@ -271,7 +273,7 @@ Rules:
 
 ### Mock Device OTP
 
-For local/dev testing, device verification can accept:
+For develop testing, device verification can accept:
 
 ```text
 111111
@@ -280,7 +282,7 @@ For local/dev testing, device verification can accept:
 Rules:
 
 - Only allowed when `redbank.debug.mock-otp.enabled=true`.
-- Only available in local/dev.
+- Only available in develop.
 - Must never work in production.
 - Must not be stored as a real OTP.
 - Must not bypass audit logging.
@@ -303,7 +305,7 @@ if profile is prod and redbank.debug.mock-otp.enabled is true, fail application 
 
 ### Fast User API Testing
 
-Use this flow when account/user records already exist in local DB:
+Use this flow when account/user records already exist in the develop database:
 
 ```text
 1. Call POST /debug/v1/tokens/user
@@ -322,11 +324,11 @@ This keeps debug behavior close to real behavior.
 
 ### Fast Device Verification Testing
 
-Use this flow when testing device verification locally:
+Use this flow when testing device verification in develop:
 
 ```text
 1. Enable redbank.debug.mock-otp.enabled=true
-2. Start iam-service in local/dev profile
+2. Start iam-service in develop profile
 3. Call POST /api/v1/iam/device-verify with OTP 111111
 4. IAM marks device as verified using normal success flow
 ```
@@ -392,12 +394,12 @@ redbank:
       enabled: false
 ```
 
-Local override:
+Develop override:
 
 ```yaml
 spring:
   profiles:
-    active: local
+    active: develop
 
 redbank:
   debug:
@@ -422,7 +424,7 @@ Add automated tests for debug safety:
 - Mock OTP `111111` is rejected when mock OTP is disabled.
 - Mock OTP `111111` is rejected in prod profile.
 - Debug token uses debug issuer, not production issuer.
-- Normal JWT validation accepts debug token only in local/dev.
+- Normal JWT validation accepts debug token only in develop.
 
 ## Audit Requirements
 
@@ -445,4 +447,3 @@ issued scopes
 expiration time
 timestamp
 ```
-
