@@ -68,8 +68,7 @@ Request:
 
 ```json
 {
-  "clientPublicKey": "...",
-  "clientNonce": "..."
+  "clientPublicKey": "..."
 }
 ```
 
@@ -79,8 +78,6 @@ Response:
 {
   "keyExchangeId": "...",
   "serverPublicKey": "...",
-  "serverNonce": "...",
-  "algorithm": "ECDH-HKDF-AES-256-GCM",
   "expiresAt": "..."
 }
 ```
@@ -88,9 +85,9 @@ Response:
 Concept:
 
 ```text
-client and api-gateway perform ECDH
-both derive the same temporary session key using HKDF
-client encrypts sensitive fields using AES-GCM
+client and api-gateway perform public-key exchange
+both derive the same temporary session key
+client encrypts sensitive fields with the gateway-approved crypto configuration
 api-gateway decrypts only in memory
 api-gateway forwards raw values to internal services
 microservices never decrypt request payloads

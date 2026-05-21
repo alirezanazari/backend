@@ -262,7 +262,7 @@ updated_at
 Rules:
 
 ```text
-account_number is auto-generated and exactly 10 digits
+account_number is auto-generated and exactly 18 digits
 iban is auto-generated using banking IBAN format rules
 account_number and iban must be unique
 ```
@@ -316,7 +316,7 @@ Important fields:
 id
 user_id
 profile_id
-account_id
+account_number
 masked_pan
 card_token
 status
@@ -484,7 +484,7 @@ Important fields:
 id
 user_id
 profile_id
-account_id
+account_number
 title
 preset_id nullable
 image_url
@@ -496,7 +496,7 @@ updated_at
 Important:
 
 ```text
-account_id points to a VAULT account owned by account-service.
+account_number points to a VAULT account owned by account-service.
 pfm-service stores display metadata only.
 ```
 
@@ -625,7 +625,7 @@ Important fields:
 
 ```text
 id
-external_account_id
+external_account_number
 owner_user_id
 currency
 status
@@ -633,7 +633,7 @@ created_at
 updated_at
 ```
 
-`external_account_id` is the account ID from `account-service`.
+`external_account_number` is the 18-digit account number from `account-service`.
 
 ### ledger_transactions
 

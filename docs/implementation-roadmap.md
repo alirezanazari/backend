@@ -16,6 +16,7 @@ Tasks:
 - Verify Docker Desktop and Docker CLI
 - Choose Maven Wrapper for all services
 - Create repository structure
+- Create `red-bank-contracts` module for shared API/value contracts
 - Add root README and docs
 - Add root Docker Compose
 - Add shared local PostgreSQL containers
@@ -31,12 +32,13 @@ Small steps:
 4. Run `docker --version`.
 5. Create root Git repository.
 6. Create service folders one by one.
-7. Create first Spring Boot service with Maven Wrapper.
-8. Create `application.yml`, `application-develop.yml`, and `application-prod.yml`.
-9. Create `.env.develop.example` and `.env.prod.example`.
-10. Run first service with `SPRING_PROFILES_ACTIVE=develop`.
-11. Verify prod profile refuses unsafe debug config.
-12. Call health endpoint from browser/Postman.
+7. Create `red-bank-contracts` module.
+8. Create first Spring Boot service with Maven Wrapper.
+9. Create `application.yml`, `application-develop.yml`, and `application-prod.yml`.
+10. Create `.env.develop.example` and `.env.prod.example`.
+11. Run first service with `SPRING_PROFILES_ACTIVE=develop`.
+12. Verify prod profile refuses unsafe debug config.
+13. Call health endpoint from browser/Postman.
 
 Engineering focus:
 
@@ -59,6 +61,7 @@ standard structure for every service and gateway
 Tasks:
 
 - Create API gateway foundation
+- Add `red-bank-contracts` as dependency where public contracts are needed
 - Define package structure
 - Add standard `ApiRequest<T>` and `ApiResponse<T>` envelope
 - Add `context` envelope for both request and response
@@ -81,10 +84,10 @@ Small steps:
 5. Add Spring Actuator.
 6. Add OpenAPI.
 7. Create `GET /actuator/health`.
-8. Create request-side `context` DTO.
-9. Create response-side `context` DTO.
-10. Create generic `ApiRequest<T>` wrapper.
-11. Create generic `ApiResponse<T>` wrapper.
+8. Create request-side `context` DTO in `red-bank-contracts`.
+9. Create response-side `context` DTO in `red-bank-contracts`.
+10. Create generic `ApiRequest<T>` wrapper in `red-bank-contracts`.
+11. Create generic `ApiResponse<T>` wrapper in `red-bank-contracts`.
 12. Create global exception handler.
 13. Create standard failure response with `context.status`.
 14. Create request validation example.
@@ -192,7 +195,7 @@ Small steps:
 8. Validate selected `jobId` exists in KYC job list.
 9. Save selected `jobId` on created profile/account record.
 10. Create default saving account automatically.
-11. Auto-generate 10-digit account number.
+11. Auto-generate 18-digit account number.
 12. Auto-generate IBAN.
 13. Return profile and account response.
 14. Implement `POST /api/v1/profiles/create`.

@@ -2,7 +2,9 @@
 
 This document lists the API requests currently planned for `red-bank`.
 
-It intentionally does not define request or response fields. Field-level contracts will be designed later per endpoint.
+It defines endpoint purpose, ownership, access, and behavior.
+
+For request and response `data` fields of every API, see [API Fields](./api-fields.md).
 
 For the global envelope, status format, and context rules, see [API Contract](./api-contract.md).
 
@@ -21,7 +23,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Account | `POST /api/v1/accounts/close` | Required | Close an owned account when allowed. |
 | Account | `POST /api/v1/accounts/list` | Required | List accounts for current user/profile. |
 | Account | `POST /api/v1/accounts/balance/get` | Required | Get authoritative account balance through ledger. |
-| Account | `POST /api/v1/profiles/list` | Required | List profiles for current user. |
+| Account | `POST /api/v1/profiles/list` | Required | List profiles related to an owned account number. |
 | Account | `POST /api/v1/profiles/create` | Required | Create an additional user profile. |
 | Account | `POST /api/v1/profiles/active/set` | Required | Set active profile for current user. |
 | Account | `POST /api/v1/accounts/owner/get` | Required | Lookup non-sensitive transfer destination display info. |
@@ -126,6 +128,8 @@ Authenticated APIs:
 
 ### POST /api/v1/security/key-exchange
 
+Fields: [See fields](./api-fields.md#post-apiv1securitykey-exchange)
+
 Owner:
 
 ```text
@@ -157,6 +161,8 @@ Important rules:
 ## IAM Requests
 
 ### POST /api/v1/iam/register
+
+Fields: [See fields](./api-fields.md#post-apiv1iamregister)
 
 Owner:
 
@@ -197,6 +203,8 @@ POST /api/v1/accounts/register
 
 ### POST /api/v1/iam/login
 
+Fields: [See fields](./api-fields.md#post-apiv1iamlogin)
+
 Owner:
 
 ```text
@@ -235,6 +243,8 @@ Returned business concepts:
 
 ### POST /api/v1/iam/device-verify
 
+Fields: [See fields](./api-fields.md#post-apiv1iamdevice-verify)
+
 Owner:
 
 ```text
@@ -265,6 +275,8 @@ Important rules:
 
 ### POST /api/v1/iam/logout
 
+Fields: [See fields](./api-fields.md#post-apiv1iamlogout)
+
 Owner:
 
 ```text
@@ -293,6 +305,8 @@ Important rules:
 
 ### POST /api/v1/accounts/register
 
+Fields: [See fields](./api-fields.md#post-apiv1accountsregister)
+
 Owner:
 
 ```text
@@ -320,7 +334,7 @@ Important rules:
 - First profile is automatically personal.
 - Default saving account is the main account for now.
 - Account number is auto-generated.
-- Account number must be exactly 10 digits.
+- Account number must be exactly 18 digits.
 - IBAN is auto-generated using banking IBAN format rules.
 - Account number and IBAN must be unique.
 - Account metadata belongs to account-service.
@@ -336,6 +350,8 @@ Expected related actions:
 - Create default card.
 
 ### POST /api/v1/accounts/close
+
+Fields: [See fields](./api-fields.md#post-apiv1accountsclose)
 
 Owner:
 
@@ -366,6 +382,8 @@ Important rules:
 
 ### POST /api/v1/accounts/list
 
+Fields: [See fields](./api-fields.md#post-apiv1accountslist)
+
 Owner:
 
 ```text
@@ -388,11 +406,13 @@ Important rules:
 
 - Supports account types: `VAULT`, `SAVING`, `CHEQUE`.
 - Supports account statuses: `ACTIVE`, `CLOSED`, `INACTIVE`.
-- Each account has an internal `accountId`, a 10-digit `accountNumber`, and an IBAN.
+- Each account has an internal database ID, an 18-digit `accountNumber`, and an IBAN.
 - Account balance, if returned, must come from ledger or ledger-synchronized read model.
 - User must not see accounts owned by another user/profile.
 
 ### POST /api/v1/accounts/balance/get
+
+Fields: [See fields](./api-fields.md#post-apiv1accountsbalanceget)
 
 Owner:
 
@@ -422,6 +442,8 @@ Important rules:
 
 ### POST /api/v1/profiles/list
 
+Fields: [See fields](./api-fields.md#post-apiv1profileslist)
+
 Owner:
 
 ```text
@@ -431,7 +453,7 @@ account-service
 Purpose:
 
 ```text
-list profiles for current user
+list profiles related to an owned account number
 ```
 
 Authentication:
@@ -442,12 +464,16 @@ required
 
 Important rules:
 
+- Request must include `accountNumber`.
+- Account number must belong to the authenticated user.
 - First profile is personal.
 - User can have up to 5 profiles.
 - Only one active profile should be selected at a time.
 - Profile ownership must be validated against JWT user identity.
 
 ### POST /api/v1/profiles/create
+
+Fields: [See fields](./api-fields.md#post-apiv1profilescreate)
 
 Owner:
 
@@ -477,6 +503,8 @@ Important rules:
 
 ### POST /api/v1/profiles/active/set
 
+Fields: [See fields](./api-fields.md#post-apiv1profilesactiveset)
+
 Owner:
 
 ```text
@@ -503,6 +531,8 @@ Important rules:
 - Services must still validate profile ownership; client context alone is not trusted.
 
 ### POST /api/v1/accounts/owner/get
+
+Fields: [See fields](./api-fields.md#post-apiv1accountsownerget)
 
 Owner:
 
@@ -536,6 +566,8 @@ Important rules:
 
 ### POST /api/v1/cards/list
 
+Fields: [See fields](./api-fields.md#post-apiv1cardslist)
+
 Owner:
 
 ```text
@@ -564,6 +596,8 @@ Important rules:
 
 ### POST /api/v1/cards/order
 
+Fields: [See fields](./api-fields.md#post-apiv1cardsorder)
+
 Owner:
 
 ```text
@@ -590,6 +624,8 @@ Important rules:
 - Card order should create auditable status history.
 
 ### POST /api/v1/card/freeze
+
+Fields: [See fields](./api-fields.md#post-apiv1cardfreeze)
 
 Owner:
 
@@ -618,6 +654,8 @@ Important rules:
 
 ### POST /api/v1/card/unfreeze
 
+Fields: [See fields](./api-fields.md#post-apiv1cardunfreeze)
+
 Owner:
 
 ```text
@@ -643,6 +681,8 @@ Important rules:
 - Status transition must be validated.
 
 ### POST /api/v1/card/block
+
+Fields: [See fields](./api-fields.md#post-apiv1cardblock)
 
 Owner:
 
@@ -674,6 +714,8 @@ Important rules:
 
 ### POST /api/v1/card/unblock
 
+Fields: [See fields](./api-fields.md#post-apiv1cardunblock)
+
 Owner:
 
 ```text
@@ -700,6 +742,8 @@ Important rules:
 - Status history and audit record are required.
 
 ### POST /api/v1/card/expire
+
+Fields: [See fields](./api-fields.md#post-apiv1cardexpire)
 
 Owner:
 
@@ -729,6 +773,8 @@ Important rules:
 
 ### POST /api/v1/kyc/jobs/list
 
+Fields: [See fields](./api-fields.md#post-apiv1kycjobslist)
+
 Owner:
 
 ```text
@@ -756,6 +802,8 @@ Important rules:
 - `jobId` must be validated against active jobs.
 
 ### POST /api/v1/kyc/referral/set
+
+Fields: [See fields](./api-fields.md#post-apiv1kycreferralset)
 
 Owner:
 
@@ -786,6 +834,8 @@ Important rules:
 
 ### POST /api/v1/kyc/status/get
 
+Fields: [See fields](./api-fields.md#post-apiv1kycstatusget)
+
 Owner:
 
 ```text
@@ -811,6 +861,8 @@ Important rules:
 - Account completion status should be updated or derived from KYC state.
 
 ### POST /api/v1/kyc/complete
+
+Fields: [See fields](./api-fields.md#post-apiv1kyccomplete)
 
 Owner:
 
@@ -840,6 +892,8 @@ Important rules:
 ## Feature Flag Requests
 
 ### POST /api/v1/feature-flags/list
+
+Fields: [See fields](./api-fields.md#post-apiv1feature-flagslist)
 
 Owner:
 
@@ -873,6 +927,8 @@ Important rules:
 
 ### POST /api/v1/feature-flags/update
 
+Fields: [See fields](./api-fields.md#post-apiv1feature-flagsupdate)
+
 Owner:
 
 ```text
@@ -902,6 +958,8 @@ Important rules:
 
 ### POST /api/v1/pfm/transactions/list
 
+Fields: [See fields](./api-fields.md#post-apiv1pfmtransactionslist)
+
 Owner:
 
 ```text
@@ -927,6 +985,8 @@ Important rules:
 - This API is a read experience, not the financial source of truth.
 
 ### POST /api/v1/pfm/boxes/list
+
+Fields: [See fields](./api-fields.md#post-apiv1pfmboxeslist)
 
 Owner:
 
@@ -955,6 +1015,8 @@ Important rules:
 
 ### POST /api/v1/pfm/boxes/create
 
+Fields: [See fields](./api-fields.md#post-apiv1pfmboxescreate)
+
 Owner:
 
 ```text
@@ -982,6 +1044,8 @@ Important rules:
 
 ### POST /api/v1/pfm/box-presets/list
 
+Fields: [See fields](./api-fields.md#post-apiv1pfmbox-presetslist)
+
 Owner:
 
 ```text
@@ -1007,6 +1071,8 @@ Important rules:
 - Presets are reference/display data.
 
 ### POST /api/v1/pfm/boxes/edit
+
+Fields: [See fields](./api-fields.md#post-apiv1pfmboxesedit)
 
 Owner:
 
@@ -1035,6 +1101,8 @@ Important rules:
 ## Transfer Requests
 
 ### POST /api/v1/transfers/create
+
+Fields: [See fields](./api-fields.md#post-apiv1transferscreate)
 
 Owner:
 
@@ -1092,6 +1160,8 @@ REVERSED
 
 ### POST /api/v1/transfers/methods/list
 
+Fields: [See fields](./api-fields.md#post-apiv1transfersmethodslist)
+
 Owner:
 
 ```text
@@ -1117,6 +1187,8 @@ Important rules:
 - Disabled methods should not be usable by create-transfer.
 
 ### POST /api/v1/transfers/recent/list
+
+Fields: [See fields](./api-fields.md#post-apiv1transfersrecentlist)
 
 Owner:
 
@@ -1150,6 +1222,8 @@ These APIs are internal service APIs. They should not be directly exposed to mob
 
 ### POST /internal/v1/ledger/accounts/create
 
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountscreate)
+
 Owner:
 
 ```text
@@ -1171,10 +1245,12 @@ internal service authentication required
 Important rules:
 
 - Called after account creation.
-- Ledger account maps to external account ID from account-service.
+- Ledger account maps to external account number from account-service.
 - Must be idempotent by external account reference.
 
 ### POST /internal/v1/ledger/transactions/internal-transfer
+
+Fields: [See fields](./api-fields.md#post-internalv1ledgertransactionsinternal-transfer)
 
 Owner:
 
@@ -1203,6 +1279,8 @@ Important rules:
 
 ### POST /internal/v1/ledger/transactions/referral-reward
 
+Fields: [See fields](./api-fields.md#post-internalv1ledgertransactionsreferral-reward)
+
 Owner:
 
 ```text
@@ -1230,6 +1308,8 @@ Important rules:
 
 ### POST /internal/v1/ledger/accounts/balance/get
 
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountsbalanceget)
+
 Owner:
 
 ```text
@@ -1255,6 +1335,8 @@ Important rules:
 - Public clients should not call this endpoint directly.
 
 ### POST /internal/v1/ledger/accounts/entries/list
+
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountsentrieslist)
 
 Owner:
 
@@ -1284,6 +1366,8 @@ Important rules:
 
 ### GET /actuator/health
 
+Fields: [See fields](./api-fields.md#get-actuatorhealth)
+
 Owner:
 
 ```text
@@ -1308,6 +1392,8 @@ Important rules:
 - Should not expose sensitive details publicly.
 
 ### GET /actuator/info
+
+Fields: [See fields](./api-fields.md#get-actuatorinfo)
 
 Owner:
 

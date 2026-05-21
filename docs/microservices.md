@@ -395,6 +395,7 @@ microservices receive raw decrypted request values and must not implement reques
 
 ```text
 red-bank
+  red-bank-contracts
   api-gateway
   iam-service
   account-service
@@ -429,4 +430,26 @@ Meaning:
 - `config`: Spring configuration
 - `common`: shared local helpers inside that service only
 
-Avoid creating one shared library too early. Shared libraries can couple services accidentally.
+Use one narrow shared contract module:
+
+```text
+red-bank-contracts
+```
+
+Allowed there:
+
+- API envelope models
+- `StatusCode`
+- Shared enums
+- Stable value models such as `Image`, `Location`, `Money`
+- Shared display models such as account/card/profile summaries
+
+Not allowed there:
+
+- JPA entities
+- repositories
+- service classes
+- domain use cases
+- database migration models
+
+Service-specific DTOs stay inside the owning service. This gives reuse for API contracts without coupling service internals.

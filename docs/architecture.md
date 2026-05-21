@@ -24,7 +24,7 @@ The backend supports:
 - PFM transaction list and vault boxes
 - Internal transfers now, external-compatible design for later
 - Transfer history containing successful transfers only
-- Auto-generated 10-digit account numbers and IBANs
+- Auto-generated 18-digit account numbers and IBANs
 
 ## Core Services
 
@@ -102,6 +102,10 @@ Important:
 ```text
 client-provided account/profile/device/network context must be validated before use.
 ```
+
+Field-level request and response `data` contracts are defined in [API Fields](./api-fields.md).
+
+Shared API/value classes belong in `red-bank-contracts`, but service internals do not. The shared module is only for stable contracts such as envelopes, status codes, enums, `Image`, `Location`, `Money`, and display summaries.
 
 ### 2. Each service owns its database
 
