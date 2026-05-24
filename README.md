@@ -15,15 +15,6 @@ red-bank
   docker               local infrastructure support
 ```
 
-Rule of thumb:
-
-```text
-contracts are shared
-business logic stays inside the owning service
-each service owns its own database
-public APIs go through api-gateway
-```
-
 ## Useful Local URLs
 
 | Service | URL |
@@ -45,7 +36,3 @@ public APIs go through api-gateway
 - [Database Design](./docs/databases.md)
 - [Security Design](./docs/security.md)
 - [Implementation Roadmap](./docs/implementation-roadmap.md)
-
-## Current Architectural Direction
-
-The system is a banking-style backend with separate services for identity, accounts, cards, KYC, personal finance, transfers, feature flags, and ledger.
