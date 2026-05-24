@@ -4,6 +4,35 @@ Digital banking backend.
 
 This repository is designed as real microservices from the start, with production-grade boundaries, security, financial consistency, and operational concerns documented before implementation.
 
+## Project Structure
+
+```text
+red-bank
+  contract   shared API/value contracts only
+  api-gateway          public HTTP boundary and routing
+  iam-service          identity/authentication foundation
+  docs                 architecture and implementation documents
+  docker               local infrastructure support
+```
+
+Rule of thumb:
+
+```text
+contracts are shared
+business logic stays inside the owning service
+each service owns its own database
+public APIs go through api-gateway
+```
+
+## Useful Local URLs
+
+| Service | URL |
+| --- | --- |
+| API Gateway health | `http://localhost:8080/actuator/health` |
+| API Gateway OpenAPI UI | `http://localhost:8080/swagger-ui.html` |
+| IAM health | `http://localhost:8081/actuator/health` |
+| IAM OpenAPI UI | `http://localhost:8081/swagger-ui.html` |
+
 ## Documentation
 
 - [Architecture Overview](./docs/architecture.md)

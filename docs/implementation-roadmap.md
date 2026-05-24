@@ -16,7 +16,7 @@ Tasks:
 - Verify Docker Desktop and Docker CLI
 - Choose Maven Wrapper for all services
 - Create repository structure
-- Create `red-bank-contracts` module for shared API/value contracts
+- Create `contract` module for shared API/value contracts
 - Add root README and docs
 - Add root Docker Compose
 - Add shared local PostgreSQL containers
@@ -32,7 +32,7 @@ Small steps:
 4. Run `docker --version`.
 5. Create root Git repository.
 6. Create service folders one by one.
-7. Create `red-bank-contracts` module.
+7. Create `contract` module.
 8. Create first Spring Boot service with Maven Wrapper.
 9. Create `application.yml`, `application-develop.yml`, and `application-prod.yml`.
 10. Create `.env.develop.example` and `.env.prod.example`.
@@ -61,7 +61,7 @@ standard structure for every service and gateway
 Tasks:
 
 - Create API gateway foundation
-- Add `red-bank-contracts` as dependency where public contracts are needed
+- Add `contract` as dependency where public contracts are needed
 - Define package structure
 - Add standard `ApiRequest<T>` and `ApiResponse<T>` envelope
 - Add `context` envelope for both request and response
@@ -84,10 +84,10 @@ Small steps:
 5. Add Spring Actuator.
 6. Add OpenAPI.
 7. Create `GET /actuator/health`.
-8. Create request-side `context` DTO in `red-bank-contracts`.
-9. Create response-side `context` DTO in `red-bank-contracts`.
-10. Create generic `ApiRequest<T>` wrapper in `red-bank-contracts`.
-11. Create generic `ApiResponse<T>` wrapper in `red-bank-contracts`.
+8. Create request-side `context` DTO in `contract`.
+9. Create response-side `context` DTO in `contract`.
+10. Create generic `ApiRequest<T>` wrapper in `contract`.
+11. Create generic `ApiResponse<T>` wrapper in `contract`.
 12. Create global exception handler.
 13. Create standard failure response with `context.status`.
 14. Create request validation example.

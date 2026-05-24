@@ -395,7 +395,7 @@ microservices receive raw decrypted request values and must not implement reques
 
 ```text
 red-bank
-  red-bank-contracts
+  contract
   api-gateway
   iam-service
   account-service
@@ -433,7 +433,7 @@ Meaning:
 Use one narrow shared contract module:
 
 ```text
-red-bank-contracts
+contract
 ```
 
 Allowed there:

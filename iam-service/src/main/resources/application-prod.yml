@@ -1,0 +1,10 @@
+logging:
+  level:
+    root: INFO
+    com.redbank: INFO
+
+redbank:
+  debug:
+    enabled: false
+    mock-otp:
+      enabled: false

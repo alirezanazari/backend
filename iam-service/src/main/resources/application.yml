@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: iam-service
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: ${REDBANK_LOG_LEVEL:INFO}
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+redbank:
+  debug:
+    enabled: ${REDBANK_DEBUG_ENABLED:false}
+    mock-otp:
+      enabled: ${REDBANK_DEBUG_MOCK_OTP_ENABLED:false}
+  jwt:
+    issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
+    audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
+    access-token-ttl-seconds: ${REDBANK_JWT_ACCESS_TOKEN_TTL_SECONDS:900}

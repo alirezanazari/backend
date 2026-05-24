@@ -413,7 +413,7 @@ Missing, invalid, malformed, expired, or untrusted tokens return `401`.
 
 The JSON field is always `context`, but Java can still use different DTO types for request and response if that keeps validation clear.
 
-Shared envelope/value DTOs should live in the narrow `red-bank-contracts` module defined in [API Fields](./api-fields.md). Service-specific request and response DTOs stay inside the owning service.
+Shared envelope/value DTOs should live in the narrow `contract` module defined in [API Fields](./api-fields.md). Service-specific request and response DTOs stay inside the owning service.
 
 Suggested model:
 

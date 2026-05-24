@@ -105,7 +105,7 @@ client-provided account/profile/device/network context must be validated before 
 
 Field-level request and response `data` contracts are defined in [API Fields](./api-fields.md).
 
-Shared API/value classes belong in `red-bank-contracts`, but service internals do not. The shared module is only for stable contracts such as envelopes, status codes, enums, `Image`, `Location`, `Money`, and display summaries.
+Shared API/value classes belong in `contract`, but service internals do not. The shared module is only for stable contracts such as envelopes, status codes, enums, `Image`, `Location`, `Money`, and display summaries.
 
 ### 2. Each service owns its database
 

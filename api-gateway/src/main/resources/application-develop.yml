@@ -1,0 +1,10 @@
+logging:
+  level:
+    root: ${REDBANK_LOG_LEVEL:INFO}
+    com.redbank: DEBUG
+
+redbank:
+  debug:
+    enabled: ${REDBANK_DEBUG_ENABLED:false}
+    mock-otp:
+      enabled: ${REDBANK_DEBUG_MOCK_OTP_ENABLED:false}

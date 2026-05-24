@@ -22,7 +22,7 @@ They can share stable API contract/value models.
 Recommended shared module:
 
 ```text
-red-bank-contracts
+contract
   src/main/java/com/redbank/contracts
     envelope
     common
@@ -69,7 +69,7 @@ This gives reuse without turning microservices into one tightly coupled applicat
 
 ## Base Envelope Models
 
-These classes belong in `red-bank-contracts`.
+These classes belong in `contract`.
 
 ### ApiRequest<T>
 

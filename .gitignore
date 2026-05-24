@@ -1,20 +1,14 @@
 .DS_Store
-
-# IntelliJ IDEA
 .idea/
+.vscode/.ropeproject
+target/
 *.iml
 
-# Java and Spring Boot builds
-target/
-build/
-out/
-
-# Logs
-*.log
-
-# Environment files
 .env
 .env.*
 !.env.example
 !.env.develop.example
 !.env.prod.example
+
+logs/
+*.log

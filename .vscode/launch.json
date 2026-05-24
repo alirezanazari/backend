@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "api-gateway (develop)",
+      "request": "launch",
+      "mainClass": "com.redbank.gateway.ApiGatewayApplication",
+      "projectName": "api-gateway",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "develop",
+        "SERVER_PORT": "8080",
+        "IAM_SERVICE_URL": "http://localhost:8081",
+        "REDBANK_DEBUG_ENABLED": "false",
+        "REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED": "false"
+      }
+    },
+    {
+      "type": "java",
+      "name": "iam-service (develop)",
+      "request": "launch",
+      "mainClass": "com.redbank.iam.IamServiceApplication",
+      "projectName": "iam-service",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "develop",
+        "SERVER_PORT": "8081",
+        "REDBANK_DEBUG_ENABLED": "false",
+        "REDBANK_DEBUG_MOCK_OTP_ENABLED": "false"
+      }
+    }
+  ]
+}
