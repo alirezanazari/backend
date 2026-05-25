@@ -1,4 +1,16 @@
 {
   "java.configuration.updateBuildConfiguration": "automatic",
-  "java.compile.nullAnalysis.mode": "automatic"
+  "java.compile.nullAnalysis.mode": "automatic",
+  "yaml.schemaStore.enable": false,
+  "yaml.schemas": {
+    "https://json.schemastore.org/spring-boot-configuration": [
+      "api-gateway/src/main/resources/application.yml",
+      "api-gateway/src/main/resources/application-*.yml",
+      "iam-service/src/main/resources/application.yml",
+      "iam-service/src/main/resources/application-*.yml"
+    ],
+    "https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json": [
+      "docker-compose*.yml"
+    ]
+  }
 }
