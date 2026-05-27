@@ -5,14 +5,14 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-redbank}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-redbank_develop_password}
-      POSTGRES_DB: postgres
+      POSTGRES_DB: ${IAM_DB_NAME:-iam_db}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - redbank-postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-redbank} -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-redbank} -d ${IAM_DB_NAME:-iam_db}"]
       interval: 10s
       timeout: 5s
       retries: 10

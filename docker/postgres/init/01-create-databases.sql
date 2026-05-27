@@ -1,8 +1,1 @@
-CREATE DATABASE iam_db;
-CREATE DATABASE account_db;
-CREATE DATABASE card_db;
-CREATE DATABASE kyc_db;
-CREATE DATABASE feature_flag_db;
-CREATE DATABASE pfm_db;
-CREATE DATABASE transfer_db;
-CREATE DATABASE ledger_db;
+-- Additional service databases should be added only when their phase starts.

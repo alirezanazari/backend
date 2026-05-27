@@ -1,0 +1,234 @@
+package com.redbank.iam.api.v1;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:iamtest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
+        "redbank.debug.mock-otp.enabled=true",
+        "redbank.otp.ttl-seconds=300",
+        "redbank.otp.max-attempts=5"
+})
+@ActiveProfiles("develop")
+@AutoConfigureMockMvc
+class IamControllerIntegrationTest {
+    private static final AtomicInteger SEQUENCE = new AtomicInteger(1000);
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Test
+    void registerCreatesUserCredentialAndLimitedToken() throws Exception {
+        RegistrationData data = registrationData();
+
+        String response = register(data)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.context.status.code").value("CREATED"))
+                .andExpect(jsonPath("$.data.userId").isNotEmpty())
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ACCOUNT_REQUIRED"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String userId = objectMapper.readTree(response).path("data").path("userId").asText();
+        String storedPassword = jdbcTemplate.queryForObject(
+                "SELECT password_hash FROM credentials WHERE user_id = ?",
+                String.class,
+                java.util.UUID.fromString(userId)
+        );
+
+        assertThat(storedPassword).isNotBlank();
+        assertThat(storedPassword).isNotEqualTo(data.password());
+        assertThat(storedPassword).startsWith("$2");
+    }
+
+    @Test
+    void loginCreatesDeviceVerificationChallengeForNewDevice() throws Exception {
+        RegistrationData data = registrationData();
+        register(data).andExpect(status().isCreated());
+
+        String response = login(data, "fingerprint-new-device")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("DEVICE_VERIFICATION_REQUIRED"))
+                .andExpect(jsonPath("$.data.deviceVerificationRequired").value(true))
+                .andExpect(jsonPath("$.data.challengeId").isNotEmpty())
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String challengeId = objectMapper.readTree(response).path("data").path("challengeId").asText();
+        String otpHash = jdbcTemplate.queryForObject(
+                "SELECT otp_hash FROM otp_challenges WHERE id = ?",
+                String.class,
+                java.util.UUID.fromString(challengeId)
+        );
+
+        assertThat(otpHash).isNotBlank();
+        assertThat(otpHash).isNotEqualTo("111111");
+    }
+
+    @Test
+    void deviceVerifyMarksDeviceVerifiedAndNextLoginReturnsUserToken() throws Exception {
+        RegistrationData data = registrationData();
+        String fingerprint = "fingerprint-verify-device-" + data.sequence();
+        register(data).andExpect(status().isCreated());
+
+        JsonNode login = objectMapper.readTree(login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        String limitedToken = login.path("data").path("accessToken").asText();
+        String challengeId = login.path("data").path("challengeId").asText();
+
+        verifyDevice(limitedToken, challengeId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.deviceStatus").value("VERIFIED"))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ACCOUNT_REQUIRED"));
+
+        login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.deviceVerificationRequired").value(false))
+                .andExpect(jsonPath("$.data.challengeId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions register(RegistrationData data) throws Exception {
+        return mockMvc.perform(post("/api/v1/iam/register")
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-register-%s",
+                            "account": null,
+                            "os": null,
+                            "app": null,
+                            "device": null,
+                            "network": null
+                          },
+                          "data": {
+                            "nationalId": "%s",
+                            "phoneNumber": "%s",
+                            "username": "%s",
+                            "password": "%s",
+                            "firstName": "Ali",
+                            "lastName": "Nazari",
+                            "location": {
+                              "countryCode": "IR",
+                              "province": "Tehran",
+                              "city": "Tehran",
+                              "address": "Main street",
+                              "postalCode": "1234567890"
+                            },
+                            "jobId": "job-engineer"
+                          }
+                        }
+                        """.formatted(data.sequence(), data.nationalId(), data.phoneNumber(), data.username(), data.password())));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions login(RegistrationData data, String fingerprint) throws Exception {
+        return mockMvc.perform(post("/api/v1/iam/login")
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-login-%s",
+                            "account": null,
+                            "os": {
+                              "name": "Android",
+                              "version": "15"
+                            },
+                            "app": {
+                              "version": "1.0.0",
+                              "buildNumber": "100",
+                              "isRooted": false,
+                              "language": "en-US",
+                              "theme": "dark"
+                            },
+                            "device": {
+                              "deviceId": "client-device-%s",
+                              "model": "Pixel 9",
+                              "fingerprint": "%s"
+                            },
+                            "network": null
+                          },
+                          "data": {
+                            "username": "%s",
+                            "password": "%s"
+                          }
+                        }
+                        """.formatted(data.sequence(), data.sequence(), fingerprint, data.username(), data.password())));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions verifyDevice(String limitedToken, String challengeId) throws Exception {
+        return mockMvc.perform(post("/api/v1/iam/device-verify")
+                .header("Authorization", "Bearer " + limitedToken)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-device-verify",
+                            "account": null,
+                            "os": null,
+                            "app": null,
+                            "device": null,
+                            "network": null
+                          },
+                          "data": {
+                            "challengeId": "%s",
+                            "otpCode": "111111"
+                          }
+                        }
+                        """.formatted(challengeId)));
+    }
+
+    private RegistrationData registrationData() {
+        int sequence = SEQUENCE.incrementAndGet();
+        String numeric = "%010d".formatted(sequence);
+        return new RegistrationData(
+                sequence,
+                "user" + sequence,
+                "Password" + sequence + "!",
+                numeric,
+                "0912" + "%07d".formatted(sequence)
+        );
+    }
+
+    private record RegistrationData(
+            int sequence,
+            String username,
+            String password,
+            String nationalId,
+            String phoneNumber
+    ) {
+    }
+}

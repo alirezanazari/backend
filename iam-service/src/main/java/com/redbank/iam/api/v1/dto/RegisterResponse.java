@@ -8,7 +8,6 @@ public record RegisterResponse(
         String accessToken,
         String tokenType,
         Instant expiresAt,
-        AccountCompletionStatus accountCompletionStatus,
-        String nextStep
+        AccountCompletionStatus accountCompletionStatus
 ) {
 }

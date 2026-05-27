@@ -398,7 +398,6 @@ Response:
 | `tokenType` | `String` | Yes | Usually `Bearer`. |
 | `expiresAt` | `Instant` | Yes | Token expiration. |
 | `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Next onboarding state. |
-| `nextStep` | `String` | Yes | Suggested client step. |
 
 ### POST /api/v1/iam/login
 

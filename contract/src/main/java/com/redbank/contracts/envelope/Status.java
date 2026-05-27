@@ -28,6 +28,18 @@ public record Status(
         return new Status(StatusCode.UNAUTHORIZED, "Unauthorized", 401, List.of());
     }
 
+    public static Status conflict(String message) {
+        return new Status(StatusCode.CONFLICT, message, 409, List.of());
+    }
+
+    public static Status businessRuleViolation(String message) {
+        return new Status(StatusCode.BUSINESS_RULE_VIOLATION, message, 400, List.of());
+    }
+
+    public static Status deviceVerificationRequired() {
+        return new Status(StatusCode.DEVICE_VERIFICATION_REQUIRED, "Device verification required", 200, List.of());
+    }
+
     public static Status featureDisabled(String message) {
         return new Status(StatusCode.FEATURE_DISABLED, message, 404, List.of());
     }

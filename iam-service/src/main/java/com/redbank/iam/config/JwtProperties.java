@@ -6,8 +6,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record JwtProperties(
         String issuer,
         String audience,
-        long accessTokenTtlSeconds
+        long accessTokenTtlSeconds,
+        long onboardingTokenTtlSeconds,
+        String signingSecret
 ) {
+    private static final String DEVELOP_SIGNING_SECRET = "local-develop-debug-secret-change-me-32bytes";
+
     public JwtProperties {
         if (issuer == null || issuer.isBlank()) {
             issuer = "red-bank-develop";
@@ -17,6 +21,12 @@ public record JwtProperties(
         }
         if (accessTokenTtlSeconds <= 0) {
             accessTokenTtlSeconds = 900;
+        }
+        if (onboardingTokenTtlSeconds <= 0) {
+            onboardingTokenTtlSeconds = 300;
+        }
+        if (signingSecret == null || signingSecret.isBlank()) {
+            signingSecret = DEVELOP_SIGNING_SECRET;
         }
     }
 }

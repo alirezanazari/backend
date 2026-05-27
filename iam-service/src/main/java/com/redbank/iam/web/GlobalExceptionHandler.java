@@ -3,6 +3,10 @@ package com.redbank.iam.web;
 import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.envelope.Status;
 import com.redbank.contracts.envelope.StatusDetail;
+import com.redbank.iam.application.IamBusinessRuleException;
+import com.redbank.iam.application.IamConflictException;
+import com.redbank.iam.application.IamUnauthorizedException;
+import com.redbank.iam.application.IamValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
@@ -15,6 +19,34 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(IamValidationException.class)
+    ResponseEntity<ApiResponse<Void>> iamValidation(IamValidationException exception, HttpServletRequest request) {
+        Status status = Status.validationError(exception.details());
+        return ResponseEntity.status(status.httpStatus())
+                .body(ApiResponse.failure(requestId(request), null, status));
+    }
+
+    @ExceptionHandler(IamConflictException.class)
+    ResponseEntity<ApiResponse<Void>> conflict(IamConflictException exception, HttpServletRequest request) {
+        Status status = Status.conflict(exception.getMessage());
+        return ResponseEntity.status(status.httpStatus())
+                .body(ApiResponse.failure(requestId(request), null, status));
+    }
+
+    @ExceptionHandler(IamUnauthorizedException.class)
+    ResponseEntity<ApiResponse<Void>> unauthorized(IamUnauthorizedException exception, HttpServletRequest request) {
+        Status status = Status.unauthorized();
+        return ResponseEntity.status(status.httpStatus())
+                .body(ApiResponse.failure(requestId(request), null, status));
+    }
+
+    @ExceptionHandler(IamBusinessRuleException.class)
+    ResponseEntity<ApiResponse<Void>> businessRule(IamBusinessRuleException exception, HttpServletRequest request) {
+        Status status = Status.businessRuleViolation(exception.getMessage());
+        return ResponseEntity.status(status.httpStatus())
+                .body(ApiResponse.failure(requestId(request), null, status));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiResponse<Void>> validation(MethodArgumentNotValidException exception, HttpServletRequest request) {
         List<StatusDetail> details = exception.getBindingResult()

@@ -1,6 +1,12 @@
 spring:
   application:
     name: iam-service
+  datasource:
+    url: jdbc:postgresql://${IAM_DB_HOST:localhost}:${IAM_DB_PORT:5432}/${IAM_DB_NAME:iam_db}
+    username: ${IAM_DB_USERNAME:${POSTGRES_USER:redbank}}
+    password: ${IAM_DB_PASSWORD:${POSTGRES_PASSWORD:redbank_develop_password}}
+  flyway:
+    enabled: ${REDBANK_FLYWAY_ENABLED:true}
 
 server:
   port: ${SERVER_PORT:8081}
@@ -34,3 +40,8 @@ redbank:
     issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
     audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
     access-token-ttl-seconds: ${REDBANK_JWT_ACCESS_TOKEN_TTL_SECONDS:900}
+    onboarding-token-ttl-seconds: ${REDBANK_JWT_ONBOARDING_TOKEN_TTL_SECONDS:300}
+    signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
+  otp:
+    ttl-seconds: ${REDBANK_OTP_TTL_SECONDS:300}
+    max-attempts: ${REDBANK_OTP_MAX_ATTEMPTS:5}

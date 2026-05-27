@@ -1,0 +1,167 @@
+package com.redbank.iam.application;
+
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jose.crypto.MACVerifier;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
+import com.redbank.iam.config.JwtProperties;
+import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+
+@Service
+public class JwtTokenService {
+    public static final String SCOPE_ACCOUNT_REGISTER = "ONBOARDING_ACCOUNT_REGISTER";
+    public static final String SCOPE_DEVICE_VERIFY = "ONBOARDING_DEVICE_VERIFY";
+
+    private final JwtProperties jwtProperties;
+    private final Clock clock;
+
+    public JwtTokenService(JwtProperties jwtProperties, Clock clock) {
+        this.jwtProperties = jwtProperties;
+        this.clock = clock;
+    }
+
+    public TokenResult createAccountRequiredToken(UUID userId) {
+        return createToken(userId, null, List.of("ONBOARDING"), List.of(SCOPE_ACCOUNT_REGISTER),
+                jwtProperties.onboardingTokenTtlSeconds());
+    }
+
+    public TokenResult createDeviceVerifyToken(UUID userId, UUID deviceId) {
+        return createToken(userId, deviceId, List.of("ONBOARDING"), List.of(SCOPE_DEVICE_VERIFY),
+                jwtProperties.onboardingTokenTtlSeconds());
+    }
+
+    public TokenResult createUserToken(UUID userId, UUID deviceId) {
+        return createToken(userId, deviceId, List.of("USER"), List.of("USER"), jwtProperties.accessTokenTtlSeconds());
+    }
+
+    public VerifiedToken verifyBearerToken(String authorizationHeader, String requiredScope) {
+        String token = extractBearerToken(authorizationHeader);
+        JWTClaimsSet claims = verify(token);
+
+        UUID userId = parseUuid(claims.getSubject());
+        UUID deviceId = parseNullableUuid(stringClaim(claims, "device_id"));
+        List<String> scopes = stringListClaim(claims, "scope");
+        List<String> roles = stringListClaim(claims, "roles");
+
+        VerifiedToken verifiedToken = new VerifiedToken(userId, deviceId, roles, scopes);
+        if (!verifiedToken.hasScope(requiredScope)) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+        return verifiedToken;
+    }
+
+    private TokenResult createToken(UUID userId, UUID deviceId, List<String> roles, List<String> scopes, long ttlSeconds) {
+        byte[] secret = signingSecret();
+        Instant now = clock.instant();
+        Instant expiresAt = now.plusSeconds(ttlSeconds);
+
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(jwtProperties.issuer())
+                .audience(jwtProperties.audience())
+                .subject(userId.toString())
+                .jwtID(UUID.randomUUID().toString())
+                .issueTime(Date.from(now))
+                .expirationTime(Date.from(expiresAt))
+                .claim("device_id", deviceId == null ? null : deviceId.toString())
+                .claim("roles", roles)
+                .claim("scope", scopes)
+                .build();
+
+        try {
+            SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+            jwt.sign(new MACSigner(secret));
+            return TokenResult.bearer(jwt.serialize(), expiresAt);
+        } catch (JOSEException exception) {
+            throw new IllegalStateException("Unable to sign access token", exception);
+        }
+    }
+
+    private JWTClaimsSet verify(String token) {
+        try {
+            SignedJWT jwt = SignedJWT.parse(token);
+            if (!JWSAlgorithm.HS256.equals(jwt.getHeader().getAlgorithm())) {
+                throw new IamUnauthorizedException("Unauthorized");
+            }
+            if (!jwt.verify(new MACVerifier(signingSecret()))) {
+                throw new IamUnauthorizedException("Unauthorized");
+            }
+
+            JWTClaimsSet claims = jwt.getJWTClaimsSet();
+            Date expiration = claims.getExpirationTime();
+            if (expiration == null || !expiration.toInstant().isAfter(clock.instant())) {
+                throw new IamUnauthorizedException("Unauthorized");
+            }
+            if (!jwtProperties.issuer().equals(claims.getIssuer())) {
+                throw new IamUnauthorizedException("Unauthorized");
+            }
+            if (claims.getAudience() == null || !claims.getAudience().contains(jwtProperties.audience())) {
+                throw new IamUnauthorizedException("Unauthorized");
+            }
+            return claims;
+        } catch (ParseException | JOSEException exception) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+        String prefix = "Bearer ";
+        if (!authorizationHeader.regionMatches(true, 0, prefix, 0, prefix.length())) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+        String token = authorizationHeader.substring(prefix.length()).trim();
+        if (token.isBlank()) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+        return token;
+    }
+
+    private byte[] signingSecret() {
+        byte[] secret = jwtProperties.signingSecret().getBytes(StandardCharsets.UTF_8);
+        if (secret.length < 32) {
+            throw new IllegalStateException("REDBANK_JWT_SIGNING_SECRET must be at least 32 bytes for HS256");
+        }
+        return secret;
+    }
+
+    private UUID parseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (RuntimeException exception) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+    }
+
+    private UUID parseNullableUuid(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return parseUuid(value);
+    }
+
+    private String stringClaim(JWTClaimsSet claims, String name) {
+        Object claim = claims.getClaim(name);
+        return claim == null ? null : claim.toString();
+    }
+
+    private List<String> stringListClaim(JWTClaimsSet claims, String name) {
+        try {
+            List<String> values = claims.getStringListClaim(name);
+            return values == null ? List.of() : List.copyOf(values);
+        } catch (ParseException exception) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+    }
+}
