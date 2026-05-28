@@ -32,6 +32,22 @@ public record Status(
         return new Status(StatusCode.CONFLICT, message, 409, List.of());
     }
 
+    public static Status notFound(String message) {
+        return new Status(StatusCode.NOT_FOUND, message, 404, List.of());
+    }
+
+    public static Status limitExceeded(String message) {
+        return new Status(StatusCode.LIMIT_EXCEEDED, message, 400, List.of());
+    }
+
+    public static Status insufficientFunds(String message) {
+        return new Status(StatusCode.INSUFFICIENT_FUNDS, message, 400, List.of());
+    }
+
+    public static Status serviceUnavailable(String message) {
+        return new Status(StatusCode.SERVICE_UNAVAILABLE, message, 503, List.of());
+    }
+
     public static Status businessRuleViolation(String message) {
         return new Status(StatusCode.BUSINESS_RULE_VIOLATION, message, 400, List.of());
     }

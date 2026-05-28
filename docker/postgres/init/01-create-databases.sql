@@ -1,1 +1,1 @@
--- Additional service databases should be added only when their phase starts.
+CREATE DATABASE account_db;

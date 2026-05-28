@@ -1,0 +1,685 @@
+{
+  "info": {
+    "_postman_id": "f15d63b0-5e3a-4aa8-9d49-92c2b23b5f8b",
+    "name": "red-bank Backend",
+    "description": "Postman collection for the API requests currently implemented in the red-bank backend. Public business APIs use the shared context/data envelope. Debug endpoints require the develop profile and REDBANK_DEBUG_ENABLED=true. Gateway key exchange requires REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('runSuffix')) {",
+          "  pm.collectionVariables.set('runSuffix', Date.now().toString().slice(-6));",
+          "}",
+          "",
+          "const suffix = pm.collectionVariables.get('runSuffix');",
+          "const defaults = {",
+          "  username: `user${suffix}`,",
+          "  password: `Password${suffix}!`,",
+          "  nationalId: `10${suffix}`,",
+          "  phoneNumber: `0912${suffix}`,",
+          "  clientDeviceId: `client-device-${suffix}`,",
+          "  deviceFingerprint: `fingerprint-${suffix}`",
+          "};",
+          "",
+          "Object.entries(defaults).forEach(([key, value]) => {",
+          "  const existing = pm.collectionVariables.get(key);",
+          "  if (!existing || existing.includes('{{runSuffix}}')) {",
+          "    pm.collectionVariables.set(key, value);",
+          "  }",
+          "});"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "let json;",
+          "try {",
+          "  json = pm.response.json();",
+          "} catch (error) {",
+          "  json = undefined;",
+          "}",
+          "",
+          "if (json && json.data) {",
+          "  const data = json.data;",
+          "",
+          "  if (data.keyExchangeId) pm.collectionVariables.set('keyExchangeId', data.keyExchangeId);",
+          "  if (data.serverPublicKey) pm.collectionVariables.set('serverPublicKey', data.serverPublicKey);",
+          "  if (data.userId) pm.collectionVariables.set('userId', data.userId);",
+          "  if (data.challengeId) pm.collectionVariables.set('deviceChallengeId', data.challengeId);",
+          "  if (data.deviceId) pm.collectionVariables.set('deviceId', data.deviceId);",
+          "  if (data.activeProfileId) pm.collectionVariables.set('profileId', data.activeProfileId);",
+          "  if (data.profile && data.profile.profileId) pm.collectionVariables.set('profileId', data.profile.profileId);",
+          "  if (data.activeProfile && data.activeProfile.profileId) pm.collectionVariables.set('profileId', data.activeProfile.profileId);",
+          "  if (data.account && data.account.accountNumber) pm.collectionVariables.set('accountNumber', data.account.accountNumber);",
+          "  if (data.account && data.account.iban) pm.collectionVariables.set('iban', data.account.iban);",
+          "",
+          "  if (data.accessToken) {",
+          "    if (pm.info.requestName === 'Debug User Token') {",
+          "      pm.collectionVariables.set('accessToken', data.accessToken);",
+          "      pm.collectionVariables.set('onboardingToken', data.accessToken);",
+          "    } else if (pm.info.requestName === 'Debug Admin Token') {",
+          "      pm.collectionVariables.set('adminToken', data.accessToken);",
+          "    } else if (pm.info.requestName === 'Debug Service Token') {",
+          "      pm.collectionVariables.set('serviceToken', data.accessToken);",
+          "    } else if (data.deviceVerificationRequired) {",
+          "      pm.collectionVariables.set('deviceVerifyToken', data.accessToken);",
+          "    } else if (data.userId && data.accountCompletionStatus === 'ACCOUNT_REQUIRED') {",
+          "      pm.collectionVariables.set('onboardingToken', data.accessToken);",
+          "    } else {",
+          "      pm.collectionVariables.set('accessToken', data.accessToken);",
+          "    }",
+          "",
+          "    if (data.deviceStatus === 'VERIFIED') {",
+          "      pm.collectionVariables.set('accessToken', data.accessToken);",
+          "    }",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "iamBaseUrl",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "accountBaseUrl",
+      "value": "http://localhost:8082",
+      "type": "string"
+    },
+    {
+      "key": "runSuffix",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "user{{runSuffix}}",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Password{{runSuffix}}!",
+      "type": "string"
+    },
+    {
+      "key": "nationalId",
+      "value": "10{{runSuffix}}",
+      "type": "string"
+    },
+    {
+      "key": "phoneNumber",
+      "value": "0912{{runSuffix}}",
+      "type": "string"
+    },
+    {
+      "key": "jobId",
+      "value": "job-engineer",
+      "type": "string"
+    },
+    {
+      "key": "clientDeviceId",
+      "value": "client-device-{{runSuffix}}",
+      "type": "string"
+    },
+    {
+      "key": "deviceFingerprint",
+      "value": "fingerprint-{{runSuffix}}",
+      "type": "string"
+    },
+    {
+      "key": "otpCode",
+      "value": "111111",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "debugUserId",
+      "value": "11111111-1111-4111-8111-111111111111",
+      "type": "string"
+    },
+    {
+      "key": "debugDeviceId",
+      "value": "22222222-2222-4222-8222-222222222222",
+      "type": "string"
+    },
+    {
+      "key": "profileId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountNumber",
+      "value": "123456789012345678",
+      "type": "string"
+    },
+    {
+      "key": "iban",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "onboardingToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deviceVerifyToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "serviceToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "keyExchangeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "serverPublicKey",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Gateway",
+      "item": [
+        {
+          "name": "Security - Key Exchange",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"clientPublicKey\":\"BASE64_X25519_CLIENT_PUBLIC_KEY\"}}"
+            },
+            "url": "{{baseUrl}}/api/v1/security/key-exchange",
+            "description": "Conditional gateway endpoint. Enable REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true before calling."
+          }
+        }
+      ]
+    },
+    {
+      "name": "IAM",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"nationalId\":\"{{nationalId}}\",\"phoneNumber\":\"{{phoneNumber}}\",\"username\":\"{{username}}\",\"password\":\"{{password}}\",\"firstName\":\"Ali\",\"lastName\":\"Nazari\",\"location\":{\"countryCode\":\"IR\",\"province\":\"Tehran\",\"city\":\"Tehran\",\"address\":\"Main street\",\"postalCode\":\"1234567890\"},\"jobId\":\"{{jobId}}\"}}"
+            },
+            "url": "{{baseUrl}}/api/v1/iam/register",
+            "description": "Creates a user and returns a limited onboarding token. The collection test stores it as onboardingToken."
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"username\":\"{{username}}\",\"password\":\"{{password}}\"}}"
+            },
+            "url": "{{baseUrl}}/api/v1/iam/login",
+            "description": "Returns either a user token or a device verification challenge. The collection test stores challengeId as deviceChallengeId and the limited token as deviceVerifyToken."
+          }
+        },
+        {
+          "name": "Device Verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{deviceVerifyToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"challengeId\":\"{{deviceChallengeId}}\",\"otpCode\":\"{{otpCode}}\"}}"
+            },
+            "url": "{{baseUrl}}/api/v1/iam/device-verify",
+            "description": "Uses the login challenge token. In develop, otpCode=111111 works only when REDBANK_DEBUG_MOCK_OTP_ENABLED=true."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "Register Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{onboardingToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"jobId\":\"{{jobId}}\",\"profileDisplayName\":\"Personal\",\"profileImage\":null,\"currency\":\"IRR\"}}"
+            },
+            "url": "{{baseUrl}}/api/v1/accounts/register",
+            "description": "Creates the personal profile and default saving account. The collection test stores profileId, accountNumber, and iban."
+          }
+        },
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"types\":[\"SAVING\"],\"statuses\":[\"ACTIVE\"],\"includeBalance\":true}}"
+            },
+            "url": "{{baseUrl}}/api/v1/accounts/list"
+          }
+        },
+        {
+          "name": "Get Account Balance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\"}}"
+            },
+            "url": "{{baseUrl}}/api/v1/accounts/balance/get"
+          }
+        },
+        {
+          "name": "Close Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"reasonText\":\"Requested from Postman collection\"}}"
+            },
+            "url": "{{baseUrl}}/api/v1/accounts/close",
+            "description": "Only succeeds when the ledger-backed balance is zero."
+          }
+        },
+        {
+          "name": "Get Account Owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"destinationType\":\"ACCOUNT\",\"accountNumber\":\"{{accountNumber}}\",\"iban\":null,\"cardNumber\":null}}"
+            },
+            "url": "{{baseUrl}}/api/v1/accounts/owner/get"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profiles",
+      "item": [
+        {
+          "name": "Create Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"type\":\"BUSINESS\",\"displayName\":\"Business {{runSuffix}}\",\"image\":null}}"
+            },
+            "url": "{{baseUrl}}/api/v1/profiles/create",
+            "description": "Creates an additional profile. The service currently limits users to five profiles."
+          }
+        },
+        {
+          "name": "List Profiles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"includeInactive\":false}}"
+            },
+            "url": "{{baseUrl}}/api/v1/profiles/list"
+          }
+        },
+        {
+          "name": "Set Active Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"profileId\":\"{{profileId}}\"}}"
+            },
+            "url": "{{baseUrl}}/api/v1/profiles/active/set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Develop Debug",
+      "description": "These endpoints are only available with the develop profile and REDBANK_DEBUG_ENABLED=true.",
+      "item": [
+        {
+          "name": "Debug User Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"Postman\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{debugDeviceId}}\",\"model\":\"Postman\",\"fingerprint\":\"debug-postman\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"UNKNOWN\",\"operator\":null}},\"data\":{\"subject\":\"{{debugUserId}}\",\"profileId\":\"{{profileId}}\",\"deviceId\":\"{{debugDeviceId}}\",\"serviceName\":null,\"scopes\":[\"USER\"],\"ttlSeconds\":900}}"
+            },
+            "url": "{{baseUrl}}/debug/v1/tokens/user",
+            "description": "Stores the returned token as accessToken. subject and deviceId must be UUIDs for account-service validation."
+          }
+        },
+        {
+          "name": "Debug Admin Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"Postman\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{debugDeviceId}}\",\"model\":\"Postman\",\"fingerprint\":\"debug-postman\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"UNKNOWN\",\"operator\":null}},\"data\":{\"subject\":\"{{debugUserId}}\",\"profileId\":\"{{profileId}}\",\"deviceId\":\"{{debugDeviceId}}\",\"serviceName\":null,\"scopes\":[\"ADMIN\"],\"ttlSeconds\":900}}"
+            },
+            "url": "{{baseUrl}}/debug/v1/tokens/admin"
+          }
+        },
+        {
+          "name": "Debug Service Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"Postman\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{debugDeviceId}}\",\"model\":\"Postman\",\"fingerprint\":\"debug-postman\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"UNKNOWN\",\"operator\":null}},\"data\":{\"subject\":\"{{debugUserId}}\",\"profileId\":\"{{profileId}}\",\"deviceId\":\"{{debugDeviceId}}\",\"serviceName\":\"postman-debug-client\",\"scopes\":[\"INTERNAL_SERVICE\"],\"ttlSeconds\":900}}"
+            },
+            "url": "{{baseUrl}}/debug/v1/tokens/service"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Infrastructure",
+      "item": [
+        {
+          "name": "Gateway Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "Gateway Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/actuator/info"
+          }
+        },
+        {
+          "name": "IAM Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{iamBaseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "IAM Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{iamBaseUrl}}/actuator/info"
+          }
+        },
+        {
+          "name": "Account Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{accountBaseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "Account Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{accountBaseUrl}}/actuator/info"
+          }
+        }
+      ]
+    }
+  ]
+}

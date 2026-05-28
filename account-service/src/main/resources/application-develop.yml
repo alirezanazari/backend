@@ -1,0 +1,8 @@
+logging:
+  level:
+    root: ${REDBANK_LOG_LEVEL:INFO}
+    com.redbank: DEBUG
+
+redbank:
+  debug:
+    enabled: ${REDBANK_DEBUG_ENABLED:false}

@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: account-service
+  datasource:
+    url: jdbc:postgresql://${ACCOUNT_DB_HOST:localhost}:${ACCOUNT_DB_PORT:5432}/${ACCOUNT_DB_NAME:account_db}
+    username: ${ACCOUNT_DB_USERNAME:${POSTGRES_USER:redbank}}
+    password: ${ACCOUNT_DB_PASSWORD:${POSTGRES_PASSWORD:redbank_develop_password}}
+  flyway:
+    enabled: ${REDBANK_FLYWAY_ENABLED:true}
+
+server:
+  port: ${SERVER_PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: ${REDBANK_LOG_LEVEL:INFO}
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+redbank:
+  debug:
+    enabled: ${REDBANK_DEBUG_ENABLED:false}
+    jwt-secret: ${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}
+  jwt:
+    issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
+    audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
+    signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
+  account:
+    iban-country-code: ${REDBANK_ACCOUNT_IBAN_COUNTRY_CODE:IR}
+    bank-code: ${REDBANK_ACCOUNT_BANK_CODE:0620}
+    default-currency: ${REDBANK_ACCOUNT_DEFAULT_CURRENCY:IRR}
+    max-profiles-per-user: ${REDBANK_ACCOUNT_MAX_PROFILES_PER_USER:5}
+    allowed-job-ids: ${REDBANK_ACCOUNT_ALLOWED_JOB_IDS:job-engineer,job-student,job-business-owner,job-other}

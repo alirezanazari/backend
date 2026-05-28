@@ -11,6 +11,7 @@ red-bank
   contract   shared API/value contracts only
   api-gateway          public HTTP boundary and routing
   iam-service          identity/authentication foundation
+  account-service      profiles and account metadata
   docs                 architecture and implementation documents
   docker               local infrastructure support
 ```
@@ -23,6 +24,8 @@ red-bank
 | API Gateway OpenAPI UI | `http://localhost:8080/swagger-ui.html` |
 | IAM health | `http://localhost:8081/actuator/health` |
 | IAM OpenAPI UI | `http://localhost:8081/swagger-ui.html` |
+| Account health | `http://localhost:8082/actuator/health` |
+| Account OpenAPI UI | `http://localhost:8082/swagger-ui.html` |
 
 ## Documentation
 
