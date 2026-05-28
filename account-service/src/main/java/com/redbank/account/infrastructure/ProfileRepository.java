@@ -24,16 +24,17 @@ public class ProfileRepository {
     public void save(ProfileRecord profile) {
         jdbcTemplate.update("""
                         INSERT INTO profiles (
-                            id, user_id, selected_job_id, type, display_name, image_light_url,
+                            id, user_id, selected_job_id, type, display_name, display_name_normalized, image_light_url,
                             image_dark_url, image_alt, status, is_active, created_at, updated_at
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                 profile.id(),
                 profile.userId(),
                 profile.selectedJobId(),
                 profile.type().name(),
                 profile.displayName(),
+                profile.displayNameNormalized(),
                 profile.imageLightUrl(),
                 profile.imageDarkUrl(),
                 profile.imageAlt(),
@@ -53,9 +54,30 @@ public class ProfileRepository {
         return count == null ? 0 : count;
     }
 
+    public boolean existsActiveByUserIdAndTypeAndDisplayNameNormalized(
+            UUID userId,
+            ProfileType type,
+            String displayNameNormalized
+    ) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM profiles
+                        WHERE user_id = ?
+                          AND type = ?
+                          AND display_name_normalized = ?
+                          AND status = 'ACTIVE'
+                        """,
+                Integer.class,
+                userId,
+                type.name(),
+                displayNameNormalized
+        );
+        return count != null && count > 0;
+    }
+
     public Optional<ProfileRecord> findById(UUID id) {
         return jdbcTemplate.query("""
-                        SELECT id, user_id, selected_job_id, type, display_name, image_light_url,
+                        SELECT id, user_id, selected_job_id, type, display_name, display_name_normalized, image_light_url,
                                image_dark_url, image_alt, status, is_active, created_at, updated_at
                         FROM profiles
                         WHERE id = ?
@@ -67,7 +89,7 @@ public class ProfileRepository {
 
     public Optional<ProfileRecord> findActiveByUserId(UUID userId) {
         return jdbcTemplate.query("""
-                        SELECT id, user_id, selected_job_id, type, display_name, image_light_url,
+                        SELECT id, user_id, selected_job_id, type, display_name, display_name_normalized, image_light_url,
                                image_dark_url, image_alt, status, is_active, created_at, updated_at
                         FROM profiles
                         WHERE user_id = ? AND is_active = TRUE
@@ -82,7 +104,7 @@ public class ProfileRepository {
     public List<ProfileRecord> findByUserId(UUID userId, boolean includeInactive) {
         String statusPredicate = includeInactive ? "" : "AND status = 'ACTIVE'";
         return jdbcTemplate.query("""
-                        SELECT id, user_id, selected_job_id, type, display_name, image_light_url,
+                        SELECT id, user_id, selected_job_id, type, display_name, display_name_normalized, image_light_url,
                                image_dark_url, image_alt, status, is_active, created_at, updated_at
                         FROM profiles
                         WHERE user_id = ? %s
@@ -120,6 +142,7 @@ public class ProfileRepository {
                 resultSet.getString("selected_job_id"),
                 ProfileType.valueOf(resultSet.getString("type")),
                 resultSet.getString("display_name"),
+                resultSet.getString("display_name_normalized"),
                 resultSet.getString("image_light_url"),
                 resultSet.getString("image_dark_url"),
                 resultSet.getString("image_alt"),

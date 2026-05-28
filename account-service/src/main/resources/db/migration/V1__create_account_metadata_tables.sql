@@ -4,6 +4,7 @@ CREATE TABLE profiles (
     selected_job_id VARCHAR(80) NOT NULL,
     type VARCHAR(40) NOT NULL,
     display_name VARCHAR(120) NOT NULL,
+    display_name_normalized VARCHAR(120) NOT NULL,
     image_light_url VARCHAR(500),
     image_dark_url VARCHAR(500),
     image_alt VARCHAR(120),
@@ -12,6 +13,9 @@ CREATE TABLE profiles (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
+CREATE UNIQUE INDEX uk_profiles_user_type_display_name_normalized
+    ON profiles (user_id, type, display_name_normalized);
 
 CREATE TABLE bank_accounts (
     id UUID PRIMARY KEY,

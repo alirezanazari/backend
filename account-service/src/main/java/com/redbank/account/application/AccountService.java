@@ -97,6 +97,7 @@ public class AccountService {
                 request.jobId(),
                 ProfileType.PERSONAL,
                 defaultIfBlank(request.profileDisplayName(), "Personal"),
+                normalizeDisplayName(defaultIfBlank(request.profileDisplayName(), "Personal")),
                 imageLightUrl(request.profileImage()),
                 imageDarkUrl(request.profileImage()),
                 imageAlt(request.profileImage()),
@@ -133,6 +134,14 @@ public class AccountService {
 
         ProfileRecord activeProfile = profileRepository.findActiveByUserId(token.userId())
                 .orElseThrow(() -> new AccountBusinessRuleException("Personal profile must be created first"));
+        String displayNameNormalized = normalizeDisplayName(request.displayName());
+        if (profileRepository.existsActiveByUserIdAndTypeAndDisplayNameNormalized(
+                token.userId(),
+                request.type(),
+                displayNameNormalized
+        )) {
+            throw new AccountConflictException("Profile already exists");
+        }
 
         Instant now = clock.instant();
         ProfileRecord profile = new ProfileRecord(
@@ -140,7 +149,8 @@ public class AccountService {
                 token.userId(),
                 activeProfile.selectedJobId(),
                 request.type(),
-                request.displayName(),
+                request.displayName().trim(),
+                displayNameNormalized,
                 imageLightUrl(request.image()),
                 imageDarkUrl(request.image()),
                 imageAlt(request.image()),
@@ -149,7 +159,11 @@ public class AccountService {
                 now,
                 now
         );
-        profileRepository.save(profile);
+        try {
+            profileRepository.save(profile);
+        } catch (DataIntegrityViolationException exception) {
+            throw new AccountConflictException("Profile already exists");
+        }
         return new CreateProfileResponse(toProfileSummary(profile));
     }
 
@@ -419,5 +433,9 @@ public class AccountService {
 
     private String defaultIfBlank(String value, String defaultValue) {
         return value == null || value.isBlank() ? defaultValue : value;
+    }
+
+    private String normalizeDisplayName(String value) {
+        return value.trim().toLowerCase(Locale.ROOT);
     }
 }

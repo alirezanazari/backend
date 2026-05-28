@@ -97,6 +97,21 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void createProfileRejectsDuplicateTypeAndDisplayName() throws Exception {
+        UUID userId = UUID.randomUUID();
+        register(userId).andExpect(status().isCreated());
+        String userToken = userToken(userId, null);
+
+        createProfile(userToken, "Business")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.context.status.code").value("CREATED"));
+
+        createProfile(userToken, " business ")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
+    }
+
+    @Test
     void closeRejectsAccountWhenLedgerBalanceIsNotZero() throws Exception {
         UUID userId = UUID.randomUUID();
         JsonNode registered = objectMapper.readTree(register(userId)

@@ -10,6 +10,7 @@ public record ProfileRecord(
         String selectedJobId,
         ProfileType type,
         String displayName,
+        String displayNameNormalized,
         String imageLightUrl,
         String imageDarkUrl,
         String imageAlt,
