@@ -172,6 +172,11 @@ class AccountControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.profiles[0].profileId").value(profileId))
                 .andExpect(jsonPath("$.data.profiles[0].active").value(false));
+
+        internalCompletion(userId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ACCOUNT_RE_OPEN_REQUIRED"))
+                .andExpect(jsonPath("$.data.activeProfile").value(org.hamcrest.Matchers.nullValue()));
     }
 
     @Test

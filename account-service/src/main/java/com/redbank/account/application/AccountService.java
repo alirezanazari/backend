@@ -323,13 +323,21 @@ public class AccountService {
                 .orElse(personalProfile);
 
         if (personalProfile == null) {
+            if (bankAccountRepository.existsByUserIdAndStatus(userId, AccountStatus.CLOSED)) {
+                return new GetAccountCompletionResponse(AccountCompletionStatus.ACCOUNT_RE_OPEN_REQUIRED, null);
+            }
             return new GetAccountCompletionResponse(AccountCompletionStatus.ACCOUNT_REQUIRED, null);
         }
 
         boolean hasPersonalAccount = bankAccountRepository.existsActiveByUserIdAndProfileId(userId, personalProfile.id());
-        AccountCompletionStatus status = hasPersonalAccount
-                ? AccountCompletionStatus.KYC_REQUIRED
-                : AccountCompletionStatus.ACCOUNT_REQUIRED;
+        AccountCompletionStatus status;
+        if (hasPersonalAccount) {
+            status = AccountCompletionStatus.KYC_REQUIRED;
+        } else if (bankAccountRepository.existsByUserIdAndStatus(userId, AccountStatus.CLOSED)) {
+            status = AccountCompletionStatus.ACCOUNT_RE_OPEN_REQUIRED;
+        } else {
+            status = AccountCompletionStatus.ACCOUNT_REQUIRED;
+        }
         return new GetAccountCompletionResponse(status, activeProfile == null ? null : toProfileSummary(activeProfile));
     }
 

@@ -81,6 +81,20 @@ public class BankAccountRepository {
         return count != null && count > 0;
     }
 
+    public boolean existsByUserIdAndStatus(UUID userId, AccountStatus status) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM bank_accounts
+                        WHERE user_id = ?
+                          AND status = ?
+                        """,
+                Integer.class,
+                userId,
+                status.name()
+        );
+        return count != null && count > 0;
+    }
+
     public int countActiveByProfileId(UUID profileId) {
         Integer count = jdbcTemplate.queryForObject("""
                         SELECT COUNT(*)
