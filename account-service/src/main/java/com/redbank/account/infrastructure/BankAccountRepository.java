@@ -66,6 +66,23 @@ public class BankAccountRepository {
         return queryOne("WHERE user_id = ? AND account_number = ?", userId, accountNumber);
     }
 
+    public Optional<BankAccountRecord> findLatestClosedPersonalAccountByUserId(UUID userId) {
+        return jdbcTemplate.query("""
+                        SELECT ba.id, ba.profile_id, ba.user_id, ba.selected_job_id, ba.account_number, ba.iban, ba.type,
+                               ba.status, ba.currency, ba.closed_at, ba.created_at, ba.updated_at
+                        FROM bank_accounts ba
+                        JOIN profiles p ON p.id = ba.profile_id
+                        WHERE ba.user_id = ?
+                          AND ba.status = 'CLOSED'
+                          AND p.type = 'PERSONAL'
+                        ORDER BY ba.updated_at DESC
+                        LIMIT 1
+                        """,
+                this::map,
+                userId
+        ).stream().findFirst();
+    }
+
     public boolean existsActiveByUserIdAndProfileId(UUID userId, UUID profileId) {
         Integer count = jdbcTemplate.queryForObject("""
                         SELECT COUNT(*)
@@ -140,6 +157,18 @@ public class BankAccountRepository {
                 AccountStatus.CLOSED.name(),
                 Timestamp.from(closedAt),
                 Timestamp.from(closedAt),
+                account.id()
+        );
+    }
+
+    public void open(BankAccountRecord account, Instant openedAt) {
+        jdbcTemplate.update("""
+                        UPDATE bank_accounts
+                        SET status = ?, closed_at = NULL, updated_at = ?
+                        WHERE id = ?
+                        """,
+                AccountStatus.ACTIVE.name(),
+                Timestamp.from(openedAt),
                 account.id()
         );
     }

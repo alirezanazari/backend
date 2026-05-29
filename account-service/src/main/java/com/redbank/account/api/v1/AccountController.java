@@ -12,6 +12,8 @@ import com.redbank.account.api.v1.dto.ListAccountsRequest;
 import com.redbank.account.api.v1.dto.ListAccountsResponse;
 import com.redbank.account.api.v1.dto.ListProfilesRequest;
 import com.redbank.account.api.v1.dto.ListProfilesResponse;
+import com.redbank.account.api.v1.dto.OpenAccountRequest;
+import com.redbank.account.api.v1.dto.OpenAccountResponse;
 import com.redbank.account.api.v1.dto.RegisterAccountRequest;
 import com.redbank.account.api.v1.dto.RegisterAccountResponse;
 import com.redbank.account.api.v1.dto.SetActiveProfileRequest;
@@ -70,6 +72,15 @@ public class AccountController {
     ) {
         CloseAccountResponse response = accountService.closeAccount(authorizationHeader, request.context(), request.data());
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), profileId(request), response));
+    }
+
+    @PostMapping({"/api/v1/accounts/open", "/api/v1/account/open"})
+    public ResponseEntity<ApiResponse<OpenAccountResponse>> openAccount(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<OpenAccountRequest> request
+    ) {
+        OpenAccountResponse response = accountService.openAccount(authorizationHeader, request.data());
+        return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), response.profile().profileId(), response));
     }
 
     @PostMapping("/api/v1/accounts/owner/get")

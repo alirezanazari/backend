@@ -180,6 +180,36 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void openAccountReopensClosedPersonalProfileAndAccount() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = registered.path("data").path("profile").path("profileId").asText();
+        String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
+
+        closeAccount(userToken(userId, UUID.fromString(profileId)), profileId, accountNumber)
+                .andExpect(status().isOk());
+
+        openAccount(userToken(userId, null))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.context.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.profile.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.profile.active").value(true))
+                .andExpect(jsonPath("$.data.account.accountNumber").value(accountNumber))
+                .andExpect(jsonPath("$.data.account.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_REQUIRED"));
+
+        internalCompletion(userId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_REQUIRED"))
+                .andExpect(jsonPath("$.data.activeProfile.profileId").value(profileId));
+    }
+
+    @Test
     void closeRejectsPersonalProfileWhenBusinessProfileExists() throws Exception {
         UUID userId = UUID.randomUUID();
         JsonNode registered = objectMapper.readTree(register(userId)
@@ -274,6 +304,27 @@ class AccountControllerIntegrationTest {
                           }
                         }
                         """.formatted(accountNumber, profileId, accountNumber)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions openAccount(String token) throws Exception {
+        return mockMvc.perform(post("/api/v1/account/open")
+                .header("Authorization", "Bearer " + token)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-account-open",
+                            "account": null,
+                            "os": null,
+                            "app": null,
+                            "device": null,
+                            "network": null
+                          },
+                          "data": {
+                            "reasonText": "test reopen"
+                          }
+                        }
+                        """));
     }
 
     private org.springframework.test.web.servlet.ResultActions listProfiles(

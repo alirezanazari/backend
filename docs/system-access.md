@@ -107,6 +107,7 @@ Rules:
 | IAM | `POST /api/v1/iam/logout` | `USER` | Ends current client session/audit state. |
 | Account | `POST /api/v1/accounts/register` | `ONBOARDING` | Creates personal profile and default saving account. |
 | Account | `POST /api/v1/accounts/close` | `USER` | User can close only owned accounts. |
+| Account | `POST /api/v1/account/open` | `USER` | User can reopen only own closed account/profile. |
 | Account | `POST /api/v1/accounts/list` | `USER` | User sees only own accounts. |
 | Account | `POST /api/v1/accounts/balance/get` | `USER` | User gets balance only for own account. |
 | Account | `POST /api/v1/profiles/list` | `USER` | User sees only own profiles. |

@@ -21,6 +21,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | IAM | `POST /api/v1/iam/logout` | Required | End current client login session. |
 | Account | `POST /api/v1/accounts/register` | Required | Create personal profile and default saving account. |
 | Account | `POST /api/v1/accounts/close` | Required | Close an owned account when allowed. |
+| Account | `POST /api/v1/account/open` | Required | Reopen a closed personal account/profile when login requires reopening. |
 | Account | `POST /api/v1/accounts/list` | Required | List accounts for current user/profile. |
 | Account | `POST /api/v1/accounts/balance/get` | Required | Get authoritative account balance through ledger. |
 | Account | `POST /api/v1/profiles/list` | Required | List profiles related to an owned account number. |
@@ -379,6 +380,42 @@ Important rules:
 - Account cannot be closed if there are pending transfers or holds.
 - Closed account must not be used as transfer source.
 - Status history should be stored.
+
+### POST /api/v1/account/open
+
+Alias:
+
+```text
+POST /api/v1/accounts/open
+```
+
+Fields: [See fields](./api-fields.md#post-apiv1accountopen)
+
+Owner:
+
+```text
+account-service
+```
+
+Purpose:
+
+```text
+reopen a closed account
+```
+
+Authentication:
+
+```text
+required
+```
+
+Important rules:
+
+- User can reopen only accounts they own.
+- If `accountNumber` is omitted, account-service reopens the latest closed personal account.
+- Reopening activates the owning profile and the account.
+- Status history should be stored for the account and, when applicable, the profile.
+- After reopen, login completion should move from `ACCOUNT_RE_OPEN_REQUIRED` to the next completion state.
 
 ### POST /api/v1/accounts/list
 

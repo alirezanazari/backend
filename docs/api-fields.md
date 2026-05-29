@@ -506,6 +506,35 @@ Response:
 | `accountNumber` | `String` | Yes | Closed 18-digit account number. |
 | `status` | `AccountStatus` | Yes | New account status. |
 | `closedAt` | `Instant` | Yes | Close timestamp. |
+| `profileId` | `String` | Yes | Owning profile id. |
+| `profileType` | `ProfileType` | Yes | Owning profile type. |
+| `profileClosed` | `Boolean` | Yes | Whether the owning profile was also closed. |
+
+### POST /api/v1/account/open
+
+Request: [See request details](./api-requests.md#post-apiv1accountopen)
+
+Alias:
+
+```text
+POST /api/v1/accounts/open
+```
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `accountNumber` | `String` | No | 18-digit closed account number. If omitted, the latest closed personal account is reopened. |
+| `reasonText` | `String` | No | Optional human-readable reason. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `profile` | `ProfileSummary` | Yes | Reopened and active owning profile. |
+| `account` | `AccountSummary` | Yes | Reopened account. |
+| `openedAt` | `Instant` | Yes | Reopen timestamp. |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Next login/completion state. |
 
 ### POST /api/v1/accounts/list
 

@@ -205,9 +205,10 @@ Small steps:
 18. Implement `POST /api/v1/accounts/balance/get`.
 19. Implement `POST /api/v1/accounts/owner/get` as client-facing destination lookup endpoint.
 20. Implement `POST /api/v1/accounts/close`.
-21. Prevent closing account if ledger balance is not zero.
-22. Add tests for max profile count.
-23. Add tests for account close rules.
+21. Implement `POST /api/v1/account/open` for closed account/profile reopen.
+22. Prevent closing account if ledger balance is not zero.
+23. Add tests for max profile count.
+24. Add tests for account close and reopen rules.
 
 Engineering focus:
 

@@ -178,6 +178,27 @@ public class ProfileRepository {
         );
     }
 
+    public void openAndSetActive(ProfileRecord profile, Instant openedAt) {
+        jdbcTemplate.update("""
+                        UPDATE profiles
+                        SET is_active = FALSE, updated_at = ?
+                        WHERE user_id = ?
+                        """,
+                Timestamp.from(openedAt),
+                profile.userId()
+        );
+        jdbcTemplate.update("""
+                        UPDATE profiles
+                        SET status = ?, is_active = TRUE, updated_at = ?
+                        WHERE user_id = ? AND id = ?
+                        """,
+                ProfileStatus.ACTIVE.name(),
+                Timestamp.from(openedAt),
+                profile.userId(),
+                profile.id()
+        );
+    }
+
     public void saveStatusHistory(ProfileStatusHistoryRecord history) {
         jdbcTemplate.update("""
                         INSERT INTO profile_status_history (

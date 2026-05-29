@@ -10,14 +10,10 @@ spring:
               uri: ${IAM_SERVICE_URL:http://localhost:8081}
               predicates:
                 - Path=/api/v1/iam/**
-            - id: account-service-accounts
+            - id: account-service
               uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
               predicates:
-                - Path=/api/v1/accounts/**
-            - id: account-service-profiles
-              uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
-              predicates:
-                - Path=/api/v1/profiles/**
+                - Path=/api/v1/accounts/**,/api/v1/account/**,/api/v1/profiles/**
 
 server:
   port: ${SERVER_PORT:8080}

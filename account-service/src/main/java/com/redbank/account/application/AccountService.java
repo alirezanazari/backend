@@ -14,6 +14,8 @@ import com.redbank.account.api.v1.dto.ListAccountsRequest;
 import com.redbank.account.api.v1.dto.ListAccountsResponse;
 import com.redbank.account.api.v1.dto.ListProfilesRequest;
 import com.redbank.account.api.v1.dto.ListProfilesResponse;
+import com.redbank.account.api.v1.dto.OpenAccountRequest;
+import com.redbank.account.api.v1.dto.OpenAccountResponse;
 import com.redbank.account.api.v1.dto.RegisterAccountRequest;
 import com.redbank.account.api.v1.dto.RegisterAccountResponse;
 import com.redbank.account.api.v1.dto.SetActiveProfileRequest;
@@ -282,6 +284,83 @@ public class AccountService {
         );
     }
 
+    @Transactional
+    public OpenAccountResponse openAccount(String authorizationHeader, OpenAccountRequest request) {
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        BankAccountRecord account = accountToOpen(token.userId(), request == null ? null : request.accountNumber());
+
+        if (account.status() != AccountStatus.CLOSED) {
+            throw new AccountBusinessRuleException("Account is not closed");
+        }
+
+        ProfileRecord profile = profileRepository.findById(account.profileId())
+                .filter(candidate -> candidate.userId().equals(token.userId()))
+                .orElseThrow(() -> new AccountNotFoundException("Profile was not found"));
+
+        Instant openedAt = clock.instant();
+        profileRepository.openAndSetActive(profile, openedAt);
+        BankAccountRecord openedAccount = new BankAccountRecord(
+                account.id(),
+                account.profileId(),
+                account.userId(),
+                account.selectedJobId(),
+                account.accountNumber(),
+                account.iban(),
+                account.type(),
+                AccountStatus.ACTIVE,
+                account.currency(),
+                null,
+                account.createdAt(),
+                openedAt
+        );
+        ProfileRecord openedProfile = new ProfileRecord(
+                profile.id(),
+                profile.userId(),
+                profile.selectedJobId(),
+                profile.type(),
+                profile.displayName(),
+                profile.displayNameNormalized(),
+                profile.imageLightUrl(),
+                profile.imageDarkUrl(),
+                profile.imageAlt(),
+                ProfileStatus.ACTIVE,
+                true,
+                profile.createdAt(),
+                openedAt
+        );
+
+        bankAccountRepository.open(account, openedAt);
+        bankAccountRepository.saveStatusHistory(new AccountStatusHistoryRecord(
+                UUID.randomUUID(),
+                account.id(),
+                account.userId(),
+                account.profileId(),
+                account.status(),
+                AccountStatus.ACTIVE,
+                request == null ? null : request.reasonText(),
+                openedAt
+        ));
+
+        if (profile.status() != ProfileStatus.ACTIVE) {
+            profileRepository.saveStatusHistory(new ProfileStatusHistoryRecord(
+                    UUID.randomUUID(),
+                    profile.id(),
+                    profile.userId(),
+                    profile.status(),
+                    ProfileStatus.ACTIVE,
+                    request == null ? null : request.reasonText(),
+                    openedAt
+            ));
+        }
+
+        return new OpenAccountResponse(
+                toProfileSummary(openedProfile),
+                toAccountSummary(openedAccount, false),
+                openedAt,
+                AccountCompletionStatus.KYC_REQUIRED
+        );
+    }
+
     public GetAccountOwnerResponse getOwner(String authorizationHeader, GetAccountOwnerRequest request) {
         jwtTokenService.verifyUserToken(authorizationHeader);
         if (request.destinationType() == null) {
@@ -427,6 +506,14 @@ public class AccountService {
     private BankAccountRecord ownedAccount(UUID userId, String accountNumber) {
         return bankAccountRepository.findByUserIdAndAccountNumber(userId, accountNumber)
                 .orElseThrow(() -> new AccountNotFoundException("Account was not found"));
+    }
+
+    private BankAccountRecord accountToOpen(UUID userId, String accountNumber) {
+        if (accountNumber != null && !accountNumber.isBlank()) {
+            return ownedAccount(userId, accountNumber);
+        }
+        return bankAccountRepository.findLatestClosedPersonalAccountByUserId(userId)
+                .orElseThrow(() -> new AccountNotFoundException("Closed account was not found"));
     }
 
     private void validateJobId(String jobId) {
