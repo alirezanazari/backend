@@ -48,9 +48,21 @@ CREATE TABLE account_status_history (
     CONSTRAINT fk_account_status_history_account FOREIGN KEY (account_id) REFERENCES bank_accounts (id)
 );
 
+CREATE TABLE profile_status_history (
+    id UUID PRIMARY KEY,
+    profile_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    previous_status VARCHAR(40) NOT NULL,
+    new_status VARCHAR(40) NOT NULL,
+    reason_text VARCHAR(500),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    CONSTRAINT fk_profile_status_history_profile FOREIGN KEY (profile_id) REFERENCES profiles (id)
+);
+
 CREATE INDEX idx_profiles_user_id ON profiles (user_id);
 CREATE INDEX idx_profiles_user_active ON profiles (user_id, is_active);
 CREATE INDEX idx_bank_accounts_user_id ON bank_accounts (user_id);
 CREATE INDEX idx_bank_accounts_profile_id ON bank_accounts (profile_id);
 CREATE INDEX idx_bank_accounts_status ON bank_accounts (status);
 CREATE INDEX idx_account_status_history_account_id ON account_status_history (account_id);
+CREATE INDEX idx_profile_status_history_profile_id ON profile_status_history (profile_id);

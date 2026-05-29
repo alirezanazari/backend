@@ -163,7 +163,36 @@ class AccountControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.accountNumber").value(accountNumber))
-                .andExpect(jsonPath("$.data.status").value("CLOSED"));
+                .andExpect(jsonPath("$.data.status").value("CLOSED"))
+                .andExpect(jsonPath("$.data.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.profileType").value("PERSONAL"))
+                .andExpect(jsonPath("$.data.profileClosed").value(true));
+
+        listProfiles(userToken, accountNumber, true)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profiles[0].profileId").value(profileId))
+                .andExpect(jsonPath("$.data.profiles[0].active").value(false));
+    }
+
+    @Test
+    void closeRejectsPersonalProfileWhenBusinessProfileExists() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = registered.path("data").path("profile").path("profileId").asText();
+        String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
+        String userToken = userToken(userId, UUID.fromString(profileId));
+
+        createProfile(userToken, "Business")
+                .andExpect(status().isCreated());
+
+        closeAccount(userToken, profileId, accountNumber)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"))
+                .andExpect(jsonPath("$.context.status.message").value("Personal profile cannot be closed while business profiles exist"));
     }
 
     private org.springframework.test.web.servlet.ResultActions register(UUID userId) throws Exception {
@@ -240,6 +269,32 @@ class AccountControllerIntegrationTest {
                           }
                         }
                         """.formatted(accountNumber, profileId, accountNumber)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions listProfiles(
+            String token,
+            String accountNumber,
+            boolean includeInactive
+    ) throws Exception {
+        return mockMvc.perform(post("/api/v1/profiles/list")
+                .header("Authorization", "Bearer " + token)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-profile-list",
+                            "account": null,
+                            "os": null,
+                            "app": null,
+                            "device": null,
+                            "network": null
+                          },
+                          "data": {
+                            "accountNumber": "%s",
+                            "includeInactive": %s
+                          }
+                        }
+                        """.formatted(accountNumber, includeInactive)));
     }
 
     private org.springframework.test.web.servlet.ResultActions internalCompletion(UUID userId) throws Exception {

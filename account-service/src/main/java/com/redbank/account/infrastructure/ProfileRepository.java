@@ -2,6 +2,7 @@ package com.redbank.account.infrastructure;
 
 import com.redbank.account.domain.ProfileRecord;
 import com.redbank.account.domain.ProfileStatus;
+import com.redbank.account.domain.ProfileStatusHistoryRecord;
 import com.redbank.contracts.account.ProfileType;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -50,6 +51,21 @@ public class ProfileRepository {
                 "SELECT COUNT(*) FROM profiles WHERE user_id = ?",
                 Integer.class,
                 userId
+        );
+        return count == null ? 0 : count;
+    }
+
+    public int countActiveByUserIdAndType(UUID userId, ProfileType type) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM profiles
+                        WHERE user_id = ?
+                          AND type = ?
+                          AND status = 'ACTIVE'
+                        """,
+                Integer.class,
+                userId,
+                type.name()
         );
         return count == null ? 0 : count;
     }
@@ -106,7 +122,7 @@ public class ProfileRepository {
                         SELECT id, user_id, selected_job_id, type, display_name, display_name_normalized, image_light_url,
                                image_dark_url, image_alt, status, is_active, created_at, updated_at
                         FROM profiles
-                        WHERE user_id = ? AND type = ?
+                        WHERE user_id = ? AND type = ? AND status = 'ACTIVE'
                         ORDER BY created_at ASC
                         LIMIT 1
                         """,
@@ -147,6 +163,35 @@ public class ProfileRepository {
                 Timestamp.from(updatedAt),
                 userId,
                 profileId
+        );
+    }
+
+    public void close(ProfileRecord profile, Instant closedAt) {
+        jdbcTemplate.update("""
+                        UPDATE profiles
+                        SET status = ?, is_active = FALSE, updated_at = ?
+                        WHERE id = ?
+                        """,
+                ProfileStatus.INACTIVE.name(),
+                Timestamp.from(closedAt),
+                profile.id()
+        );
+    }
+
+    public void saveStatusHistory(ProfileStatusHistoryRecord history) {
+        jdbcTemplate.update("""
+                        INSERT INTO profile_status_history (
+                            id, profile_id, user_id, previous_status, new_status, reason_text, created_at
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                history.id(),
+                history.profileId(),
+                history.userId(),
+                history.previousStatus().name(),
+                history.newStatus().name(),
+                history.reasonText(),
+                Timestamp.from(history.createdAt())
         );
     }
 

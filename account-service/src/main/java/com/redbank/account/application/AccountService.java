@@ -23,6 +23,7 @@ import com.redbank.account.domain.AccountStatusHistoryRecord;
 import com.redbank.account.domain.BankAccountRecord;
 import com.redbank.account.domain.ProfileRecord;
 import com.redbank.account.domain.ProfileStatus;
+import com.redbank.account.domain.ProfileStatusHistoryRecord;
 import com.redbank.account.infrastructure.BankAccountRepository;
 import com.redbank.account.infrastructure.ProfileRepository;
 import com.redbank.contracts.account.AccountStatus;
@@ -246,11 +247,13 @@ public class AccountService {
     ) {
         VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
         BankAccountRecord account = ownedAccount(token.userId(), request.accountNumber());
-        validateProfileContext(account, resolveProfile(token, context));
+        ProfileRecord profile = resolveProfile(token, context);
+        validateProfileContext(account, profile);
 
         if (account.status() == AccountStatus.CLOSED) {
             throw new AccountBusinessRuleException("Account is already closed");
         }
+        validateProfileCanBeClosedWithAccount(profile);
         if (!ledgerBalanceClient.isZero(account.accountNumber(), account.currency())) {
             throw new AccountBusinessRuleException("Account cannot be closed while balance is not zero");
         }
@@ -267,7 +270,16 @@ public class AccountService {
                 request.reasonText(),
                 closedAt
         ));
-        return new CloseAccountResponse(account.accountNumber(), AccountStatus.CLOSED, closedAt);
+
+        boolean profileClosed = closeProfileWhenNoActiveAccountsRemain(profile, request.reasonText(), closedAt);
+        return new CloseAccountResponse(
+                account.accountNumber(),
+                AccountStatus.CLOSED,
+                closedAt,
+                profile.id().toString(),
+                profile.type(),
+                profileClosed
+        );
     }
 
     public GetAccountOwnerResponse getOwner(String authorizationHeader, GetAccountOwnerRequest request) {
@@ -372,6 +384,36 @@ public class AccountService {
         if (!account.profileId().equals(profile.id())) {
             throw new AccountBusinessRuleException("Account does not belong to the active profile");
         }
+    }
+
+    private void validateProfileCanBeClosedWithAccount(ProfileRecord profile) {
+        if (profile.type() != ProfileType.PERSONAL) {
+            return;
+        }
+        if (bankAccountRepository.countActiveByProfileId(profile.id()) > 1) {
+            return;
+        }
+        if (profileRepository.countActiveByUserIdAndType(profile.userId(), ProfileType.BUSINESS) > 0) {
+            throw new AccountBusinessRuleException("Personal profile cannot be closed while business profiles exist");
+        }
+    }
+
+    private boolean closeProfileWhenNoActiveAccountsRemain(ProfileRecord profile, String reasonText, Instant closedAt) {
+        if (profile.status() == ProfileStatus.INACTIVE || bankAccountRepository.existsActiveByProfileId(profile.id())) {
+            return false;
+        }
+
+        profileRepository.close(profile, closedAt);
+        profileRepository.saveStatusHistory(new ProfileStatusHistoryRecord(
+                UUID.randomUUID(),
+                profile.id(),
+                profile.userId(),
+                profile.status(),
+                ProfileStatus.INACTIVE,
+                reasonText,
+                closedAt
+        ));
+        return true;
     }
 
     private BankAccountRecord ownedAccount(UUID userId, String accountNumber) {
