@@ -101,6 +101,21 @@ public class ProfileRepository {
         ).stream().findFirst();
     }
 
+    public Optional<ProfileRecord> findFirstByUserIdAndType(UUID userId, ProfileType type) {
+        return jdbcTemplate.query("""
+                        SELECT id, user_id, selected_job_id, type, display_name, display_name_normalized, image_light_url,
+                               image_dark_url, image_alt, status, is_active, created_at, updated_at
+                        FROM profiles
+                        WHERE user_id = ? AND type = ?
+                        ORDER BY created_at ASC
+                        LIMIT 1
+                        """,
+                this::map,
+                userId,
+                type.name()
+        ).stream().findFirst();
+    }
+
     public List<ProfileRecord> findByUserId(UUID userId, boolean includeInactive) {
         String statusPredicate = includeInactive ? "" : "AND status = 'ACTIVE'";
         return jdbcTemplate.query("""

@@ -41,7 +41,49 @@ public class JwtTokenService {
     }
 
     public TokenResult createUserToken(UUID userId, UUID deviceId) {
-        return createToken(userId, deviceId, List.of("USER"), List.of("USER"), jwtProperties.accessTokenTtlSeconds());
+        return createUserToken(userId, deviceId, null);
+    }
+
+    public TokenResult createUserToken(UUID userId, UUID deviceId, UUID profileId) {
+        return createToken(userId, deviceId, profileId, List.of("USER"), List.of("USER"), jwtProperties.accessTokenTtlSeconds());
+    }
+
+    private TokenResult createToken(UUID userId, UUID deviceId, List<String> roles, List<String> scopes, long ttlSeconds) {
+        return createToken(userId, deviceId, null, roles, scopes, ttlSeconds);
+    }
+
+    private TokenResult createToken(
+            UUID userId,
+            UUID deviceId,
+            UUID profileId,
+            List<String> roles,
+            List<String> scopes,
+            long ttlSeconds
+    ) {
+        byte[] secret = signingSecret();
+        Instant now = clock.instant();
+        Instant expiresAt = now.plusSeconds(ttlSeconds);
+
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(jwtProperties.issuer())
+                .audience(jwtProperties.audience())
+                .subject(userId.toString())
+                .jwtID(UUID.randomUUID().toString())
+                .issueTime(Date.from(now))
+                .expirationTime(Date.from(expiresAt))
+                .claim("device_id", deviceId == null ? null : deviceId.toString())
+                .claim("profile_id", profileId == null ? null : profileId.toString())
+                .claim("roles", roles)
+                .claim("scope", scopes)
+                .build();
+
+        try {
+            SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+            jwt.sign(new MACSigner(secret));
+            return TokenResult.bearer(jwt.serialize(), expiresAt);
+        } catch (JOSEException exception) {
+            throw new IllegalStateException("Unable to sign access token", exception);
+        }
     }
 
     public VerifiedToken verifyBearerToken(String authorizationHeader, String requiredScope) {
@@ -58,32 +100,6 @@ public class JwtTokenService {
             throw new IamUnauthorizedException("Unauthorized");
         }
         return verifiedToken;
-    }
-
-    private TokenResult createToken(UUID userId, UUID deviceId, List<String> roles, List<String> scopes, long ttlSeconds) {
-        byte[] secret = signingSecret();
-        Instant now = clock.instant();
-        Instant expiresAt = now.plusSeconds(ttlSeconds);
-
-        JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                .issuer(jwtProperties.issuer())
-                .audience(jwtProperties.audience())
-                .subject(userId.toString())
-                .jwtID(UUID.randomUUID().toString())
-                .issueTime(Date.from(now))
-                .expirationTime(Date.from(expiresAt))
-                .claim("device_id", deviceId == null ? null : deviceId.toString())
-                .claim("roles", roles)
-                .claim("scope", scopes)
-                .build();
-
-        try {
-            SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
-            jwt.sign(new MACSigner(secret));
-            return TokenResult.bearer(jwt.serialize(), expiresAt);
-        } catch (JOSEException exception) {
-            throw new IllegalStateException("Unable to sign access token", exception);
-        }
     }
 
     private JWTClaimsSet verify(String token) {

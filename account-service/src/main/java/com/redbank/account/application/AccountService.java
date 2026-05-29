@@ -1,5 +1,7 @@
 package com.redbank.account.application;
 
+import com.redbank.account.api.internal.dto.GetAccountCompletionRequest;
+import com.redbank.account.api.internal.dto.GetAccountCompletionResponse;
 import com.redbank.account.api.v1.dto.CloseAccountRequest;
 import com.redbank.account.api.v1.dto.CloseAccountResponse;
 import com.redbank.account.api.v1.dto.CreateProfileRequest;
@@ -301,6 +303,24 @@ public class AccountService {
         return new GetAccountOwnerResponse(destination);
     }
 
+    public GetAccountCompletionResponse getCompletion(GetAccountCompletionRequest request) {
+        UUID userId = parseUserId(request.userId());
+        ProfileRecord personalProfile = profileRepository.findFirstByUserIdAndType(userId, ProfileType.PERSONAL)
+                .orElse(null);
+        ProfileRecord activeProfile = profileRepository.findActiveByUserId(userId)
+                .orElse(personalProfile);
+
+        if (personalProfile == null) {
+            return new GetAccountCompletionResponse(AccountCompletionStatus.ACCOUNT_REQUIRED, null);
+        }
+
+        boolean hasPersonalAccount = bankAccountRepository.existsActiveByUserIdAndProfileId(userId, personalProfile.id());
+        AccountCompletionStatus status = hasPersonalAccount
+                ? AccountCompletionStatus.KYC_REQUIRED
+                : AccountCompletionStatus.ACCOUNT_REQUIRED;
+        return new GetAccountCompletionResponse(status, activeProfile == null ? null : toProfileSummary(activeProfile));
+    }
+
     private BankAccountRecord createUniqueAccount(
             ProfileRecord profile,
             String jobId,
@@ -377,6 +397,14 @@ public class AccountService {
             return UUID.fromString(value);
         } catch (RuntimeException exception) {
             throw validation("data.profileId", "profileId must be a UUID", "PROFILE_ID_UUID");
+        }
+    }
+
+    private UUID parseUserId(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (RuntimeException exception) {
+            throw validation("data.userId", "userId must be a UUID", "USER_ID_UUID");
         }
     }
 

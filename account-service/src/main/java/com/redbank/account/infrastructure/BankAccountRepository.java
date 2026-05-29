@@ -66,6 +66,21 @@ public class BankAccountRepository {
         return queryOne("WHERE user_id = ? AND account_number = ?", userId, accountNumber);
     }
 
+    public boolean existsActiveByUserIdAndProfileId(UUID userId, UUID profileId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM bank_accounts
+                        WHERE user_id = ?
+                          AND profile_id = ?
+                          AND status = 'ACTIVE'
+                        """,
+                Integer.class,
+                userId,
+                profileId
+        );
+        return count != null && count > 0;
+    }
+
     public List<BankAccountRecord> findByUserIdAndProfileId(
             UUID userId,
             UUID profileId,

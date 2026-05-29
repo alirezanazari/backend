@@ -80,6 +80,23 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void internalCompletionReturnsKycRequiredWhenProfileAndAccountExist() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = registered.path("data").path("profile").path("profileId").asText();
+
+        internalCompletion(userId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_REQUIRED"))
+                .andExpect(jsonPath("$.data.activeProfile.profileId").value(profileId));
+    }
+
+    @Test
     void createProfileRejectsMoreThanFiveProfiles() throws Exception {
         UUID userId = UUID.randomUUID();
         register(userId).andExpect(status().isCreated());
@@ -223,6 +240,17 @@ class AccountControllerIntegrationTest {
                           }
                         }
                         """.formatted(accountNumber, profileId, accountNumber)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions internalCompletion(UUID userId) throws Exception {
+        return mockMvc.perform(post("/internal/v1/accounts/completion/get")
+                .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
+                .contentType("application/json")
+                .content("""
+                        {
+                          "userId": "%s"
+                        }
+                        """.formatted(userId)));
     }
 
     private String onboardingToken(UUID userId) throws JOSEException {

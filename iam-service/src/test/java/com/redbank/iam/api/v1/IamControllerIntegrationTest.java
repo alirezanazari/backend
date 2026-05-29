@@ -2,11 +2,21 @@ package com.redbank.iam.api.v1;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.redbank.contracts.account.ProfileSummary;
+import com.redbank.contracts.account.ProfileType;
+import com.redbank.contracts.identity.AccountCompletionStatus;
+import com.redbank.iam.application.AccountCompletionClient;
+import com.redbank.iam.application.AccountCompletionResult;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,6 +49,14 @@ class IamControllerIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private MutableAccountCompletionClient accountCompletionClient;
+
+    @BeforeEach
+    void resetAccountCompletion() {
+        accountCompletionClient.result(new AccountCompletionResult(AccountCompletionStatus.ACCOUNT_REQUIRED, null));
+    }
 
     @Test
     void registerCreatesUserCredentialAndLimitedToken() throws Exception {
@@ -119,6 +137,40 @@ class IamControllerIntegrationTest {
                 .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.deviceVerificationRequired").value(false))
                 .andExpect(jsonPath("$.data.challengeId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
+    }
+
+    @Test
+    void verifiedLoginReturnsAccountCompletionFromAccountService() throws Exception {
+        RegistrationData data = registrationData();
+        String fingerprint = "fingerprint-account-completion-" + data.sequence();
+        JsonNode registration = objectMapper.readTree(register(data)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        UUID userId = UUID.fromString(registration.path("data").path("userId").asText());
+
+        JsonNode firstLogin = objectMapper.readTree(login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        verifyDevice(firstLogin.path("data").path("accessToken").asText(), firstLogin.path("data").path("challengeId").asText())
+                .andExpect(status().isOk());
+
+        String profileId = UUID.randomUUID().toString();
+        accountCompletionClient.result(new AccountCompletionResult(
+                AccountCompletionStatus.KYC_REQUIRED,
+                new ProfileSummary(profileId, ProfileType.PERSONAL, "Personal", null, true)
+        ));
+
+        login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_REQUIRED"))
+                .andExpect(jsonPath("$.data.activeProfile.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.deviceVerificationRequired").value(false))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
     }
 
@@ -230,5 +282,27 @@ class IamControllerIntegrationTest {
             String nationalId,
             String phoneNumber
     ) {
+    }
+
+    @TestConfiguration
+    static class AccountCompletionTestConfiguration {
+        @Bean
+        @Primary
+        MutableAccountCompletionClient mutableAccountCompletionClient() {
+            return new MutableAccountCompletionClient();
+        }
+    }
+
+    static class MutableAccountCompletionClient implements AccountCompletionClient {
+        private AccountCompletionResult result = new AccountCompletionResult(AccountCompletionStatus.ACCOUNT_REQUIRED, null);
+
+        void result(AccountCompletionResult result) {
+            this.result = result;
+        }
+
+        @Override
+        public AccountCompletionResult getCompletion(UUID userId) {
+            return result;
+        }
     }
 }

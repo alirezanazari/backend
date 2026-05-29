@@ -45,3 +45,5 @@ redbank:
     default-currency: ${REDBANK_ACCOUNT_DEFAULT_CURRENCY:IRR}
     max-profiles-per-user: ${REDBANK_ACCOUNT_MAX_PROFILES_PER_USER:5}
     allowed-job-ids: ${REDBANK_ACCOUNT_ALLOWED_JOB_IDS:job-engineer,job-student,job-business-owner,job-other}
+  internal:
+    service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}

@@ -5,6 +5,7 @@ import com.redbank.contracts.envelope.Status;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.iam.application.IamBusinessRuleException;
 import com.redbank.iam.application.IamConflictException;
+import com.redbank.iam.application.IamExternalServiceException;
 import com.redbank.iam.application.IamUnauthorizedException;
 import com.redbank.iam.application.IamValidationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,6 +44,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IamBusinessRuleException.class)
     ResponseEntity<ApiResponse<Void>> businessRule(IamBusinessRuleException exception, HttpServletRequest request) {
         Status status = Status.businessRuleViolation(exception.getMessage());
+        return ResponseEntity.status(status.httpStatus())
+                .body(ApiResponse.failure(requestId(request), null, status));
+    }
+
+    @ExceptionHandler(IamExternalServiceException.class)
+    ResponseEntity<ApiResponse<Void>> externalService(IamExternalServiceException exception, HttpServletRequest request) {
+        Status status = Status.serviceUnavailable(exception.getMessage());
         return ResponseEntity.status(status.httpStatus())
                 .body(ApiResponse.failure(requestId(request), null, status));
     }
