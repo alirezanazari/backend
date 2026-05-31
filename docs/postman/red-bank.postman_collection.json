@@ -503,6 +503,32 @@
           }
         },
         {
+          "name": "Edit Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"profileId\":\"{{profileId}}\",\"displayName\":\"Personal {{runSuffix}}\",\"image\":null}}"
+            },
+            "url": "{{baseUrl}}/api/v1/profiles/edit",
+            "description": "Edits profile display name and image. Send image:null to clear the current profile image."
+          }
+        },
+        {
           "name": "List Profiles",
           "request": {
             "method": "POST",

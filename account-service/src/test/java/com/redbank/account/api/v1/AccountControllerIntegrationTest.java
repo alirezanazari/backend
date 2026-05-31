@@ -129,6 +129,77 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void editProfileUpdatesDisplayNameImageAndAllowsClearingImage() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = registered.path("data").path("profile").path("profileId").asText();
+        String userToken = userToken(userId, UUID.fromString(profileId));
+
+        editProfile(userToken, profileId, " باشگاه بدنسازی ", """
+                {
+                  "lightUrl": "https://cdn.redbank.test/profile-light.png",
+                  "darkUrl": "https://cdn.redbank.test/profile-dark.png",
+                  "alt": "باشگاه بدنسازی"
+                }
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.context.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.profile.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.profile.displayName").value("باشگاه بدنسازی"))
+                .andExpect(jsonPath("$.data.profile.image.lightUrl").value("https://cdn.redbank.test/profile-light.png"))
+                .andExpect(jsonPath("$.data.profile.image.darkUrl").value("https://cdn.redbank.test/profile-dark.png"))
+                .andExpect(jsonPath("$.data.profile.image.alt").value("باشگاه بدنسازی"));
+
+        editProfile(userToken, profileId, "باشگاه بدنسازی", "null")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profile.displayName").value("باشگاه بدنسازی"))
+                .andExpect(jsonPath("$.data.profile.image").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void editProfileRejectsDuplicateTypeAndDisplayName() throws Exception {
+        UUID userId = UUID.randomUUID();
+        register(userId).andExpect(status().isCreated());
+        String userToken = userToken(userId, null);
+        createProfile(userToken, "Business").andExpect(status().isCreated());
+        JsonNode shopProfile = objectMapper.readTree(createProfile(userToken, "Shop")
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String shopProfileId = shopProfile.path("data").path("profile").path("profileId").asText();
+
+        editProfile(userToken, shopProfileId, " business ", "null")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
+    }
+
+    @Test
+    void editProfileRejectsInactiveProfile() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = registered.path("data").path("profile").path("profileId").asText();
+        String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
+        String userToken = userToken(userId, UUID.fromString(profileId));
+
+        closeAccount(userToken, profileId, accountNumber)
+                .andExpect(status().isOk());
+
+        editProfile(userToken, profileId, "Closed profile", "null")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
     void closeRejectsAccountWhenLedgerBalanceIsNotZero() throws Exception {
         UUID userId = UUID.randomUUID();
         JsonNode registered = objectMapper.readTree(register(userId)
@@ -275,6 +346,34 @@ class AccountControllerIntegrationTest {
                           }
                         }
                         """.formatted(displayName)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions editProfile(
+            String token,
+            String profileId,
+            String displayName,
+            String imageJson
+    ) throws Exception {
+        return mockMvc.perform(post("/api/v1/profiles/edit")
+                .header("Authorization", "Bearer " + token)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-profile-edit",
+                            "account": null,
+                            "os": null,
+                            "app": null,
+                            "device": null,
+                            "network": null
+                          },
+                          "data": {
+                            "profileId": "%s",
+                            "displayName": "%s",
+                            "image": %s
+                          }
+                        }
+                        """.formatted(profileId, displayName, imageJson)));
     }
 
     private org.springframework.test.web.servlet.ResultActions closeAccount(

@@ -133,9 +133,9 @@ public class AccountController {
     ) {
         EditProfileResponse response = accountService.editProfile(authorizationHeader, request.data());
         return ResponseEntity.ok(ApiResponse.success(
-            request.context().requestId(), 
-            request.data().profileId(), 
-            response
+                request.context().requestId(),
+                response.profile().profileId(),
+                response
         ));
     }
 

@@ -200,15 +200,16 @@ Small steps:
 13. Return profile and account response.
 14. Implement `POST /api/v1/profiles/create`.
 15. Implement `POST /api/v1/profiles/list`.
-16. Implement `POST /api/v1/profiles/active/set`.
-17. Implement `POST /api/v1/accounts/list`.
-18. Implement `POST /api/v1/accounts/balance/get`.
-19. Implement `POST /api/v1/accounts/owner/get` as client-facing destination lookup endpoint.
-20. Implement `POST /api/v1/accounts/close`.
-21. Implement `POST /api/v1/account/open` for closed account/profile reopen.
-22. Prevent closing account if ledger balance is not zero.
-23. Add tests for max profile count.
-24. Add tests for account close and reopen rules.
+16. Implement `POST /api/v1/profiles/edit`.
+17. Implement `POST /api/v1/profiles/active/set`.
+18. Implement `POST /api/v1/accounts/list`.
+19. Implement `POST /api/v1/accounts/balance/get`.
+20. Implement `POST /api/v1/accounts/owner/get` as client-facing destination lookup endpoint.
+21. Implement `POST /api/v1/accounts/close`.
+22. Implement `POST /api/v1/account/open` for closed account/profile reopen.
+23. Prevent closing account if ledger balance is not zero.
+24. Add tests for max profile count.
+25. Add tests for account close, reopen, and profile edit rules.
 
 Engineering focus:
 

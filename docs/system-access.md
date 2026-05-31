@@ -112,6 +112,7 @@ Rules:
 | Account | `POST /api/v1/accounts/balance/get` | `USER` | User gets balance only for own account. |
 | Account | `POST /api/v1/profiles/list` | `USER` | User sees only own profiles. |
 | Account | `POST /api/v1/profiles/create` | `USER` | User can create up to 5 profiles. |
+| Account | `POST /api/v1/profiles/edit` | `USER` | User can edit only own active profile metadata. |
 | Account | `POST /api/v1/profiles/active/set` | `USER` | User can activate only own profile. |
 | Account | `POST /api/v1/accounts/owner/get` | `USER` | Client-facing transfer destination lookup with non-sensitive output only. |
 | Card | `POST /api/v1/cards/list` | `USER` | User sees only own cards. |

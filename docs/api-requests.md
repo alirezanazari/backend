@@ -26,6 +26,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Account | `POST /api/v1/accounts/balance/get` | Required | Get authoritative account balance through ledger. |
 | Account | `POST /api/v1/profiles/list` | Required | List profiles related to an owned account number. |
 | Account | `POST /api/v1/profiles/create` | Required | Create an additional user profile. |
+| Account | `POST /api/v1/profiles/edit` | Required | Edit profile display name and image. |
 | Account | `POST /api/v1/profiles/active/set` | Required | Set active profile for current user. |
 | Account | `POST /api/v1/accounts/owner/get` | Required | Lookup non-sensitive transfer destination display info. |
 | Card | `POST /api/v1/cards/list` | Required | List cards for current user/profile. |
@@ -537,6 +538,37 @@ Important rules:
 - Additional profiles must belong to the authenticated user.
 - Profile creation should not create unrelated accounts unless business rules require it.
 - Profile creation must be audited.
+
+### POST /api/v1/profiles/edit
+
+Fields: [See fields](./api-fields.md#post-apiv1profilesedit)
+
+Owner:
+
+```text
+account-service
+```
+
+Purpose:
+
+```text
+edit profile display name and image
+```
+
+Authentication:
+
+```text
+required
+```
+
+Important rules:
+
+- User can edit only their own profile.
+- Only active profiles can be edited.
+- Only `displayName` and `image` are editable.
+- `displayName` is trimmed before storage.
+- `image: null` clears the stored profile image.
+- Normalized display name must remain unique for the same user and profile type.
 
 ### POST /api/v1/profiles/active/set
 

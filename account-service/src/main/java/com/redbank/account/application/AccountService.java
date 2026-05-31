@@ -211,9 +211,7 @@ public class AccountService {
     }
 
     @Transactional
-    public EditProfileResponse editProfile(
-        String authorizationHeader, EditProfileRequest request
-    ) {
+    public EditProfileResponse editProfile(String authorizationHeader, EditProfileRequest request) {
         VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
         UUID profileId = parseProfileId(request.profileId());
         ProfileRecord profile = profileRepository.findById(profileId)
@@ -225,24 +223,33 @@ public class AccountService {
         }
 
         Instant now = clock.instant();
-        ProfileRecord newProfile = profile.update(
-            request.displayName().trim(), 
-            normalizeDisplayName(request.displayName()), 
-            request.image().lightUrl(), 
-            request.image().darkUrl(), 
-            request.image().alt()
+        String displayName = request.displayName().trim();
+        ProfileRecord updatedProfile = profile.withEditableFields(
+                displayName,
+                normalizeDisplayName(displayName),
+                imageLightUrl(request.image()),
+                imageDarkUrl(request.image()),
+                imageAlt(request.image()),
+                now
         );
 
-        if (profileRepository.existsActiveByUserIdAndTypeAndDisplayNameNormalized(
+        if (profileRepository.existsByUserIdAndTypeAndDisplayNameNormalizedAndIdNot(
                 token.userId(),
-                newProfile.type(),
-                newProfile.displayNameNormalized()
+                updatedProfile.type(),
+                updatedProfile.displayNameNormalized(),
+                updatedProfile.id()
         )) {
             throw new AccountConflictException("Profile already exists, use different name");
         }
 
-        profileRepository.edit(newProfile, now);
-        return new EditProfileResponse(toProfileSummary(newProfile));
+        try {
+            if (!profileRepository.edit(token.userId(), updatedProfile, now)) {
+                throw new AccountNotFoundException("Profile was not found");
+            }
+        } catch (DataIntegrityViolationException exception) {
+            throw new AccountConflictException("Profile already exists, use different name");
+        }
+        return new EditProfileResponse(toProfileSummary(updatedProfile));
     }
 
     public ListAccountsResponse listAccounts(

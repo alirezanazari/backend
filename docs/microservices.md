@@ -99,6 +99,7 @@ POST /api/v1/accounts/list
 POST /api/v1/accounts/balance/get
 POST /api/v1/profiles/create
 POST /api/v1/profiles/list
+POST /api/v1/profiles/edit
 POST /api/v1/profiles/active/set
 POST /api/v1/accounts/owner/get
 ```

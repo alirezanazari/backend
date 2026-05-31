@@ -608,6 +608,24 @@ Response:
 | --- | --- | --- | --- |
 | `profile` | `ProfileSummary` | Yes | Created profile. |
 
+### POST /api/v1/profiles/edit
+
+Request: [See request details](./api-requests.md#post-apiv1profilesedit)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `profileId` | `String` | Yes | Profile to edit. |
+| `displayName` | `String` | Yes | New display name. Stored trimmed. |
+| `image` | `Image` | No | New profile image. Send `null` to clear image. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `profile` | `ProfileSummary` | Yes | Edited profile. |
+
 ### POST /api/v1/profiles/active/set
 
 Request: [See request details](./api-requests.md#post-apiv1profilesactiveset)

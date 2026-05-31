@@ -91,6 +91,29 @@ public class ProfileRepository {
         return count != null && count > 0;
     }
 
+    public boolean existsByUserIdAndTypeAndDisplayNameNormalizedAndIdNot(
+            UUID userId,
+            ProfileType type,
+            String displayNameNormalized,
+            UUID excludedProfileId
+    ) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM profiles
+                        WHERE user_id = ?
+                          AND type = ?
+                          AND display_name_normalized = ?
+                          AND id <> ?
+                        """,
+                Integer.class,
+                userId,
+                type.name(),
+                displayNameNormalized,
+                excludedProfileId
+        );
+        return count != null && count > 0;
+    }
+
     public Optional<ProfileRecord> findById(UUID id) {
         return jdbcTemplate.query("""
                         SELECT id, user_id, selected_job_id, type, display_name, display_name_normalized, image_light_url,
@@ -166,21 +189,23 @@ public class ProfileRepository {
         );
     }
 
-    public void edit(ProfileRecord profile, Instant updateAt) {
-        jdbcTemplate.update("""
+    public boolean edit(UUID userId, ProfileRecord profile, Instant updatedAt) {
+        int updated = jdbcTemplate.update("""
                         UPDATE profiles
                         SET display_name = ?, display_name_normalized = ?, image_light_url = ?,
                             image_dark_url = ?, image_alt = ?, updated_at = ?
-                        WHERE id = ?
+                        WHERE user_id = ? AND id = ?
                         """,
                 profile.displayName(),
                 profile.displayNameNormalized(),
                 profile.imageLightUrl(),
                 profile.imageDarkUrl(),
                 profile.imageAlt(),
-                Timestamp.from(updateAt),
+                Timestamp.from(updatedAt),
+                userId,
                 profile.id()
         );
+        return updated == 1;
     }
 
     public void close(ProfileRecord profile, Instant closedAt) {
