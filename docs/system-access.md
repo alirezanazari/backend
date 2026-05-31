@@ -105,16 +105,16 @@ Rules:
 | IAM | `POST /api/v1/iam/login` | `PUBLIC` | Returns user token or device verification requirement. |
 | IAM | `POST /api/v1/iam/device-verify` | `ONBOARDING` | Requires limited token or login challenge context. |
 | IAM | `POST /api/v1/iam/logout` | `USER` | Ends current client session/audit state. |
-| Account | `POST /api/v1/accounts/register` | `ONBOARDING` | Creates personal profile and default saving account. |
-| Account | `POST /api/v1/accounts/close` | `USER` | User can close only owned accounts. |
+| Account | `POST /api/v1/account/register` | `ONBOARDING` | Creates personal profile and default saving account. |
+| Account | `POST /api/v1/account/close` | `USER` | User can close only owned accounts. |
 | Account | `POST /api/v1/account/open` | `USER` | User can reopen only own closed account/profile. |
-| Account | `POST /api/v1/accounts/list` | `USER` | User sees only own accounts. |
-| Account | `POST /api/v1/accounts/balance/get` | `USER` | User gets balance only for own account. |
-| Account | `POST /api/v1/profiles/list` | `USER` | User sees only own profiles. |
-| Account | `POST /api/v1/profiles/create` | `USER` | User can create up to 5 profiles. |
-| Account | `POST /api/v1/profiles/edit` | `USER` | User can edit only own active profile metadata. |
-| Account | `POST /api/v1/profiles/active/set` | `USER` | User can activate only own profile. |
-| Account | `POST /api/v1/accounts/owner/get` | `USER` | Client-facing transfer destination lookup with non-sensitive output only. |
+| Account | `POST /api/v1/account/list` | `USER` | User sees only own accounts. |
+| Account | `POST /api/v1/account/balance/get` | `USER` | User gets balance only for own account. |
+| Account | `POST /api/v1/profile/list` | `USER` | User sees only own profiles. |
+| Account | `POST /api/v1/profile/create` | `USER` | User can create up to 5 profiles. |
+| Account | `POST /api/v1/profile/edit` | `USER` | User can edit only own active profile metadata. |
+| Account | `POST /api/v1/profile/active/set` | `USER` | User can activate only own profile. |
+| Account | `POST /api/v1/account/owner/get` | `USER` | Client-facing transfer destination lookup with non-sensitive output only. |
 | Card | `POST /api/v1/cards/list` | `USER` | User sees only own cards. |
 | Card | `POST /api/v1/cards/order` | `USER` | User orders eligible card. |
 | Card | `POST /api/v1/card/freeze` | `USER` | User freezes own card. |

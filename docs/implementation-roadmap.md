@@ -190,7 +190,7 @@ Small steps:
 3. Add Flyway.
 4. Create `profiles` table.
 5. Create `bank_accounts` table.
-6. Implement `POST /api/v1/accounts/register`.
+6. Implement `POST /api/v1/account/register`.
 7. Create personal profile automatically.
 8. Validate selected `jobId` exists in KYC job list.
 9. Save selected `jobId` on created profile/account record.
@@ -198,14 +198,14 @@ Small steps:
 11. Auto-generate 18-digit account number.
 12. Auto-generate IBAN.
 13. Return profile and account response.
-14. Implement `POST /api/v1/profiles/create`.
-15. Implement `POST /api/v1/profiles/list`.
-16. Implement `POST /api/v1/profiles/edit`.
-17. Implement `POST /api/v1/profiles/active/set`.
-18. Implement `POST /api/v1/accounts/list`.
-19. Implement `POST /api/v1/accounts/balance/get`.
-20. Implement `POST /api/v1/accounts/owner/get` as client-facing destination lookup endpoint.
-21. Implement `POST /api/v1/accounts/close`.
+14. Implement `POST /api/v1/profile/create`.
+15. Implement `POST /api/v1/profile/list`.
+16. Implement `POST /api/v1/profile/edit`.
+17. Implement `POST /api/v1/profile/active/set`.
+18. Implement `POST /api/v1/account/list`.
+19. Implement `POST /api/v1/account/balance/get`.
+20. Implement `POST /api/v1/account/owner/get` as client-facing destination lookup endpoint.
+21. Implement `POST /api/v1/account/close`.
 22. Implement `POST /api/v1/account/open` for closed account/profile reopen.
 23. Prevent closing account if ledger balance is not zero.
 24. Add tests for max profile count.
@@ -491,7 +491,7 @@ Small steps:
 1. Confirm `api-gateway` is the only public entry point.
 2. Configure routes for every service.
 3. Route `/api/v1/iam/**` to IAM.
-4. Route `/api/v1/accounts/**` to account-service.
+4. Route `/api/v1/account/**` to account-service.
 5. Route `/api/v1/cards/**` to card-service.
 6. Route `/api/v1/kyc/**` to kyc-service.
 7. Route `/api/v1/pfm/**` to pfm-service.

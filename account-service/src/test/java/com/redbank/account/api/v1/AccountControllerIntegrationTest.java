@@ -302,7 +302,7 @@ class AccountControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions register(UUID userId) throws Exception {
-        return mockMvc.perform(post("/api/v1/accounts/register")
+        return mockMvc.perform(post("/api/v1/account/register")
                 .header("Authorization", "Bearer " + onboardingToken(userId))
                 .contentType("application/json")
                 .content("""
@@ -326,7 +326,7 @@ class AccountControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions createProfile(String token, String displayName) throws Exception {
-        return mockMvc.perform(post("/api/v1/profiles/create")
+        return mockMvc.perform(post("/api/v1/profile/create")
                 .header("Authorization", "Bearer " + token)
                 .contentType("application/json")
                 .content("""
@@ -354,7 +354,7 @@ class AccountControllerIntegrationTest {
             String displayName,
             String imageJson
     ) throws Exception {
-        return mockMvc.perform(post("/api/v1/profiles/edit")
+        return mockMvc.perform(post("/api/v1/profile/edit")
                 .header("Authorization", "Bearer " + token)
                 .contentType("application/json")
                 .content("""
@@ -381,7 +381,7 @@ class AccountControllerIntegrationTest {
             String profileId,
             String accountNumber
     ) throws Exception {
-        return mockMvc.perform(post("/api/v1/accounts/close")
+        return mockMvc.perform(post("/api/v1/account/close")
                 .header("Authorization", "Bearer " + token)
                 .contentType("application/json")
                 .content("""
@@ -431,7 +431,7 @@ class AccountControllerIntegrationTest {
             String accountNumber,
             boolean includeInactive
     ) throws Exception {
-        return mockMvc.perform(post("/api/v1/profiles/list")
+        return mockMvc.perform(post("/api/v1/profile/list")
                 .header("Authorization", "Bearer " + token)
                 .contentType("application/json")
                 .content("""
@@ -453,7 +453,7 @@ class AccountControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions internalCompletion(UUID userId) throws Exception {
-        return mockMvc.perform(post("/internal/v1/accounts/completion/get")
+        return mockMvc.perform(post("/internal/v1/account/completion/get")
                 .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
                 .contentType("application/json")
                 .content("""

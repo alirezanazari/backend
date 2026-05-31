@@ -465,9 +465,9 @@ Response:
 
 ## Account
 
-### POST /api/v1/accounts/register
+### POST /api/v1/account/register
 
-Request: [See request details](./api-requests.md#post-apiv1accountsregister)
+Request: [See request details](./api-requests.md#post-apiv1accountregister)
 
 Request:
 
@@ -488,9 +488,9 @@ Response:
 | `ledgerAccountCreated` | `Boolean` | Yes | Whether ledger account was created. |
 | `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Next onboarding state. |
 
-### POST /api/v1/accounts/close
+### POST /api/v1/account/close
 
-Request: [See request details](./api-requests.md#post-apiv1accountsclose)
+Request: [See request details](./api-requests.md#post-apiv1accountclose)
 
 Request:
 
@@ -514,12 +514,6 @@ Response:
 
 Request: [See request details](./api-requests.md#post-apiv1accountopen)
 
-Alias:
-
-```text
-POST /api/v1/accounts/open
-```
-
 Request:
 
 | Field | Type | Required | Description |
@@ -536,9 +530,9 @@ Response:
 | `openedAt` | `Instant` | Yes | Reopen timestamp. |
 | `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Next login/completion state. |
 
-### POST /api/v1/accounts/list
+### POST /api/v1/account/list
 
-Request: [See request details](./api-requests.md#post-apiv1accountslist)
+Request: [See request details](./api-requests.md#post-apiv1accountlist)
 
 Request:
 
@@ -554,9 +548,9 @@ Response:
 | --- | --- | --- | --- |
 | `accounts` | `List<AccountSummary>` | Yes | Accounts visible to user/profile. |
 
-### POST /api/v1/accounts/balance/get
+### POST /api/v1/account/balance/get
 
-Request: [See request details](./api-requests.md#post-apiv1accountsbalanceget)
+Request: [See request details](./api-requests.md#post-apiv1accountbalanceget)
 
 Request:
 
@@ -572,9 +566,9 @@ Response:
 | `iban` | `String` | Yes | IBAN. |
 | `balance` | `BalanceSummary` | Yes | Ledger-backed balance. |
 
-### POST /api/v1/profiles/list
+### POST /api/v1/profile/list
 
-Request: [See request details](./api-requests.md#post-apiv1profileslist)
+Request: [See request details](./api-requests.md#post-apiv1profilelist)
 
 Request:
 
@@ -590,9 +584,9 @@ Response:
 | `profiles` | `List<ProfileSummary>` | Yes | User profiles. |
 | `activeProfileId` | `String` | No | Active profile ID. |
 
-### POST /api/v1/profiles/create
+### POST /api/v1/profile/create
 
-Request: [See request details](./api-requests.md#post-apiv1profilescreate)
+Request: [See request details](./api-requests.md#post-apiv1profilecreate)
 
 Request:
 
@@ -608,9 +602,9 @@ Response:
 | --- | --- | --- | --- |
 | `profile` | `ProfileSummary` | Yes | Created profile. |
 
-### POST /api/v1/profiles/edit
+### POST /api/v1/profile/edit
 
-Request: [See request details](./api-requests.md#post-apiv1profilesedit)
+Request: [See request details](./api-requests.md#post-apiv1profileedit)
 
 Request:
 
@@ -626,9 +620,9 @@ Response:
 | --- | --- | --- | --- |
 | `profile` | `ProfileSummary` | Yes | Edited profile. |
 
-### POST /api/v1/profiles/active/set
+### POST /api/v1/profile/active/set
 
-Request: [See request details](./api-requests.md#post-apiv1profilesactiveset)
+Request: [See request details](./api-requests.md#post-apiv1profileactiveset)
 
 Request:
 
@@ -642,9 +636,9 @@ Response:
 | --- | --- | --- | --- |
 | `activeProfile` | `ProfileSummary` | Yes | New active profile. |
 
-### POST /api/v1/accounts/owner/get
+### POST /api/v1/account/owner/get
 
-Request: [See request details](./api-requests.md#post-apiv1accountsownerget)
+Request: [See request details](./api-requests.md#post-apiv1accountownerget)
 
 Request:
 

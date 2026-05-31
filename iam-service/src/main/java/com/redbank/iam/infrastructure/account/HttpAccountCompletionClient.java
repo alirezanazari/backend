@@ -29,7 +29,7 @@ public class HttpAccountCompletionClient implements AccountCompletionClient {
     public AccountCompletionResult getCompletion(UUID userId) {
         try {
             ApiResponse<AccountCompletionResponse> response = restClient.post()
-                    .uri("/internal/v1/accounts/completion/get")
+                    .uri("/internal/v1/account/completion/get")
                     .header(INTERNAL_SERVICE_TOKEN_HEADER, properties.internalServiceTokenSecret())
                     .body(new AccountCompletionRequest(userId.toString()))
                     .retrieve()

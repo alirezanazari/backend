@@ -340,7 +340,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"jobId\":\"{{jobId}}\",\"profileDisplayName\":\"Personal\",\"profileImage\":null,\"currency\":\"IRR\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/accounts/register",
+            "url": "{{baseUrl}}/api/v1/account/register",
             "description": "Creates the personal profile and default saving account. The collection test stores profileId, accountNumber, and iban."
           }
         },
@@ -366,7 +366,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"types\":[\"SAVING\"],\"statuses\":[\"ACTIVE\"],\"includeBalance\":true}}"
             },
-            "url": "{{baseUrl}}/api/v1/accounts/list"
+            "url": "{{baseUrl}}/api/v1/account/list"
           }
         },
         {
@@ -391,7 +391,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/accounts/balance/get"
+            "url": "{{baseUrl}}/api/v1/account/balance/get"
           }
         },
         {
@@ -416,7 +416,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"reasonText\":\"Requested from Postman collection\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/accounts/close",
+            "url": "{{baseUrl}}/api/v1/account/close",
             "description": "Only succeeds when the ledger-backed balance is zero."
           }
         },
@@ -468,7 +468,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"destinationType\":\"ACCOUNT\",\"accountNumber\":\"{{accountNumber}}\",\"iban\":null,\"cardNumber\":null}}"
             },
-            "url": "{{baseUrl}}/api/v1/accounts/owner/get"
+            "url": "{{baseUrl}}/api/v1/account/owner/get"
           }
         }
       ]
@@ -498,7 +498,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"type\":\"BUSINESS\",\"displayName\":\"Business {{runSuffix}}\",\"image\":null}}"
             },
-            "url": "{{baseUrl}}/api/v1/profiles/create",
+            "url": "{{baseUrl}}/api/v1/profile/create",
             "description": "Creates an additional profile. The service currently limits users to five profiles."
           }
         },
@@ -524,7 +524,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"profileId\":\"{{profileId}}\",\"displayName\":\"Personal {{runSuffix}}\",\"image\":null}}"
             },
-            "url": "{{baseUrl}}/api/v1/profiles/edit",
+            "url": "{{baseUrl}}/api/v1/profile/edit",
             "description": "Edits profile display name and image. Send image:null to clear the current profile image."
           }
         },
@@ -550,7 +550,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"includeInactive\":false}}"
             },
-            "url": "{{baseUrl}}/api/v1/profiles/list"
+            "url": "{{baseUrl}}/api/v1/profile/list"
           }
         },
         {
@@ -575,7 +575,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"profileId\":\"{{profileId}}\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/profiles/active/set"
+            "url": "{{baseUrl}}/api/v1/profile/active/set"
           }
         }
       ]

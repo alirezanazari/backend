@@ -19,16 +19,16 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | IAM | `POST /api/v1/iam/login` | Public | Authenticate user with username and password. |
 | IAM | `POST /api/v1/iam/device-verify` | Conditional | Verify device using 6-digit OTP. |
 | IAM | `POST /api/v1/iam/logout` | Required | End current client login session. |
-| Account | `POST /api/v1/accounts/register` | Required | Create personal profile and default saving account. |
-| Account | `POST /api/v1/accounts/close` | Required | Close an owned account when allowed. |
+| Account | `POST /api/v1/account/register` | Required | Create personal profile and default saving account. |
+| Account | `POST /api/v1/account/close` | Required | Close an owned account when allowed. |
 | Account | `POST /api/v1/account/open` | Required | Reopen a closed personal account/profile when login requires reopening. |
-| Account | `POST /api/v1/accounts/list` | Required | List accounts for current user/profile. |
-| Account | `POST /api/v1/accounts/balance/get` | Required | Get authoritative account balance through ledger. |
-| Account | `POST /api/v1/profiles/list` | Required | List profiles related to an owned account number. |
-| Account | `POST /api/v1/profiles/create` | Required | Create an additional user profile. |
-| Account | `POST /api/v1/profiles/edit` | Required | Edit profile display name and image. |
-| Account | `POST /api/v1/profiles/active/set` | Required | Set active profile for current user. |
-| Account | `POST /api/v1/accounts/owner/get` | Required | Lookup non-sensitive transfer destination display info. |
+| Account | `POST /api/v1/account/list` | Required | List accounts for current user/profile. |
+| Account | `POST /api/v1/account/balance/get` | Required | Get authoritative account balance through ledger. |
+| Account | `POST /api/v1/profile/list` | Required | List profiles related to an owned account number. |
+| Account | `POST /api/v1/profile/create` | Required | Create an additional user profile. |
+| Account | `POST /api/v1/profile/edit` | Required | Edit profile display name and image. |
+| Account | `POST /api/v1/profile/active/set` | Required | Set active profile for current user. |
+| Account | `POST /api/v1/account/owner/get` | Required | Lookup non-sensitive transfer destination display info. |
 | Card | `POST /api/v1/cards/list` | Required | List cards for current user/profile. |
 | Card | `POST /api/v1/cards/order` | Required | Order a new card. |
 | Card | `POST /api/v1/card/freeze` | Required | Temporarily freeze user's card. |
@@ -200,7 +200,7 @@ Important rules:
 Expected next step:
 
 ```text
-POST /api/v1/accounts/register
+POST /api/v1/account/register
 ```
 
 ### POST /api/v1/iam/login
@@ -305,9 +305,9 @@ Important rules:
 
 ## Account Requests
 
-### POST /api/v1/accounts/register
+### POST /api/v1/account/register
 
-Fields: [See fields](./api-fields.md#post-apiv1accountsregister)
+Fields: [See fields](./api-fields.md#post-apiv1accountregister)
 
 Owner:
 
@@ -351,9 +351,9 @@ Expected related actions:
 - Create ledger account.
 - Create default card.
 
-### POST /api/v1/accounts/close
+### POST /api/v1/account/close
 
-Fields: [See fields](./api-fields.md#post-apiv1accountsclose)
+Fields: [See fields](./api-fields.md#post-apiv1accountclose)
 
 Owner:
 
@@ -384,12 +384,6 @@ Important rules:
 
 ### POST /api/v1/account/open
 
-Alias:
-
-```text
-POST /api/v1/accounts/open
-```
-
 Fields: [See fields](./api-fields.md#post-apiv1accountopen)
 
 Owner:
@@ -418,9 +412,9 @@ Important rules:
 - Status history should be stored for the account and, when applicable, the profile.
 - After reopen, login completion should move from `ACCOUNT_RE_OPEN_REQUIRED` to the next completion state.
 
-### POST /api/v1/accounts/list
+### POST /api/v1/account/list
 
-Fields: [See fields](./api-fields.md#post-apiv1accountslist)
+Fields: [See fields](./api-fields.md#post-apiv1accountlist)
 
 Owner:
 
@@ -448,9 +442,9 @@ Important rules:
 - Account balance, if returned, must come from ledger or ledger-synchronized read model.
 - User must not see accounts owned by another user/profile.
 
-### POST /api/v1/accounts/balance/get
+### POST /api/v1/account/balance/get
 
-Fields: [See fields](./api-fields.md#post-apiv1accountsbalanceget)
+Fields: [See fields](./api-fields.md#post-apiv1accountbalanceget)
 
 Owner:
 
@@ -478,9 +472,9 @@ Important rules:
 - Account-service does not calculate financial balance by editing account rows.
 - Closed or inactive accounts may have restricted balance visibility based on business rules.
 
-### POST /api/v1/profiles/list
+### POST /api/v1/profile/list
 
-Fields: [See fields](./api-fields.md#post-apiv1profileslist)
+Fields: [See fields](./api-fields.md#post-apiv1profilelist)
 
 Owner:
 
@@ -509,9 +503,9 @@ Important rules:
 - Only one active profile should be selected at a time.
 - Profile ownership must be validated against JWT user identity.
 
-### POST /api/v1/profiles/create
+### POST /api/v1/profile/create
 
-Fields: [See fields](./api-fields.md#post-apiv1profilescreate)
+Fields: [See fields](./api-fields.md#post-apiv1profilecreate)
 
 Owner:
 
@@ -539,9 +533,9 @@ Important rules:
 - Profile creation should not create unrelated accounts unless business rules require it.
 - Profile creation must be audited.
 
-### POST /api/v1/profiles/edit
+### POST /api/v1/profile/edit
 
-Fields: [See fields](./api-fields.md#post-apiv1profilesedit)
+Fields: [See fields](./api-fields.md#post-apiv1profileedit)
 
 Owner:
 
@@ -570,9 +564,9 @@ Important rules:
 - `image: null` clears the stored profile image.
 - Normalized display name must remain unique for the same user and profile type.
 
-### POST /api/v1/profiles/active/set
+### POST /api/v1/profile/active/set
 
-Fields: [See fields](./api-fields.md#post-apiv1profilesactiveset)
+Fields: [See fields](./api-fields.md#post-apiv1profileactiveset)
 
 Owner:
 
@@ -599,9 +593,9 @@ Important rules:
 - Active profile affects account list, card list, PFM, and transfer context.
 - Services must still validate profile ownership; client context alone is not trusted.
 
-### POST /api/v1/accounts/owner/get
+### POST /api/v1/account/owner/get
 
-Fields: [See fields](./api-fields.md#post-apiv1accountsownerget)
+Fields: [See fields](./api-fields.md#post-apiv1accountownerget)
 
 Owner:
 
@@ -1199,7 +1193,7 @@ Important rules:
 - Transfer method must be enabled by feature flag.
 - Source ownership must be validated.
 - Destination must be validated.
-- Destination lookup can use `POST /api/v1/accounts/owner/get` before transfer creation.
+- Destination lookup can use `POST /api/v1/account/owner/get` before transfer creation.
 - Internal transfer is supported first.
 - External-compatible design is required for later.
 - Real debit and credit happen in ledger-service.

@@ -39,7 +39,7 @@ public class AccountController {
         this.accountService = accountService;
     }
 
-    @PostMapping("/api/v1/accounts/register")
+    @PostMapping("/api/v1/account/register")
     public ResponseEntity<ApiResponse<RegisterAccountResponse>> register(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<RegisterAccountRequest> request
@@ -49,7 +49,7 @@ public class AccountController {
                 .body(ApiResponse.created(request.context().requestId(), response.profile().profileId(), response));
     }
 
-    @PostMapping("/api/v1/accounts/list")
+    @PostMapping("/api/v1/account/list")
     public ResponseEntity<ApiResponse<ListAccountsResponse>> listAccounts(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<ListAccountsRequest> request
@@ -58,7 +58,7 @@ public class AccountController {
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), profileId(request), response));
     }
 
-    @PostMapping("/api/v1/accounts/balance/get")
+    @PostMapping("/api/v1/account/balance/get")
     public ResponseEntity<ApiResponse<GetAccountBalanceResponse>> getBalance(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<GetAccountBalanceRequest> request
@@ -67,7 +67,7 @@ public class AccountController {
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), profileId(request), response));
     }
 
-    @PostMapping("/api/v1/accounts/close")
+    @PostMapping("/api/v1/account/close")
     public ResponseEntity<ApiResponse<CloseAccountResponse>> closeAccount(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<CloseAccountRequest> request
@@ -76,7 +76,7 @@ public class AccountController {
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), profileId(request), response));
     }
 
-    @PostMapping({"/api/v1/accounts/open", "/api/v1/account/open"})
+    @PostMapping("/api/v1/account/open")
     public ResponseEntity<ApiResponse<OpenAccountResponse>> openAccount(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<OpenAccountRequest> request
@@ -85,7 +85,7 @@ public class AccountController {
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), response.profile().profileId(), response));
     }
 
-    @PostMapping("/api/v1/accounts/owner/get")
+    @PostMapping("/api/v1/account/owner/get")
     public ResponseEntity<ApiResponse<GetAccountOwnerResponse>> getOwner(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<GetAccountOwnerRequest> request
@@ -94,7 +94,7 @@ public class AccountController {
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), profileId(request), response));
     }
 
-    @PostMapping("/api/v1/profiles/create")
+    @PostMapping("/api/v1/profile/create")
     public ResponseEntity<ApiResponse<CreateProfileResponse>> createProfile(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<CreateProfileRequest> request
@@ -104,7 +104,7 @@ public class AccountController {
                 .body(ApiResponse.created(request.context().requestId(), profileId(request), response));
     }
 
-    @PostMapping("/api/v1/profiles/list")
+    @PostMapping("/api/v1/profile/list")
     public ResponseEntity<ApiResponse<ListProfilesResponse>> listProfiles(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<ListProfilesRequest> request
@@ -113,7 +113,7 @@ public class AccountController {
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), response.activeProfileId(), response));
     }
 
-    @PostMapping("/api/v1/profiles/active/set")
+    @PostMapping("/api/v1/profile/active/set")
     public ResponseEntity<ApiResponse<SetActiveProfileResponse>> setActiveProfile(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<SetActiveProfileRequest> request
@@ -126,7 +126,7 @@ public class AccountController {
         ));
     }
 
-    @PostMapping("/api/v1/profiles/edit")
+    @PostMapping("/api/v1/profile/edit")
     public ResponseEntity<ApiResponse<EditProfileResponse>> editProfile(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<EditProfileRequest> request

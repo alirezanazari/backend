@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/internal/v1/accounts")
+@RequestMapping("/internal/v1/account")
 public class InternalAccountController {
     public static final String INTERNAL_SERVICE_TOKEN_HEADER = "X-Internal-Service-Token";
 

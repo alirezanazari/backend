@@ -220,7 +220,7 @@ sequenceDiagram
   C->>IAM: POST /api/v1/iam/register
   IAM-->>C: limited JWT + ACCOUNT_REQUIRED
 
-  C->>ACC: POST /api/v1/accounts/register
+  C->>ACC: POST /api/v1/account/register
   ACC->>ACC: create personal profile
   ACC->>ACC: create default saving account
   ACC-->>CARD: request default card creation

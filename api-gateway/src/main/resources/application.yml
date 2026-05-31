@@ -13,7 +13,7 @@ spring:
             - id: account-service
               uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
               predicates:
-                - Path=/api/v1/accounts/**,/api/v1/account/**,/api/v1/profiles/**
+                - Path=/api/v1/account/**,/api/v1/profile/**
 
 server:
   port: ${SERVER_PORT:8080}

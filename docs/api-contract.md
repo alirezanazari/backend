@@ -31,7 +31,7 @@ Public business APIs use `POST` so every request can carry the full `context` bo
 This applies to reads and lists too:
 
 ```text
-POST /api/v1/accounts/list
+POST /api/v1/account/list
 POST /api/v1/cards/list
 POST /api/v1/transfers/recent/list
 ```

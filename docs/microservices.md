@@ -92,16 +92,16 @@ Owns:
 Main APIs:
 
 ```text
-POST /api/v1/accounts/register
-POST /api/v1/accounts/close
+POST /api/v1/account/register
+POST /api/v1/account/close
 POST /api/v1/account/open
-POST /api/v1/accounts/list
-POST /api/v1/accounts/balance/get
-POST /api/v1/profiles/create
-POST /api/v1/profiles/list
-POST /api/v1/profiles/edit
-POST /api/v1/profiles/active/set
-POST /api/v1/accounts/owner/get
+POST /api/v1/account/list
+POST /api/v1/account/balance/get
+POST /api/v1/profile/create
+POST /api/v1/profile/list
+POST /api/v1/profile/edit
+POST /api/v1/profile/active/set
+POST /api/v1/account/owner/get
 ```
 
 Important rule:
