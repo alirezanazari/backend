@@ -4,6 +4,8 @@ import com.redbank.account.api.v1.dto.CloseAccountRequest;
 import com.redbank.account.api.v1.dto.CloseAccountResponse;
 import com.redbank.account.api.v1.dto.CreateProfileRequest;
 import com.redbank.account.api.v1.dto.CreateProfileResponse;
+import com.redbank.account.api.v1.dto.EditProfileRequest;
+import com.redbank.account.api.v1.dto.EditProfileResponse;
 import com.redbank.account.api.v1.dto.GetAccountBalanceRequest;
 import com.redbank.account.api.v1.dto.GetAccountBalanceResponse;
 import com.redbank.account.api.v1.dto.GetAccountOwnerRequest;
@@ -121,6 +123,19 @@ public class AccountController {
                 request.context().requestId(),
                 response.activeProfile().profileId(),
                 response
+        ));
+    }
+
+    @PostMapping("/api/v1/profiles/edit")
+    public ResponseEntity<ApiResponse<EditProfileResponse>> editProfile(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<EditProfileRequest> request
+    ) {
+        EditProfileResponse response = accountService.editProfile(authorizationHeader, request.data());
+        return ResponseEntity.ok(ApiResponse.success(
+            request.context().requestId(), 
+            request.data().profileId(), 
+            response
         ));
     }
 

@@ -166,6 +166,23 @@ public class ProfileRepository {
         );
     }
 
+    public void edit(ProfileRecord profile, Instant updateAt) {
+        jdbcTemplate.update("""
+                        UPDATE profiles
+                        SET display_name = ?, display_name_normalized = ?, image_light_url = ?,
+                            image_dark_url = ?, image_alt = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                profile.displayName(),
+                profile.displayNameNormalized(),
+                profile.imageLightUrl(),
+                profile.imageDarkUrl(),
+                profile.imageAlt(),
+                Timestamp.from(updateAt),
+                profile.id()
+        );
+    }
+
     public void close(ProfileRecord profile, Instant closedAt) {
         jdbcTemplate.update("""
                         UPDATE profiles

@@ -19,4 +19,13 @@ public record ProfileRecord(
         Instant createdAt,
         Instant updatedAt
 ) {
+        public ProfileRecord update(
+                String displayName,
+                String displayNameNormalized,
+                String imageLightUrl,
+                String imageDarkUrl,
+                String imageAlt
+        ) {
+                return new ProfileRecord(id, userId, selectedJobId, type, displayName, displayNameNormalized, imageLightUrl, imageDarkUrl, imageAlt, status, active, createdAt, updatedAt);
+        }
 }

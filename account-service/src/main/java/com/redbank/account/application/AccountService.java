@@ -6,6 +6,8 @@ import com.redbank.account.api.v1.dto.CloseAccountRequest;
 import com.redbank.account.api.v1.dto.CloseAccountResponse;
 import com.redbank.account.api.v1.dto.CreateProfileRequest;
 import com.redbank.account.api.v1.dto.CreateProfileResponse;
+import com.redbank.account.api.v1.dto.EditProfileRequest;
+import com.redbank.account.api.v1.dto.EditProfileResponse;
 import com.redbank.account.api.v1.dto.GetAccountBalanceRequest;
 import com.redbank.account.api.v1.dto.GetAccountBalanceResponse;
 import com.redbank.account.api.v1.dto.GetAccountOwnerRequest;
@@ -206,6 +208,41 @@ public class AccountService {
         ProfileRecord activeProfile = profileRepository.findById(profile.id())
                 .orElseThrow(() -> new AccountNotFoundException("Profile was not found"));
         return new SetActiveProfileResponse(toProfileSummary(activeProfile));
+    }
+
+    @Transactional
+    public EditProfileResponse editProfile(
+        String authorizationHeader, EditProfileRequest request
+    ) {
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        UUID profileId = parseProfileId(request.profileId());
+        ProfileRecord profile = profileRepository.findById(profileId)
+                .filter(candidate -> candidate.userId().equals(token.userId()))
+                .orElseThrow(() -> new AccountNotFoundException("Profile was not found"));
+
+        if (profile.status() != ProfileStatus.ACTIVE) {
+            throw new AccountBusinessRuleException("Profile is inactive");
+        }
+
+        Instant now = clock.instant();
+        ProfileRecord newProfile = profile.update(
+            request.displayName().trim(), 
+            normalizeDisplayName(request.displayName()), 
+            request.image().lightUrl(), 
+            request.image().darkUrl(), 
+            request.image().alt()
+        );
+
+        if (profileRepository.existsActiveByUserIdAndTypeAndDisplayNameNormalized(
+                token.userId(),
+                newProfile.type(),
+                newProfile.displayNameNormalized()
+        )) {
+            throw new AccountConflictException("Profile already exists, use different name");
+        }
+
+        profileRepository.edit(newProfile, now);
+        return new EditProfileResponse(toProfileSummary(newProfile));
     }
 
     public ListAccountsResponse listAccounts(
