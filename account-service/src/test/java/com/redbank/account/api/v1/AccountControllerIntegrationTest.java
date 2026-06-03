@@ -27,9 +27,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,6 +57,9 @@ class AccountControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
     private MutableLedgerBalanceClient ledgerBalanceClient;
 
     @BeforeEach
@@ -77,6 +82,33 @@ class AccountControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.account.iban").value(org.hamcrest.Matchers.startsWith("IR")))
                 .andExpect(jsonPath("$.data.ledgerAccountCreated").value(false))
                 .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_REQUIRED"));
+    }
+
+    @Test
+    void registerStoresLedgerAccountCreationOutboxEvent() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
+
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM outbox_events
+                        WHERE aggregate_type = 'BANK_ACCOUNT'
+                          AND aggregate_id = ?
+                          AND event_type = 'LEDGER_ACCOUNT_CREATE_REQUESTED'
+                          AND status = 'PENDING'
+                          AND payload LIKE ?
+                        """,
+                Integer.class,
+                accountNumber,
+                "%" + accountNumber + "%"
+        );
+        assertThat(count).isEqualTo(1);
     }
 
     @Test

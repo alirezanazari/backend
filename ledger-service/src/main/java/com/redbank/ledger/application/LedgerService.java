@@ -40,6 +40,7 @@ import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class LedgerService {
@@ -47,11 +48,14 @@ public class LedgerService {
     private static final int DEFAULT_PAGE = 0;
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 200;
+    private static final int MAX_OPTIMISTIC_LOCK_ATTEMPTS = 3;
 
     private final LedgerAccountRepository ledgerAccountRepository;
     private final LedgerBalanceRepository ledgerBalanceRepository;
     private final LedgerTransactionRepository ledgerTransactionRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
+    private final LedgerPostingValidator ledgerPostingValidator;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     public LedgerService(
@@ -59,12 +63,15 @@ public class LedgerService {
             LedgerBalanceRepository ledgerBalanceRepository,
             LedgerTransactionRepository ledgerTransactionRepository,
             LedgerEntryRepository ledgerEntryRepository,
+            TransactionTemplate transactionTemplate,
             Clock clock
     ) {
         this.ledgerAccountRepository = ledgerAccountRepository;
         this.ledgerBalanceRepository = ledgerBalanceRepository;
         this.ledgerTransactionRepository = ledgerTransactionRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
+        this.ledgerPostingValidator = new LedgerPostingValidator();
+        this.transactionTemplate = transactionTemplate;
         this.clock = clock;
     }
 
@@ -78,7 +85,6 @@ public class LedgerService {
                 .orElseGet(() -> createNewAccount(request.externalAccountNumber(), ownerUserId, currency));
     }
 
-    @Transactional
     public LedgerTransactionResponse postInternalTransfer(InternalTransferRequest request) {
         String referenceId = normalizeRequired(request.referenceId(), "data.referenceId", "REFERENCE_ID_REQUIRED");
         String idempotencyKey = normalizeRequired(request.idempotencyKey(), "data.idempotencyKey", "IDEMPOTENCY_KEY_REQUIRED");
@@ -88,70 +94,83 @@ public class LedgerService {
             throw new LedgerBusinessRuleException("Source and destination accounts must be different");
         }
 
-        LedgerTransactionResponse duplicate = duplicateTransferResponse(referenceId, idempotencyKey);
-        if (duplicate != null) {
-            return duplicate;
-        }
-
-        LedgerAccountRecord source = activeAccount(request.sourceExternalAccountNumber());
-        LedgerAccountRecord destination = activeAccount(request.destinationExternalAccountNumber());
-        validateSameCurrency(source, request.amount().currency(), "Source account currency does not match transfer amount");
-        validateSameCurrency(destination, request.amount().currency(), "Destination account currency does not match transfer amount");
-
-        Instant now = clock.instant();
-        LedgerTransactionRecord transaction = new LedgerTransactionRecord(
-                UUID.randomUUID(),
+        return executePostingWithRetry(
                 LedgerReferenceType.TRANSFER,
                 referenceId,
                 idempotencyKey,
-                LedgerTransactionType.INTERNAL_TRANSFER,
-                LedgerTransactionStatus.POSTED,
-                now,
-                now
-        );
-        List<LedgerEntryRecord> entries = List.of(
-                entry(transaction.id(), source.id(), LedgerDirection.DEBIT, amount, source.currency(), now),
-                entry(transaction.id(), destination.id(), LedgerDirection.CREDIT, amount, destination.currency(), now)
-        );
+                () -> {
+                    LedgerTransactionResponse duplicate = duplicateTransferResponse(referenceId, idempotencyKey);
+                    if (duplicate != null) {
+                        return duplicate;
+                    }
 
-        return postBalancedTransaction(transaction, entries);
+                    LedgerAccountRecord source = activeAccount(request.sourceExternalAccountNumber());
+                    LedgerAccountRecord destination = activeAccount(request.destinationExternalAccountNumber());
+                    validateSameCurrency(source, request.amount().currency(), "Source account currency does not match transfer amount");
+                    validateSameCurrency(destination, request.amount().currency(), "Destination account currency does not match transfer amount");
+
+                    Instant now = clock.instant();
+                    LedgerTransactionRecord transaction = new LedgerTransactionRecord(
+                            UUID.randomUUID(),
+                            LedgerReferenceType.TRANSFER,
+                            referenceId,
+                            idempotencyKey,
+                            LedgerTransactionType.INTERNAL_TRANSFER,
+                            LedgerTransactionStatus.POSTED,
+                            now,
+                            now
+                    );
+                    List<LedgerEntryRecord> entries = List.of(
+                            entry(transaction.id(), source.id(), LedgerDirection.DEBIT, amount, source.currency(), now),
+                            entry(transaction.id(), destination.id(), LedgerDirection.CREDIT, amount, destination.currency(), now)
+                    );
+
+                    return postBalancedTransaction(transaction, entries);
+                }
+        );
     }
 
-    @Transactional
     public LedgerTransactionResponse postReferralReward(ReferralRewardRequest request) {
         String rewardId = normalizeRequired(request.referralRewardId(), "data.referralRewardId", "REFERRAL_REWARD_ID_REQUIRED");
         BigDecimal amount = normalizeAmount(request.amount(), "data.amount");
 
-        LedgerTransactionResponse duplicate = ledgerTransactionRepository
-                .findByReference(LedgerReferenceType.REFERRAL_REWARD, rewardId)
-                .map(this::toTransactionResponse)
-                .orElse(null);
-        if (duplicate != null) {
-            return duplicate;
-        }
-
-        LedgerAccountRecord rewardPool = activeAccount(SYSTEM_REFERRAL_REWARD_ACCOUNT_NUMBER);
-        LedgerAccountRecord referrer = activeAccount(request.referrerExternalAccountNumber());
-        validateSameCurrency(rewardPool, request.amount().currency(), "Reward pool currency does not match reward amount");
-        validateSameCurrency(referrer, request.amount().currency(), "Referrer account currency does not match reward amount");
-
-        Instant now = clock.instant();
-        LedgerTransactionRecord transaction = new LedgerTransactionRecord(
-                UUID.randomUUID(),
+        return executePostingWithRetry(
                 LedgerReferenceType.REFERRAL_REWARD,
                 rewardId,
                 null,
-                LedgerTransactionType.REFERRAL_REWARD,
-                LedgerTransactionStatus.POSTED,
-                now,
-                now
-        );
-        List<LedgerEntryRecord> entries = List.of(
-                entry(transaction.id(), rewardPool.id(), LedgerDirection.DEBIT, amount, rewardPool.currency(), now),
-                entry(transaction.id(), referrer.id(), LedgerDirection.CREDIT, amount, referrer.currency(), now)
-        );
+                () -> {
+                    LedgerTransactionResponse duplicate = ledgerTransactionRepository
+                            .findByReference(LedgerReferenceType.REFERRAL_REWARD, rewardId)
+                            .map(this::toTransactionResponse)
+                            .orElse(null);
+                    if (duplicate != null) {
+                        return duplicate;
+                    }
 
-        return postBalancedTransaction(transaction, entries);
+                    LedgerAccountRecord rewardPool = activeAccount(SYSTEM_REFERRAL_REWARD_ACCOUNT_NUMBER);
+                    LedgerAccountRecord referrer = activeAccount(request.referrerExternalAccountNumber());
+                    validateSameCurrency(rewardPool, request.amount().currency(), "Reward pool currency does not match reward amount");
+                    validateSameCurrency(referrer, request.amount().currency(), "Referrer account currency does not match reward amount");
+
+                    Instant now = clock.instant();
+                    LedgerTransactionRecord transaction = new LedgerTransactionRecord(
+                            UUID.randomUUID(),
+                            LedgerReferenceType.REFERRAL_REWARD,
+                            rewardId,
+                            null,
+                            LedgerTransactionType.REFERRAL_REWARD,
+                            LedgerTransactionStatus.POSTED,
+                            now,
+                            now
+                    );
+                    List<LedgerEntryRecord> entries = List.of(
+                            entry(transaction.id(), rewardPool.id(), LedgerDirection.DEBIT, amount, rewardPool.currency(), now),
+                            entry(transaction.id(), referrer.id(), LedgerDirection.CREDIT, amount, referrer.currency(), now)
+                    );
+
+                    return postBalancedTransaction(transaction, entries);
+                }
+        );
     }
 
     public GetLedgerBalanceResponse getBalance(GetLedgerBalanceRequest request) {
@@ -245,16 +264,8 @@ public class LedgerService {
             List<LedgerEntryRecord> entries
     ) {
         validateBalanced(entries);
-        try {
-            ledgerTransactionRepository.save(transaction);
-        } catch (DataIntegrityViolationException exception) {
-            return ledgerTransactionRepository
-                    .findByReference(transaction.referenceType(), transaction.referenceId())
-                    .map(this::toTransactionResponse)
-                    .orElseThrow(() -> new LedgerConflictException("Duplicate ledger transaction"));
-        }
+        ledgerTransactionRepository.save(transaction);
 
-        // TODO(challenge): Add a bounded retry around optimistic balance updates and test two concurrent transfers.
         for (LedgerEntryRecord entry : entries) {
             applyEntry(entry);
         }
@@ -263,19 +274,7 @@ public class LedgerService {
     }
 
     private void validateBalanced(List<LedgerEntryRecord> entries) {
-        BigDecimal debitTotal = entries.stream()
-                .filter(entry -> entry.direction() == LedgerDirection.DEBIT)
-                .map(LedgerEntryRecord::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal creditTotal = entries.stream()
-                .filter(entry -> entry.direction() == LedgerDirection.CREDIT)
-                .map(LedgerEntryRecord::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // TODO(challenge): Generalize this into a reusable multi-entry posting validator with table-driven tests.
-        if (debitTotal.compareTo(creditTotal) != 0) {
-            throw new LedgerBusinessRuleException("Ledger debits and credits must balance");
-        }
+        ledgerPostingValidator.validate(entries);
     }
 
     private void applyEntry(LedgerEntryRecord entry) {
@@ -298,8 +297,50 @@ public class LedgerService {
                 entry.createdAt()
         );
         if (!updated) {
-            throw new LedgerBusinessRuleException("Ledger balance changed while posting transaction; retry required");
+            throw new LedgerOptimisticLockException();
         }
+    }
+
+    private LedgerTransactionResponse executePostingWithRetry(
+            LedgerReferenceType referenceType,
+            String referenceId,
+            String idempotencyKey,
+            LedgerPostingOperation operation
+    ) {
+        for (int attempt = 1; attempt <= MAX_OPTIMISTIC_LOCK_ATTEMPTS; attempt++) {
+            try {
+                return transactionTemplate.execute(status -> operation.post());
+            } catch (LedgerOptimisticLockException exception) {
+                if (attempt == MAX_OPTIMISTIC_LOCK_ATTEMPTS) {
+                    throw new LedgerBusinessRuleException("Ledger balance changed while posting transaction; retry limit reached");
+                }
+            } catch (DataIntegrityViolationException exception) {
+                return transactionTemplate.execute(status -> duplicateResponseAfterIntegrityViolation(
+                        referenceType,
+                        referenceId,
+                        idempotencyKey
+                ));
+            }
+        }
+        throw new LedgerBusinessRuleException("Ledger transaction could not be posted");
+    }
+
+    private LedgerTransactionResponse duplicateResponseAfterIntegrityViolation(
+            LedgerReferenceType referenceType,
+            String referenceId,
+            String idempotencyKey
+    ) {
+        LedgerTransactionRecord byReference = ledgerTransactionRepository.findByReference(referenceType, referenceId)
+                .orElse(null);
+        if (byReference != null) {
+            return toTransactionResponse(byReference);
+        }
+        LedgerTransactionRecord byIdempotencyKey = ledgerTransactionRepository.findByIdempotencyKey(idempotencyKey)
+                .orElse(null);
+        if (byIdempotencyKey != null) {
+            throw new LedgerConflictException("Idempotency key was already used for another ledger transaction");
+        }
+        throw new LedgerConflictException("Duplicate ledger transaction");
     }
 
     private BigDecimal apply(BigDecimal balance, LedgerDirection direction, BigDecimal amount) {
@@ -425,5 +466,12 @@ public class LedgerService {
                 new Money(entry.amount(), entry.currency()),
                 entry.createdAt()
         );
+    }
+
+    private interface LedgerPostingOperation {
+        LedgerTransactionResponse post();
+    }
+
+    private static class LedgerOptimisticLockException extends RuntimeException {
     }
 }

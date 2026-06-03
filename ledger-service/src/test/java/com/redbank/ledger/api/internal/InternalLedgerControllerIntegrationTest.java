@@ -2,6 +2,12 @@ package com.redbank.ledger.api.internal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
@@ -120,6 +126,58 @@ class InternalLedgerControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.balance.currentBalance.amount").value(10.0));
     }
 
+    @Test
+    void concurrentTransfersKeepBalancesConsistent() throws Exception {
+        String sourceAccount = nextAccountNumber();
+        String firstDestination = nextAccountNumber();
+        String secondDestination = nextAccountNumber();
+        createAccount(sourceAccount, UUID.randomUUID()).andExpect(status().isOk());
+        createAccount(firstDestination, UUID.randomUUID()).andExpect(status().isOk());
+        createAccount(secondDestination, UUID.randomUUID()).andExpect(status().isOk());
+        referralReward("reward-" + UUID.randomUUID(), sourceAccount, "100.00").andExpect(status().isOk());
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Void> first = executor.submit(transferTask(
+                    ready,
+                    start,
+                    "transfer-" + UUID.randomUUID(),
+                    sourceAccount,
+                    firstDestination,
+                    "40.00",
+                    "idem-" + UUID.randomUUID()
+            ));
+            Future<Void> second = executor.submit(transferTask(
+                    ready,
+                    start,
+                    "transfer-" + UUID.randomUUID(),
+                    sourceAccount,
+                    secondDestination,
+                    "30.00",
+                    "idem-" + UUID.randomUUID()
+            ));
+
+            ready.await(5, TimeUnit.SECONDS);
+            start.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        getBalance(sourceAccount)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.balance.currentBalance.amount").value(30.0));
+        getBalance(firstDestination)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.balance.currentBalance.amount").value(40.0));
+        getBalance(secondDestination)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.balance.currentBalance.amount").value(30.0));
+    }
+
     private org.springframework.test.web.servlet.ResultActions createAccount(String accountNumber, UUID ownerUserId) throws Exception {
         return mockMvc.perform(post("/internal/v1/ledger/accounts/create")
                 .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
@@ -175,6 +233,24 @@ class InternalLedgerControllerIntegrationTest {
                           "idempotencyKey": "%s"
                         }
                         """.formatted(referenceId, sourceAccount, destinationAccount, amount, idempotencyKey)));
+    }
+
+    private Callable<Void> transferTask(
+            CountDownLatch ready,
+            CountDownLatch start,
+            String referenceId,
+            String sourceAccount,
+            String destinationAccount,
+            String amount,
+            String idempotencyKey
+    ) {
+        return () -> {
+            ready.countDown();
+            start.await(5, TimeUnit.SECONDS);
+            internalTransfer(referenceId, sourceAccount, destinationAccount, amount, idempotencyKey)
+                    .andExpect(status().isOk());
+            return null;
+        };
     }
 
     private org.springframework.test.web.servlet.ResultActions getBalance(String accountNumber) throws Exception {

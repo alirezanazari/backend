@@ -61,7 +61,7 @@ public class AccountService {
     private final KycJobCatalog kycJobCatalog;
     private final AccountNumberGenerator accountNumberGenerator;
     private final IbanGenerator ibanGenerator;
-    private final LedgerAccountClient ledgerAccountClient;
+    private final AccountOutboxService accountOutboxService;
     private final LedgerBalanceClient ledgerBalanceClient;
     private final AccountProperties accountProperties;
     private final Clock clock;
@@ -73,7 +73,7 @@ public class AccountService {
             KycJobCatalog kycJobCatalog,
             AccountNumberGenerator accountNumberGenerator,
             IbanGenerator ibanGenerator,
-            LedgerAccountClient ledgerAccountClient,
+            AccountOutboxService accountOutboxService,
             LedgerBalanceClient ledgerBalanceClient,
             AccountProperties accountProperties,
             Clock clock
@@ -84,7 +84,7 @@ public class AccountService {
         this.kycJobCatalog = kycJobCatalog;
         this.accountNumberGenerator = accountNumberGenerator;
         this.ibanGenerator = ibanGenerator;
-        this.ledgerAccountClient = ledgerAccountClient;
+        this.accountOutboxService = accountOutboxService;
         this.ledgerBalanceClient = ledgerBalanceClient;
         this.accountProperties = accountProperties;
         this.clock = clock;
@@ -124,18 +124,13 @@ public class AccountService {
         } catch (DataIntegrityViolationException exception) {
             throw new AccountConflictException("Account number, IBAN, or profile already exists");
         }
-        // TODO(challenge): Replace this synchronous call with a transactional outbox once Phase 11 begins.
-        boolean ledgerAccountCreated = ledgerAccountClient.createAccount(
-                account.accountNumber(),
-                account.userId(),
-                account.currency()
-        );
+        accountOutboxService.enqueueLedgerAccountCreation(account);
 
         return new RegisterAccountResponse(
                 toProfileSummary(profile),
                 toAccountSummary(account, false),
                 null,
-                ledgerAccountCreated,
+                false,
                 AccountCompletionStatus.KYC_REQUIRED
         );
     }
