@@ -2,6 +2,7 @@ package com.redbank.account.web;
 
 import com.redbank.account.application.AccountBusinessRuleException;
 import com.redbank.account.application.AccountConflictException;
+import com.redbank.account.application.AccountExternalServiceException;
 import com.redbank.account.application.AccountLimitExceededException;
 import com.redbank.account.application.AccountNotFoundException;
 import com.redbank.account.application.AccountUnauthorizedException;
@@ -59,6 +60,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccountBusinessRuleException.class)
     ResponseEntity<ApiResponse<Void>> businessRule(AccountBusinessRuleException exception, HttpServletRequest request) {
         Status status = Status.businessRuleViolation(exception.getMessage());
+        return ResponseEntity.status(status.httpStatus())
+                .body(ApiResponse.failure(requestId(request), null, status));
+    }
+
+    @ExceptionHandler(AccountExternalServiceException.class)
+    ResponseEntity<ApiResponse<Void>> externalService(AccountExternalServiceException exception, HttpServletRequest request) {
+        Status status = Status.serviceUnavailable(exception.getMessage());
         return ResponseEntity.status(status.httpStatus())
                 .body(ApiResponse.failure(requestId(request), null, status));
     }

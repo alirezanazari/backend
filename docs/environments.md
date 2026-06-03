@@ -198,6 +198,8 @@ Common examples:
 | `REDBANK_JWT_PUBLIC_KEY` | develop secret | prod secret | JWT verification public key. |
 | `REDBANK_GATEWAY_PUBLIC_BASE_URL` | develop URL | prod URL | Public gateway base URL. |
 | `REDBANK_INTERNAL_SERVICE_TOKEN_SECRET` | develop secret | prod secret | Internal service token secret. |
+| `REDBANK_LEDGER_CLIENT_ENABLED` | `false` or `true` | `true` | Lets account-service call ledger-service for account creation and balances. |
+| `REDBANK_LEDGER_BASE_URL` | `http://localhost:8083` | prod URL | Internal ledger-service base URL. |
 | `REDBANK_DB_HOST` | local/develop host | prod host | Database host. |
 | `REDBANK_DB_PORT` | `5432` | prod value | Database port. |
 | `REDBANK_DB_NAME` | service DB | service DB | Database name. |
@@ -222,6 +224,11 @@ ACCOUNT_DB_HOST
 ACCOUNT_DB_NAME
 ACCOUNT_DB_USERNAME
 ACCOUNT_DB_PASSWORD
+
+LEDGER_DB_HOST
+LEDGER_DB_NAME
+LEDGER_DB_USERNAME
+LEDGER_DB_PASSWORD
 
 TRANSFER_DB_HOST
 TRANSFER_DB_NAME

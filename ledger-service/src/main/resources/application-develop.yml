@@ -1,0 +1,4 @@
+logging:
+  level:
+    root: ${REDBANK_LOG_LEVEL:INFO}
+    com.redbank: DEBUG
