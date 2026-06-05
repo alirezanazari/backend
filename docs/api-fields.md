@@ -1112,9 +1112,9 @@ RecentTransferDestination:
 
 ## Internal Ledger
 
-### POST /internal/v1/ledger/accounts/create
+### POST /internal/v1/ledger/account/create
 
-Request: [See request details](./api-requests.md#post-internalv1ledgeraccountscreate)
+Request: [See request details](./api-requests.md#post-internalv1ledgeraccountcreate)
 
 Request:
 
@@ -1131,9 +1131,9 @@ Response:
 | `ledgerAccountId` | `String` | Yes | Ledger account ID. |
 | `status` | `String` | Yes | Ledger account status. |
 
-### POST /internal/v1/ledger/accounts/close
+### POST /internal/v1/ledger/account/close
 
-Request: [See request details](./api-requests.md#post-internalv1ledgeraccountsclose)
+Request: [See request details](./api-requests.md#post-internalv1ledgeraccountclose)
 
 Request:
 
@@ -1148,9 +1148,9 @@ Response:
 | `ledgerAccountId` | `String` | Yes | Ledger account ID. |
 | `status` | `String` | Yes | `CLOSED`. |
 
-### POST /internal/v1/ledger/accounts/reopen
+### POST /internal/v1/ledger/account/reopen
 
-Request: [See request details](./api-requests.md#post-internalv1ledgeraccountsreopen)
+Request: [See request details](./api-requests.md#post-internalv1ledgeraccountreopen)
 
 Request:
 
@@ -1205,9 +1205,9 @@ Response:
 | `ledgerTransactionId` | `String` | Yes | Ledger transaction ID. |
 | `status` | `String` | Yes | Ledger transaction status. |
 
-### POST /internal/v1/ledger/accounts/balance/get
+### POST /internal/v1/ledger/account/balance/get
 
-Request: [See request details](./api-requests.md#post-internalv1ledgeraccountsbalanceget)
+Request: [See request details](./api-requests.md#post-internalv1ledgeraccountbalanceget)
 
 Request:
 
@@ -1223,9 +1223,9 @@ Response:
 | `ledgerAccountId` | `String` | Yes | Ledger account ID. |
 | `balance` | `BalanceSummary` | Yes | Authoritative balance. |
 
-### POST /internal/v1/ledger/accounts/entries/list
+### POST /internal/v1/ledger/account/entries/list
 
-Request: [See request details](./api-requests.md#post-internalv1ledgeraccountsentrieslist)
+Request: [See request details](./api-requests.md#post-internalv1ledgeraccountentrieslist)
 
 Request:
 

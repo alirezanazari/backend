@@ -38,7 +38,7 @@ public class InternalLedgerController {
         this.internalAccessProperties = internalAccessProperties;
     }
 
-    @PostMapping("/accounts/create")
+    @PostMapping("/account/create")
     public ResponseEntity<ApiResponse<CreateLedgerAccountResponse>> createAccount(
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody CreateLedgerAccountRequest request
@@ -48,7 +48,7 @@ public class InternalLedgerController {
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
-    @PostMapping("/accounts/close")
+    @PostMapping("/account/close")
     public ResponseEntity<ApiResponse<CloseLedgerAccountResponse>> closeAccount(
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody CloseLedgerAccountRequest request
@@ -58,7 +58,7 @@ public class InternalLedgerController {
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
-    @PostMapping("/accounts/reopen")
+    @PostMapping("/account/reopen")
     public ResponseEntity<ApiResponse<ReopenLedgerAccountResponse>> reopenAccount(
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody ReopenLedgerAccountRequest request
@@ -88,7 +88,7 @@ public class InternalLedgerController {
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
-    @PostMapping("/accounts/balance/get")
+    @PostMapping("/account/balance/get")
     public ResponseEntity<ApiResponse<GetLedgerBalanceResponse>> getBalance(
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody GetLedgerBalanceRequest request
@@ -98,7 +98,7 @@ public class InternalLedgerController {
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
-    @PostMapping("/accounts/entries/list")
+    @PostMapping("/account/entries/list")
     public ResponseEntity<ApiResponse<ListLedgerEntriesResponse>> listEntries(
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody ListLedgerEntriesRequest request

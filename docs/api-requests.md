@@ -50,13 +50,13 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Transfer | `POST /api/v1/transfers/create` | Required | Create a money transfer. |
 | Transfer | `POST /api/v1/transfers/methods/list` | Required | List available transfer methods. |
 | Transfer | `POST /api/v1/transfers/recent/list` | Required | List successful recent transfers. |
-| Ledger | `POST /internal/v1/ledger/accounts/create` | Internal | Create ledger account. |
-| Ledger | `POST /internal/v1/ledger/accounts/close` | Internal | Close a zero-balance ledger account. |
-| Ledger | `POST /internal/v1/ledger/accounts/reopen` | Internal | Reopen a closed ledger account. |
+| Ledger | `POST /internal/v1/ledger/account/create` | Internal | Create ledger account. |
+| Ledger | `POST /internal/v1/ledger/account/close` | Internal | Close a zero-balance ledger account. |
+| Ledger | `POST /internal/v1/ledger/account/reopen` | Internal | Reopen a closed ledger account. |
 | Ledger | `POST /internal/v1/ledger/transactions/internal-transfer` | Internal | Post double-entry internal transfer. |
 | Ledger | `POST /internal/v1/ledger/transactions/referral-reward` | Internal | Post referral reward ledger movement. |
-| Ledger | `POST /internal/v1/ledger/accounts/balance/get` | Internal | Get authoritative ledger balance. |
-| Ledger | `POST /internal/v1/ledger/accounts/entries/list` | Internal | List ledger entries for account. |
+| Ledger | `POST /internal/v1/ledger/account/balance/get` | Internal | Get authoritative ledger balance. |
+| Ledger | `POST /internal/v1/ledger/account/entries/list` | Internal | List ledger entries for account. |
 | Infrastructure | `GET /actuator/health` | Environment-dependent | Health check. |
 | Infrastructure | `GET /actuator/info` | Environment-dependent | Safe service build/runtime information. |
 
@@ -1285,9 +1285,9 @@ Important rules:
 
 These APIs are internal service APIs. They should not be directly exposed to mobile/web clients.
 
-### POST /internal/v1/ledger/accounts/create
+### POST /internal/v1/ledger/account/create
 
-Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountscreate)
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountcreate)
 
 Owner:
 
@@ -1313,9 +1313,9 @@ Important rules:
 - Ledger account maps to external account number from account-service.
 - Must be idempotent by external account reference.
 
-### POST /internal/v1/ledger/accounts/close
+### POST /internal/v1/ledger/account/close
 
-Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountsclose)
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountclose)
 
 Owner:
 
@@ -1341,9 +1341,9 @@ Important rules:
 - Repeated close requests return the existing closed state.
 - Account-service delivers this request through its transactional outbox.
 
-### POST /internal/v1/ledger/accounts/reopen
+### POST /internal/v1/ledger/account/reopen
 
-Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountsreopen)
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountreopen)
 
 Owner:
 
@@ -1426,9 +1426,9 @@ Important rules:
 - Referrer must have active account.
 - Must be idempotent by referral reward reference.
 
-### POST /internal/v1/ledger/accounts/balance/get
+### POST /internal/v1/ledger/account/balance/get
 
-Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountsbalanceget)
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountbalanceget)
 
 Owner:
 
@@ -1454,9 +1454,9 @@ Important rules:
 - Account/PFM/transfer services may use this for validation or display.
 - Public clients should not call this endpoint directly.
 
-### POST /internal/v1/ledger/accounts/entries/list
+### POST /internal/v1/ledger/account/entries/list
 
-Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountsentrieslist)
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountentrieslist)
 
 Owner:
 

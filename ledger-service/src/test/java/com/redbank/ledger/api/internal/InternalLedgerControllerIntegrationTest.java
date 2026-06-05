@@ -241,7 +241,7 @@ class InternalLedgerControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions createAccount(String accountNumber, UUID ownerUserId) throws Exception {
-        return mockMvc.perform(post("/internal/v1/ledger/accounts/create")
+        return mockMvc.perform(post("/internal/v1/ledger/account/create")
                 .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
                 .contentType("application/json")
                 .content("""
@@ -274,7 +274,7 @@ class InternalLedgerControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions closeAccount(String accountNumber) throws Exception {
-        return mockMvc.perform(post("/internal/v1/ledger/accounts/close")
+        return mockMvc.perform(post("/internal/v1/ledger/account/close")
                 .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
                 .contentType("application/json")
                 .content("""
@@ -285,7 +285,7 @@ class InternalLedgerControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions reopenAccount(String accountNumber) throws Exception {
-        return mockMvc.perform(post("/internal/v1/ledger/accounts/reopen")
+        return mockMvc.perform(post("/internal/v1/ledger/account/reopen")
                 .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
                 .contentType("application/json")
                 .content("""
@@ -354,7 +354,7 @@ class InternalLedgerControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions getBalance(String accountNumber) throws Exception {
-        return mockMvc.perform(post("/internal/v1/ledger/accounts/balance/get")
+        return mockMvc.perform(post("/internal/v1/ledger/account/balance/get")
                 .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
                 .contentType("application/json")
                 .content("""
@@ -365,7 +365,7 @@ class InternalLedgerControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions listEntries(String accountNumber) throws Exception {
-        return mockMvc.perform(post("/internal/v1/ledger/accounts/entries/list")
+        return mockMvc.perform(post("/internal/v1/ledger/account/entries/list")
                 .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
                 .contentType("application/json")
                 .content("""

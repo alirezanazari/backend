@@ -35,7 +35,7 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
                 currency
         );
         ApiResponse<CreateLedgerAccountResponse> response = post(
-                "/internal/v1/ledger/accounts/create",
+                "/internal/v1/ledger/account/create",
                 request,
                 new ParameterizedTypeReference<>() {
                 }
@@ -47,7 +47,7 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     public boolean close(String accountNumber) {
         CloseLedgerAccountRequest request = new CloseLedgerAccountRequest(accountNumber);
         ApiResponse<CloseLedgerAccountResponse> response = post(
-                "/internal/v1/ledger/accounts/close",
+                "/internal/v1/ledger/account/close",
                 request,
                 new ParameterizedTypeReference<>() {
                 }
@@ -59,7 +59,7 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     public boolean reopen(String accountNumber) {
         ReopenLedgerAccountRequest request = new ReopenLedgerAccountRequest(accountNumber);
         ApiResponse<ReopenLedgerAccountResponse> response = post(
-                "/internal/v1/ledger/accounts/reopen",
+                "/internal/v1/ledger/account/reopen",
                 request,
                 new ParameterizedTypeReference<>() {
                 }
@@ -70,7 +70,7 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     @Override
     public BalanceSummary getBalance(String accountNumber, String currency) {
         ApiResponse<GetLedgerBalanceResponse> response = post(
-                "/internal/v1/ledger/accounts/balance/get",
+                "/internal/v1/ledger/account/balance/get",
                 new GetLedgerBalanceRequest(accountNumber),
                 new ParameterizedTypeReference<>() {
                 }

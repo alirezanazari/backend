@@ -327,13 +327,13 @@ Owns:
 Internal APIs:
 
 ```text
-POST /internal/v1/ledger/accounts/create
-POST /internal/v1/ledger/accounts/close
-POST /internal/v1/ledger/accounts/reopen
+POST /internal/v1/ledger/account/create
+POST /internal/v1/ledger/account/close
+POST /internal/v1/ledger/account/reopen
 POST /internal/v1/ledger/transactions/internal-transfer
 POST /internal/v1/ledger/transactions/referral-reward
-POST /internal/v1/ledger/accounts/balance/get
-POST /internal/v1/ledger/accounts/entries/list
+POST /internal/v1/ledger/account/balance/get
+POST /internal/v1/ledger/account/entries/list
 ```
 
 Important rule:

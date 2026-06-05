@@ -136,13 +136,13 @@ Rules:
 | Transfer | `POST /api/v1/transfers/create` | `USER` | Requires verified ownership and idempotency. |
 | Transfer | `POST /api/v1/transfers/methods/list` | `USER` | Returns available methods for user context. |
 | Transfer | `POST /api/v1/transfers/recent/list` | `USER` | User sees own successful recent transfers only. |
-| Ledger | `POST /internal/v1/ledger/accounts/create` | `INTERNAL_SERVICE` | Account/PFM driven internal call. |
-| Ledger | `POST /internal/v1/ledger/accounts/close` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
-| Ledger | `POST /internal/v1/ledger/accounts/reopen` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
+| Ledger | `POST /internal/v1/ledger/account/create` | `INTERNAL_SERVICE` | Account/PFM driven internal call. |
+| Ledger | `POST /internal/v1/ledger/account/close` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
+| Ledger | `POST /internal/v1/ledger/account/reopen` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
 | Ledger | `POST /internal/v1/ledger/transactions/internal-transfer` | `INTERNAL_SERVICE` | Transfer-service internal call. |
 | Ledger | `POST /internal/v1/ledger/transactions/referral-reward` | `INTERNAL_SERVICE` | KYC/transfer reward flow. |
-| Ledger | `POST /internal/v1/ledger/accounts/balance/get` | `INTERNAL_SERVICE` | Account/PFM/transfer internal call. |
-| Ledger | `POST /internal/v1/ledger/accounts/entries/list` | `INTERNAL_SERVICE` | Audit/reconciliation/read-model use. |
+| Ledger | `POST /internal/v1/ledger/account/balance/get` | `INTERNAL_SERVICE` | Account/PFM/transfer internal call. |
+| Ledger | `POST /internal/v1/ledger/account/entries/list` | `INTERNAL_SERVICE` | Audit/reconciliation/read-model use. |
 | Infrastructure | `GET /actuator/health` | `ENVIRONMENT` | Public or protected based on deployment. |
 | Infrastructure | `GET /actuator/info` | `ENVIRONMENT` | Must not expose secrets. |
 
