@@ -1,6 +1,8 @@
 package com.redbank.ledger.api.internal;
 
 import com.redbank.contracts.envelope.ApiResponse;
+import com.redbank.ledger.api.internal.dto.CloseLedgerAccountRequest;
+import com.redbank.ledger.api.internal.dto.CloseLedgerAccountResponse;
 import com.redbank.ledger.api.internal.dto.CreateLedgerAccountRequest;
 import com.redbank.ledger.api.internal.dto.CreateLedgerAccountResponse;
 import com.redbank.ledger.api.internal.dto.GetLedgerBalanceRequest;
@@ -41,6 +43,16 @@ public class InternalLedgerController {
     ) {
         authorize(serviceToken);
         CreateLedgerAccountResponse response = ledgerService.createAccount(request);
+        return ResponseEntity.ok(ApiResponse.success("internal", null, response));
+    }
+
+    @PostMapping("/accounts/close")
+    public ResponseEntity<ApiResponse<CloseLedgerAccountResponse>> closeAccount(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody CloseLedgerAccountRequest request
+    ) {
+        authorize(serviceToken);
+        CloseLedgerAccountResponse response = ledgerService.closeAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 

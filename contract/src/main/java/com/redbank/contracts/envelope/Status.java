@@ -44,6 +44,10 @@ public record Status(
         return new Status(StatusCode.INSUFFICIENT_FUNDS, message, 400, List.of());
     }
 
+    public static Status balance(String message) {
+        return new Status(StatusCode.INSUFFICIENT_FUNDS, message, 400, List.of());
+    }
+
     public static Status serviceUnavailable(String message) {
         return new Status(StatusCode.SERVICE_UNAVAILABLE, message, 503, List.of());
     }

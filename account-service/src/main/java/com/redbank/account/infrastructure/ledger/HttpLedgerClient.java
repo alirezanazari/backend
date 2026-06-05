@@ -6,6 +6,9 @@ import com.redbank.account.application.LedgerBalanceClient;
 import com.redbank.account.config.LedgerClientProperties;
 import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.envelope.ApiResponse;
+
+import jakarta.validation.constraints.Pattern;
+
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
@@ -41,6 +44,18 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
                 }
         );
         return response != null && response.data() != null && "ACTIVE".equals(response.data().status());
+    }
+
+    @Override
+    public boolean close(String accountNumber) {
+        CloseLedgerAccountRequest request = new CloseLedgerAccountRequest(accountNumber);
+        ApiResponse<CloseLedgerAccountResponse> response = post(
+                "/internal/v1/ledger/accounts/close",
+                request,
+                new ParameterizedTypeReference<>() {
+                }
+        );
+        return response != null && response.data() != null && "CLOSED".equals(response.data().status());
     }
 
     @Override
@@ -83,5 +98,11 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     }
 
     private record GetLedgerBalanceResponse(String externalAccountNumber, String ledgerAccountId, BalanceSummary balance) {
+    }
+
+    public record CloseLedgerAccountRequest(String externalAccountNumber) {
+    }
+    
+    public record CloseLedgerAccountResponse(String ledgerAccountId, String status) {
     }
 }

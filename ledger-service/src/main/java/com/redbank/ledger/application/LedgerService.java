@@ -6,6 +6,8 @@ import com.redbank.contracts.common.PageRequest;
 import com.redbank.contracts.common.PageResponse;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.ledger.LedgerDirection;
+import com.redbank.ledger.api.internal.dto.CloseLedgerAccountRequest;
+import com.redbank.ledger.api.internal.dto.CloseLedgerAccountResponse;
 import com.redbank.ledger.api.internal.dto.CreateLedgerAccountRequest;
 import com.redbank.ledger.api.internal.dto.CreateLedgerAccountResponse;
 import com.redbank.ledger.api.internal.dto.GetLedgerBalanceRequest;
@@ -83,6 +85,26 @@ public class LedgerService {
         return ledgerAccountRepository.findByExternalAccountNumber(request.externalAccountNumber())
                 .map(existing -> existingAccountResponse(existing, ownerUserId, currency))
                 .orElseGet(() -> createNewAccount(request.externalAccountNumber(), ownerUserId, currency));
+    }
+
+    @Transactional
+    public CloseLedgerAccountResponse closeAccount(CloseLedgerAccountRequest request) {
+        LedgerAccountRecord account = activeAccount(request.externalAccountNumber());
+        if (account.status() != LedgerAccountStatus.ACTIVE) {
+            throw new LedgerBusinessRuleException("Ledger account is already closed");
+        }
+
+        LedgerBalanceRecord balance = balance(account.id());
+        if (balance.currentBalance().compareTo(BigDecimal.ZERO) > 0) {
+            throw new LedgerBalanceException("Ledger balance must be zero to close");
+        }
+    
+        try {
+            ledgerAccountRepository.close(account, clock.instant());
+            return new CloseLedgerAccountResponse(account.externalAccountNumber(), LedgerAccountStatus.CLOSED.name());
+        } catch(DataIntegrityViolationException exception) {
+            throw new LedgerConflictException("failed to save  close state");
+        }
     }
 
     public LedgerTransactionResponse postInternalTransfer(InternalTransferRequest request) {
@@ -366,7 +388,6 @@ public class LedgerService {
         }
         return account;
     }
-
     private LedgerBalanceRecord balance(UUID ledgerAccountId) {
         return ledgerBalanceRepository.findByAccountId(ledgerAccountId)
                 .orElseThrow(() -> new LedgerNotFoundException("Ledger balance was not found"));

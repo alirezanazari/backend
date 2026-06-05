@@ -63,6 +63,7 @@ public class AccountService {
     private final IbanGenerator ibanGenerator;
     private final AccountOutboxService accountOutboxService;
     private final LedgerBalanceClient ledgerBalanceClient;
+    private final LedgerAccountClient ledgerAccountClient;
     private final AccountProperties accountProperties;
     private final Clock clock;
 
@@ -75,6 +76,7 @@ public class AccountService {
             IbanGenerator ibanGenerator,
             AccountOutboxService accountOutboxService,
             LedgerBalanceClient ledgerBalanceClient,
+            LedgerAccountClient ledgerAccountClient,
             AccountProperties accountProperties,
             Clock clock
     ) {
@@ -86,6 +88,7 @@ public class AccountService {
         this.ibanGenerator = ibanGenerator;
         this.accountOutboxService = accountOutboxService;
         this.ledgerBalanceClient = ledgerBalanceClient;
+        this.ledgerAccountClient = ledgerAccountClient;
         this.accountProperties = accountProperties;
         this.clock = clock;
     }
@@ -306,6 +309,10 @@ public class AccountService {
         validateProfileCanBeClosedWithAccount(profile);
         if (!ledgerBalanceClient.isZero(account.accountNumber(), account.currency())) {
             throw new AccountBusinessRuleException("Account cannot be closed while balance is not zero");
+        }
+
+        if (!ledgerAccountClient.close(account.accountNumber())) {
+            throw new AccountBusinessRuleException("Something wrong happened in closing account.");
         }
 
         Instant closedAt = clock.instant();

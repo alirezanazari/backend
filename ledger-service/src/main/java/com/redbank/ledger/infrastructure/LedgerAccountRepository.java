@@ -1,5 +1,6 @@
 package com.redbank.ledger.infrastructure;
 
+import com.redbank.contracts.account.AccountStatus;
 import com.redbank.ledger.domain.LedgerAccountRecord;
 import com.redbank.ledger.domain.LedgerAccountStatus;
 import java.sql.ResultSet;
@@ -35,6 +36,18 @@ public class LedgerAccountRepository {
                 account.allowNegativeBalance(),
                 Timestamp.from(account.createdAt()),
                 Timestamp.from(account.updatedAt())
+        );
+    }
+
+    public void close(LedgerAccountRecord account, Instant closedAt) {
+        jdbcTemplate.update("""
+                        UPDATE ledger_accounts
+                        SET status = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                LedgerAccountStatus.CLOSED.name(),
+                Timestamp.from(closedAt),
+                account.id()
         );
     }
 
