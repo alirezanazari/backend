@@ -3,7 +3,6 @@ package com.redbank.ledger.web;
 import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.envelope.Status;
 import com.redbank.contracts.envelope.StatusDetail;
-import com.redbank.ledger.application.LedgerBalanceException;
 import com.redbank.ledger.application.LedgerBusinessRuleException;
 import com.redbank.ledger.application.LedgerConflictException;
 import com.redbank.ledger.application.LedgerInsufficientFundsException;
@@ -65,17 +64,6 @@ public class GlobalExceptionHandler {
         Status status = Status.businessRuleViolation(exception.getMessage());
         return ResponseEntity.status(status.httpStatus())
                 .body(ApiResponse.failure(requestId(request), null, status));
-    }
-
-    @ExceptionHandler(LedgerBalanceException.class)
-    ResponseEntity<ApiResponse<Void>> balance(
-        LedgerBalanceException exception,
-        HttpServletRequest request
-    ) {
-        Status status = Status.balance(exception.getMessage());
-        return ResponseEntity.status(status.httpStatus())
-                .body(ApiResponse.failure(requestId(request), null, status));
-
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

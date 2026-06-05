@@ -137,6 +137,8 @@ Rules:
 | Transfer | `POST /api/v1/transfers/methods/list` | `USER` | Returns available methods for user context. |
 | Transfer | `POST /api/v1/transfers/recent/list` | `USER` | User sees own successful recent transfers only. |
 | Ledger | `POST /internal/v1/ledger/accounts/create` | `INTERNAL_SERVICE` | Account/PFM driven internal call. |
+| Ledger | `POST /internal/v1/ledger/accounts/close` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
+| Ledger | `POST /internal/v1/ledger/accounts/reopen` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
 | Ledger | `POST /internal/v1/ledger/transactions/internal-transfer` | `INTERNAL_SERVICE` | Transfer-service internal call. |
 | Ledger | `POST /internal/v1/ledger/transactions/referral-reward` | `INTERNAL_SERVICE` | KYC/transfer reward flow. |
 | Ledger | `POST /internal/v1/ledger/accounts/balance/get` | `INTERNAL_SERVICE` | Account/PFM/transfer internal call. |

@@ -1131,6 +1131,40 @@ Response:
 | `ledgerAccountId` | `String` | Yes | Ledger account ID. |
 | `status` | `String` | Yes | Ledger account status. |
 
+### POST /internal/v1/ledger/accounts/close
+
+Request: [See request details](./api-requests.md#post-internalv1ledgeraccountsclose)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `externalAccountNumber` | `String` | Yes | Account-service 18-digit account number. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `ledgerAccountId` | `String` | Yes | Ledger account ID. |
+| `status` | `String` | Yes | `CLOSED`. |
+
+### POST /internal/v1/ledger/accounts/reopen
+
+Request: [See request details](./api-requests.md#post-internalv1ledgeraccountsreopen)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `externalAccountNumber` | `String` | Yes | Account-service 18-digit account number. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `ledgerAccountId` | `String` | Yes | Ledger account ID. |
+| `status` | `String` | Yes | `ACTIVE`. |
+
 ### POST /internal/v1/ledger/transactions/internal-transfer
 
 Request: [See request details](./api-requests.md#post-internalv1ledgertransactionsinternal-transfer)

@@ -51,6 +51,8 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Transfer | `POST /api/v1/transfers/methods/list` | Required | List available transfer methods. |
 | Transfer | `POST /api/v1/transfers/recent/list` | Required | List successful recent transfers. |
 | Ledger | `POST /internal/v1/ledger/accounts/create` | Internal | Create ledger account. |
+| Ledger | `POST /internal/v1/ledger/accounts/close` | Internal | Close a zero-balance ledger account. |
+| Ledger | `POST /internal/v1/ledger/accounts/reopen` | Internal | Reopen a closed ledger account. |
 | Ledger | `POST /internal/v1/ledger/transactions/internal-transfer` | Internal | Post double-entry internal transfer. |
 | Ledger | `POST /internal/v1/ledger/transactions/referral-reward` | Internal | Post referral reward ledger movement. |
 | Ledger | `POST /internal/v1/ledger/accounts/balance/get` | Internal | Get authoritative ledger balance. |
@@ -1310,6 +1312,61 @@ Important rules:
 - Called after account creation.
 - Ledger account maps to external account number from account-service.
 - Must be idempotent by external account reference.
+
+### POST /internal/v1/ledger/accounts/close
+
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountsclose)
+
+Owner:
+
+```text
+ledger-service
+```
+
+Purpose:
+
+```text
+close a ledger account after its bank account is closed
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- Available and current balances must both be zero.
+- Repeated close requests return the existing closed state.
+- Account-service delivers this request through its transactional outbox.
+
+### POST /internal/v1/ledger/accounts/reopen
+
+Fields: [See fields](./api-fields.md#post-internalv1ledgeraccountsreopen)
+
+Owner:
+
+```text
+ledger-service
+```
+
+Purpose:
+
+```text
+reactivate a closed ledger account after its bank account is reopened
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- Repeated reopen requests return the existing active state.
+- Lifecycle requests are processed in account outbox order.
 
 ### POST /internal/v1/ledger/transactions/internal-transfer
 

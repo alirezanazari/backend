@@ -12,4 +12,14 @@ public class NoopLedgerAccountClient implements LedgerAccountClient {
     public boolean createAccount(String accountNumber, UUID ownerUserId, String currency) {
         return false;
     }
+
+    @Override
+    public boolean close(String accountNumber) {
+        return false;
+    }
+
+    @Override
+    public boolean reopen(String accountNumber) {
+        return false;
+    }
 }

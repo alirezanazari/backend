@@ -5,9 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.redbank.account.application.AccountOutboxService;
 import com.redbank.account.application.LedgerAccountClient;
 import com.redbank.account.application.LedgerAccountCreationPayload;
+import com.redbank.account.application.LedgerAccountLifecyclePayload;
 import com.redbank.account.domain.OutboxEventRecord;
 import com.redbank.account.infrastructure.OutboxEventRepository;
 import java.time.Clock;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,29 +44,57 @@ public class AccountOutboxDispatcher {
 
     @Scheduled(fixedDelayString = "${redbank.account.outbox.dispatch-delay-ms:5000}")
     public void dispatchPending() {
+        Set<String> attemptedAggregates = new HashSet<>();
         for (OutboxEventRecord event : outboxEventRepository.findPending(BATCH_SIZE, MAX_RETRY_COUNT)) {
+            String aggregateKey = event.aggregateType() + ":" + event.aggregateId();
+            if (!attemptedAggregates.add(aggregateKey)) {
+                continue;
+            }
             dispatch(event);
         }
     }
 
     private void dispatch(OutboxEventRecord event) {
         try {
-            if (!AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_CREATE_REQUESTED.equals(event.eventType())) {
-                throw new IllegalArgumentException("Unsupported outbox event type: " + event.eventType());
-            }
-            LedgerAccountCreationPayload payload = objectMapper.readValue(event.payload(), LedgerAccountCreationPayload.class);
-            boolean created = ledgerAccountClient.createAccount(
-                    payload.accountNumber(),
-                    UUID.fromString(payload.ownerUserId()),
-                    payload.currency()
-            );
-            if (!created) {
-                throw new IllegalStateException("Ledger account creation was not acknowledged");
+            boolean acknowledged = dispatchToLedger(event);
+            if (!acknowledged) {
+                throw new IllegalStateException("Ledger account lifecycle event was not acknowledged");
             }
             outboxEventRepository.markPublished(event.id(), clock.instant());
         } catch (JsonProcessingException | RuntimeException exception) {
-            LOGGER.warn("Account outbox event dispatch failed: {}", event.id());
+            LOGGER.warn("Account outbox event dispatch failed: {}", event.id(), exception);
             outboxEventRepository.markAttemptFailed(event.id(), clock.instant(), MAX_RETRY_COUNT);
         }
+    }
+
+    private boolean dispatchToLedger(OutboxEventRecord event) throws JsonProcessingException {
+        return switch (event.eventType()) {
+            case AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_CREATE_REQUESTED -> {
+                LedgerAccountCreationPayload payload = objectMapper.readValue(
+                        event.payload(),
+                        LedgerAccountCreationPayload.class
+                );
+                yield ledgerAccountClient.createAccount(
+                        payload.accountNumber(),
+                        UUID.fromString(payload.ownerUserId()),
+                        payload.currency()
+                );
+            }
+            case AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_CLOSE_REQUESTED -> {
+                LedgerAccountLifecyclePayload payload = objectMapper.readValue(
+                        event.payload(),
+                        LedgerAccountLifecyclePayload.class
+                );
+                yield ledgerAccountClient.close(payload.accountNumber());
+            }
+            case AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_REOPEN_REQUESTED -> {
+                LedgerAccountLifecyclePayload payload = objectMapper.readValue(
+                        event.payload(),
+                        LedgerAccountLifecyclePayload.class
+                );
+                yield ledgerAccountClient.reopen(payload.accountNumber());
+            }
+            default -> throw new IllegalArgumentException("Unsupported outbox event type: " + event.eventType());
+        };
     }
 }

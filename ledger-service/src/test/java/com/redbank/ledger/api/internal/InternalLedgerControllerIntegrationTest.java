@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -39,6 +40,9 @@ class InternalLedgerControllerIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @Test
     void createAccountIsIdempotentByExternalAccountNumber() throws Exception {
         String accountNumber = nextAccountNumber();
@@ -56,6 +60,64 @@ class InternalLedgerControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.ledgerAccountId").value(first.path("data").path("ledgerAccountId").asText()))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void closeAndReopenAccountAreIdempotent() throws Exception {
+        String accountNumber = nextAccountNumber();
+        UUID ownerUserId = UUID.randomUUID();
+        JsonNode created = objectMapper.readTree(createAccount(accountNumber, ownerUserId)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String ledgerAccountId = created.path("data").path("ledgerAccountId").asText();
+
+        closeAccount(accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ledgerAccountId").value(ledgerAccountId))
+                .andExpect(jsonPath("$.data.status").value("CLOSED"));
+        closeAccount(accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ledgerAccountId").value(ledgerAccountId))
+                .andExpect(jsonPath("$.data.status").value("CLOSED"));
+
+        getBalance(accountNumber)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
+
+        reopenAccount(accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ledgerAccountId").value(ledgerAccountId))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        reopenAccount(accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ledgerAccountId").value(ledgerAccountId))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        getBalance(accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.balance.availableBalance.amount").value(0.0))
+                .andExpect(jsonPath("$.data.balance.currentBalance.amount").value(0.0));
+    }
+
+    @Test
+    void closeRejectsNonzeroAvailableOrCurrentBalance() throws Exception {
+        String availableAccount = nextAccountNumber();
+        createAccount(availableAccount, UUID.randomUUID()).andExpect(status().isOk());
+        setBalances(availableAccount, "1.00", "0.00");
+
+        closeAccount(availableAccount)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
+
+        String currentAccount = nextAccountNumber();
+        createAccount(currentAccount, UUID.randomUUID()).andExpect(status().isOk());
+        setBalances(currentAccount, "0.00", "-1.00");
+
+        closeAccount(currentAccount)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
     }
 
     @Test
@@ -209,6 +271,44 @@ class InternalLedgerControllerIntegrationTest {
                           }
                         }
                         """.formatted(referralRewardId, referrerAccount, amount)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions closeAccount(String accountNumber) throws Exception {
+        return mockMvc.perform(post("/internal/v1/ledger/accounts/close")
+                .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "externalAccountNumber": "%s"
+                        }
+                        """.formatted(accountNumber)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions reopenAccount(String accountNumber) throws Exception {
+        return mockMvc.perform(post("/internal/v1/ledger/accounts/reopen")
+                .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "externalAccountNumber": "%s"
+                        }
+                        """.formatted(accountNumber)));
+    }
+
+    private void setBalances(String accountNumber, String availableBalance, String currentBalance) {
+        jdbcTemplate.update("""
+                        UPDATE ledger_balances
+                        SET available_balance = ?, current_balance = ?
+                        WHERE ledger_account_id = (
+                            SELECT id
+                            FROM ledger_accounts
+                            WHERE external_account_number = ?
+                        )
+                        """,
+                availableBalance,
+                currentBalance,
+                accountNumber
+        );
     }
 
     private org.springframework.test.web.servlet.ResultActions internalTransfer(

@@ -12,6 +12,8 @@ import com.redbank.ledger.api.internal.dto.LedgerTransactionResponse;
 import com.redbank.ledger.api.internal.dto.ListLedgerEntriesRequest;
 import com.redbank.ledger.api.internal.dto.ListLedgerEntriesResponse;
 import com.redbank.ledger.api.internal.dto.ReferralRewardRequest;
+import com.redbank.ledger.api.internal.dto.ReopenLedgerAccountRequest;
+import com.redbank.ledger.api.internal.dto.ReopenLedgerAccountResponse;
 import com.redbank.ledger.application.LedgerService;
 import com.redbank.ledger.application.LedgerUnauthorizedException;
 import com.redbank.ledger.config.InternalAccessProperties;
@@ -53,6 +55,16 @@ public class InternalLedgerController {
     ) {
         authorize(serviceToken);
         CloseLedgerAccountResponse response = ledgerService.closeAccount(request);
+        return ResponseEntity.ok(ApiResponse.success("internal", null, response));
+    }
+
+    @PostMapping("/accounts/reopen")
+    public ResponseEntity<ApiResponse<ReopenLedgerAccountResponse>> reopenAccount(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody ReopenLedgerAccountRequest request
+    ) {
+        authorize(serviceToken);
+        ReopenLedgerAccountResponse response = ledgerService.reopenAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 

@@ -280,6 +280,8 @@ class AccountControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accountCompletionStatus").value("ACCOUNT_RE_OPEN_REQUIRED"))
                 .andExpect(jsonPath("$.data.activeProfile").value(org.hamcrest.Matchers.nullValue()));
+
+        assertThat(outboxEventCount(accountNumber, "LEDGER_ACCOUNT_CLOSE_REQUESTED")).isEqualTo(1);
     }
 
     @Test
@@ -310,6 +312,9 @@ class AccountControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_REQUIRED"))
                 .andExpect(jsonPath("$.data.activeProfile.profileId").value(profileId));
+
+        assertThat(outboxEventCount(accountNumber, "LEDGER_ACCOUNT_CLOSE_REQUESTED")).isEqualTo(1);
+        assertThat(outboxEventCount(accountNumber, "LEDGER_ACCOUNT_REOPEN_REQUESTED")).isEqualTo(1);
     }
 
     @Test
@@ -493,6 +498,22 @@ class AccountControllerIntegrationTest {
                           "userId": "%s"
                         }
                         """.formatted(userId)));
+    }
+
+    private int outboxEventCount(String accountNumber, String eventType) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM outbox_events
+                        WHERE aggregate_type = 'BANK_ACCOUNT'
+                          AND aggregate_id = ?
+                          AND event_type = ?
+                          AND status = 'PENDING'
+                        """,
+                Integer.class,
+                accountNumber,
+                eventType
+        );
+        return count == null ? 0 : count;
     }
 
     private String onboardingToken(UUID userId) throws JOSEException {

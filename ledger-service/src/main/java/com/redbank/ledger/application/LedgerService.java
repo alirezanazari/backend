@@ -18,6 +18,8 @@ import com.redbank.ledger.api.internal.dto.LedgerTransactionResponse;
 import com.redbank.ledger.api.internal.dto.ListLedgerEntriesRequest;
 import com.redbank.ledger.api.internal.dto.ListLedgerEntriesResponse;
 import com.redbank.ledger.api.internal.dto.ReferralRewardRequest;
+import com.redbank.ledger.api.internal.dto.ReopenLedgerAccountRequest;
+import com.redbank.ledger.api.internal.dto.ReopenLedgerAccountResponse;
 import com.redbank.ledger.domain.LedgerAccountRecord;
 import com.redbank.ledger.domain.LedgerAccountStatus;
 import com.redbank.ledger.domain.LedgerBalanceRecord;
@@ -89,22 +91,53 @@ public class LedgerService {
 
     @Transactional
     public CloseLedgerAccountResponse closeAccount(CloseLedgerAccountRequest request) {
-        LedgerAccountRecord account = activeAccount(request.externalAccountNumber());
-        if (account.status() != LedgerAccountStatus.ACTIVE) {
-            throw new LedgerBusinessRuleException("Ledger account is already closed");
+        LedgerAccountRecord account = ledgerAccount(request.externalAccountNumber());
+        if (account.status() == LedgerAccountStatus.CLOSED) {
+            return toCloseAccountResponse(account);
         }
 
         LedgerBalanceRecord balance = balance(account.id());
-        if (balance.currentBalance().compareTo(BigDecimal.ZERO) > 0) {
-            throw new LedgerBalanceException("Ledger balance must be zero to close");
+        if (balance.availableBalance().signum() != 0 || balance.currentBalance().signum() != 0) {
+            throw new LedgerBusinessRuleException("Ledger balances must be zero to close");
         }
-    
-        try {
-            ledgerAccountRepository.close(account, clock.instant());
-            return new CloseLedgerAccountResponse(account.externalAccountNumber(), LedgerAccountStatus.CLOSED.name());
-        } catch(DataIntegrityViolationException exception) {
-            throw new LedgerConflictException("failed to save  close state");
+
+        boolean closed = ledgerAccountRepository.updateStatus(
+                account.id(),
+                LedgerAccountStatus.ACTIVE,
+                LedgerAccountStatus.CLOSED,
+                clock.instant()
+        );
+        if (!closed) {
+            LedgerAccountRecord current = ledgerAccount(request.externalAccountNumber());
+            if (current.status() != LedgerAccountStatus.CLOSED) {
+                throw new LedgerConflictException("Ledger account status changed while closing");
+            }
+            return toCloseAccountResponse(current);
         }
+        return new CloseLedgerAccountResponse(account.id().toString(), LedgerAccountStatus.CLOSED.name());
+    }
+
+    @Transactional
+    public ReopenLedgerAccountResponse reopenAccount(ReopenLedgerAccountRequest request) {
+        LedgerAccountRecord account = ledgerAccount(request.externalAccountNumber());
+        if (account.status() == LedgerAccountStatus.ACTIVE) {
+            return toReopenAccountResponse(account);
+        }
+
+        boolean reopened = ledgerAccountRepository.updateStatus(
+                account.id(),
+                LedgerAccountStatus.CLOSED,
+                LedgerAccountStatus.ACTIVE,
+                clock.instant()
+        );
+        if (!reopened) {
+            LedgerAccountRecord current = ledgerAccount(request.externalAccountNumber());
+            if (current.status() != LedgerAccountStatus.ACTIVE) {
+                throw new LedgerConflictException("Ledger account status changed while reopening");
+            }
+            return toReopenAccountResponse(current);
+        }
+        return new ReopenLedgerAccountResponse(account.id().toString(), LedgerAccountStatus.ACTIVE.name());
     }
 
     public LedgerTransactionResponse postInternalTransfer(InternalTransferRequest request) {
@@ -381,13 +414,26 @@ public class LedgerService {
     }
 
     private LedgerAccountRecord activeAccount(String externalAccountNumber) {
-        LedgerAccountRecord account = ledgerAccountRepository.findByExternalAccountNumber(externalAccountNumber)
-                .orElseThrow(() -> new LedgerNotFoundException("Ledger account was not found"));
+        LedgerAccountRecord account = ledgerAccount(externalAccountNumber);
         if (account.status() != LedgerAccountStatus.ACTIVE) {
             throw new LedgerBusinessRuleException("Ledger account is not active");
         }
         return account;
     }
+
+    private LedgerAccountRecord ledgerAccount(String externalAccountNumber) {
+        return ledgerAccountRepository.findByExternalAccountNumber(externalAccountNumber)
+                .orElseThrow(() -> new LedgerNotFoundException("Ledger account was not found"));
+    }
+
+    private CloseLedgerAccountResponse toCloseAccountResponse(LedgerAccountRecord account) {
+        return new CloseLedgerAccountResponse(account.id().toString(), LedgerAccountStatus.CLOSED.name());
+    }
+
+    private ReopenLedgerAccountResponse toReopenAccountResponse(LedgerAccountRecord account) {
+        return new ReopenLedgerAccountResponse(account.id().toString(), LedgerAccountStatus.ACTIVE.name());
+    }
+
     private LedgerBalanceRecord balance(UUID ledgerAccountId) {
         return ledgerBalanceRepository.findByAccountId(ledgerAccountId)
                 .orElseThrow(() -> new LedgerNotFoundException("Ledger balance was not found"));

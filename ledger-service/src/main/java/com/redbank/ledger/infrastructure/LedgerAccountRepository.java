@@ -1,6 +1,5 @@
 package com.redbank.ledger.infrastructure;
 
-import com.redbank.contracts.account.AccountStatus;
 import com.redbank.ledger.domain.LedgerAccountRecord;
 import com.redbank.ledger.domain.LedgerAccountStatus;
 import java.sql.ResultSet;
@@ -39,16 +38,23 @@ public class LedgerAccountRepository {
         );
     }
 
-    public void close(LedgerAccountRecord account, Instant closedAt) {
-        jdbcTemplate.update("""
+    public boolean updateStatus(
+            UUID accountId,
+            LedgerAccountStatus expectedStatus,
+            LedgerAccountStatus targetStatus,
+            Instant updatedAt
+    ) {
+        int updated = jdbcTemplate.update("""
                         UPDATE ledger_accounts
                         SET status = ?, updated_at = ?
-                        WHERE id = ?
+                        WHERE id = ? AND status = ?
                         """,
-                LedgerAccountStatus.CLOSED.name(),
-                Timestamp.from(closedAt),
-                account.id()
+                targetStatus.name(),
+                Timestamp.from(updatedAt),
+                accountId,
+                expectedStatus.name()
         );
+        return updated == 1;
     }
 
     public Optional<LedgerAccountRecord> findByExternalAccountNumber(String externalAccountNumber) {

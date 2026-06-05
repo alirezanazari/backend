@@ -47,7 +47,7 @@ public class OutboxEventRepository {
                         FROM outbox_events
                         WHERE status = 'PENDING'
                           AND retry_count < ?
-                        ORDER BY created_at ASC
+                        ORDER BY sequence_number ASC
                         LIMIT ?
                         """,
                 this::map,

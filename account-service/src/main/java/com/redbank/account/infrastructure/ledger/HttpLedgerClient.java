@@ -6,9 +6,6 @@ import com.redbank.account.application.LedgerBalanceClient;
 import com.redbank.account.config.LedgerClientProperties;
 import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.envelope.ApiResponse;
-
-import jakarta.validation.constraints.Pattern;
-
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
@@ -59,6 +56,18 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     }
 
     @Override
+    public boolean reopen(String accountNumber) {
+        ReopenLedgerAccountRequest request = new ReopenLedgerAccountRequest(accountNumber);
+        ApiResponse<ReopenLedgerAccountResponse> response = post(
+                "/internal/v1/ledger/accounts/reopen",
+                request,
+                new ParameterizedTypeReference<>() {
+                }
+        );
+        return response != null && response.data() != null && "ACTIVE".equals(response.data().status());
+    }
+
+    @Override
     public BalanceSummary getBalance(String accountNumber, String currency) {
         ApiResponse<GetLedgerBalanceResponse> response = post(
                 "/internal/v1/ledger/accounts/balance/get",
@@ -100,9 +109,15 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     private record GetLedgerBalanceResponse(String externalAccountNumber, String ledgerAccountId, BalanceSummary balance) {
     }
 
-    public record CloseLedgerAccountRequest(String externalAccountNumber) {
+    private record CloseLedgerAccountRequest(String externalAccountNumber) {
     }
-    
-    public record CloseLedgerAccountResponse(String ledgerAccountId, String status) {
+
+    private record CloseLedgerAccountResponse(String ledgerAccountId, String status) {
+    }
+
+    private record ReopenLedgerAccountRequest(String externalAccountNumber) {
+    }
+
+    private record ReopenLedgerAccountResponse(String ledgerAccountId, String status) {
     }
 }

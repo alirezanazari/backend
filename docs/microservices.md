@@ -328,6 +328,8 @@ Internal APIs:
 
 ```text
 POST /internal/v1/ledger/accounts/create
+POST /internal/v1/ledger/accounts/close
+POST /internal/v1/ledger/accounts/reopen
 POST /internal/v1/ledger/transactions/internal-transfer
 POST /internal/v1/ledger/transactions/referral-reward
 POST /internal/v1/ledger/accounts/balance/get

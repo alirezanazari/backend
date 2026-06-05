@@ -4,5 +4,8 @@ import java.util.UUID;
 
 public interface LedgerAccountClient {
     boolean createAccount(String accountNumber, UUID ownerUserId, String currency);
+
     boolean close(String accountNumber);
+
+    boolean reopen(String accountNumber);
 }
