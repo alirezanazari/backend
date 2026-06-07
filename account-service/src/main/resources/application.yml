@@ -51,3 +51,7 @@ redbank:
     enabled: ${REDBANK_LEDGER_CLIENT_ENABLED:false}
     base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}
     service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  card:
+    enabled: ${REDBANK_CARD_CLIENT_ENABLED:false}
+    base-url: ${REDBANK_CARD_BASE_URL:http://localhost:8084}
+    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}

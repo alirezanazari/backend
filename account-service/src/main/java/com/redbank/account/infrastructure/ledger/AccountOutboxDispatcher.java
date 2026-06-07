@@ -24,6 +24,11 @@ public class AccountOutboxDispatcher {
     private static final Logger LOGGER = LoggerFactory.getLogger(AccountOutboxDispatcher.class);
     private static final int BATCH_SIZE = 20;
     private static final int MAX_RETRY_COUNT = 5;
+    private static final Set<String> EVENT_TYPES = Set.of(
+            AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_CREATE_REQUESTED,
+            AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_CLOSE_REQUESTED,
+            AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_REOPEN_REQUESTED
+    );
 
     private final OutboxEventRepository outboxEventRepository;
     private final LedgerAccountClient ledgerAccountClient;
@@ -45,7 +50,11 @@ public class AccountOutboxDispatcher {
     @Scheduled(fixedDelayString = "${redbank.account.outbox.dispatch-delay-ms:5000}")
     public void dispatchPending() {
         Set<String> attemptedAggregates = new HashSet<>();
-        for (OutboxEventRecord event : outboxEventRepository.findPending(BATCH_SIZE, MAX_RETRY_COUNT)) {
+        for (OutboxEventRecord event : outboxEventRepository.findPendingByEventTypes(
+                EVENT_TYPES,
+                BATCH_SIZE,
+                MAX_RETRY_COUNT
+        )) {
             String aggregateKey = event.aggregateType() + ":" + event.aggregateId();
             if (!attemptedAggregates.add(aggregateKey)) {
                 continue;

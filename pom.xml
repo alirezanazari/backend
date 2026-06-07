@@ -24,6 +24,7 @@
         <module>iam-service</module>
         <module>account-service</module>
         <module>ledger-service</module>
+        <module>card-service</module>
     </modules>
 
     <properties>

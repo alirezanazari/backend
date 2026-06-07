@@ -14,6 +14,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,7 +38,7 @@ class AccountOutboxDispatcherTest {
                 AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_REOPEN_REQUESTED
         );
 
-        when(repository.findPending(20, 5))
+        when(repository.findPendingByEventTypes(anySet(), anyInt(), anyInt()))
                 .thenReturn(List.of(close, reopen))
                 .thenReturn(List.of(reopen));
         when(ledgerClient.close(accountNumber)).thenReturn(true);

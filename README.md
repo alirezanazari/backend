@@ -13,6 +13,7 @@ red-bank
   iam-service          identity/authentication foundation
   account-service      profiles and account metadata
   ledger-service       financial source of truth
+  card-service         card lifecycle
   docs                 architecture and implementation documents
   docker               local infrastructure support
 ```
@@ -29,6 +30,8 @@ red-bank
 | Account OpenAPI UI | `http://localhost:8082/swagger-ui.html` |
 | Ledger health | `http://localhost:8083/actuator/health` |
 | Ledger OpenAPI UI | `http://localhost:8083/swagger-ui.html` |
+| Card health | `http://localhost:8084/actuator/health` |
+| Card OpenAPI UI | `http://localhost:8084/swagger-ui.html` |
 
 ## Documentation
 

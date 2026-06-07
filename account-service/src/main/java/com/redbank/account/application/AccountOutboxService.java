@@ -17,6 +17,7 @@ public class AccountOutboxService {
     public static final String EVENT_TYPE_LEDGER_ACCOUNT_CREATE_REQUESTED = "LEDGER_ACCOUNT_CREATE_REQUESTED";
     public static final String EVENT_TYPE_LEDGER_ACCOUNT_CLOSE_REQUESTED = "LEDGER_ACCOUNT_CLOSE_REQUESTED";
     public static final String EVENT_TYPE_LEDGER_ACCOUNT_REOPEN_REQUESTED = "LEDGER_ACCOUNT_REOPEN_REQUESTED";
+    public static final String EVENT_TYPE_DEFAULT_CARD_CREATE_REQUESTED = "DEFAULT_CARD_CREATE_REQUESTED";
 
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
@@ -54,6 +55,22 @@ public class AccountOutboxService {
 
     public void enqueueLedgerAccountReopen(BankAccountRecord account) {
         enqueueLifecycleEvent(account.accountNumber(), EVENT_TYPE_LEDGER_ACCOUNT_REOPEN_REQUESTED);
+    }
+
+    public void enqueueDefaultCardCreation(BankAccountRecord account) {
+        try {
+            enqueue(
+                    account.accountNumber(),
+                    EVENT_TYPE_DEFAULT_CARD_CREATE_REQUESTED,
+                    objectMapper.writeValueAsString(new CardAccountCreationPayload(
+                            account.accountNumber(),
+                            account.userId().toString(),
+                            account.profileId().toString()
+                    ))
+            );
+        } catch (JsonProcessingException exception) {
+            throw new AccountBusinessRuleException("Default card outbox payload could not be created");
+        }
     }
 
     private void enqueueLifecycleEvent(String accountNumber, String eventType) {

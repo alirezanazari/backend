@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -53,6 +54,38 @@ public class OutboxEventRepository {
                 this::map,
                 maxRetryCount,
                 limit
+        );
+    }
+
+    public List<OutboxEventRecord> findPendingByEventTypes(
+            Set<String> eventTypes,
+            int limit,
+            int maxRetryCount
+    ) {
+        if (eventTypes.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", eventTypes.stream().map(ignored -> "?").toList());
+        Object[] arguments = new Object[eventTypes.size() + 2];
+        int index = 0;
+        for (String eventType : eventTypes) {
+            arguments[index++] = eventType;
+        }
+        arguments[index++] = maxRetryCount;
+        arguments[index] = limit;
+
+        return jdbcTemplate.query("""
+                        SELECT id, aggregate_type, aggregate_id, event_type, payload, status,
+                               created_at, updated_at, published_at, retry_count
+                        FROM outbox_events
+                        WHERE event_type IN (%s)
+                          AND status = 'PENDING'
+                          AND retry_count < ?
+                        ORDER BY sequence_number ASC
+                        LIMIT ?
+                        """.formatted(placeholders),
+                this::map,
+                arguments
         );
     }
 

@@ -2,6 +2,8 @@ package com.redbank.account.application;
 
 import com.redbank.account.api.internal.dto.GetAccountCompletionRequest;
 import com.redbank.account.api.internal.dto.GetAccountCompletionResponse;
+import com.redbank.account.api.internal.dto.GetCardAccountRequest;
+import com.redbank.account.api.internal.dto.GetCardAccountResponse;
 import com.redbank.account.api.v1.dto.CloseAccountRequest;
 import com.redbank.account.api.v1.dto.CloseAccountResponse;
 import com.redbank.account.api.v1.dto.CreateProfileRequest;
@@ -125,6 +127,7 @@ public class AccountService {
             throw new AccountConflictException("Account number, IBAN, or profile already exists");
         }
         accountOutboxService.enqueueLedgerAccountCreation(account);
+        accountOutboxService.enqueueDefaultCardCreation(account);
 
         return new RegisterAccountResponse(
                 toProfileSummary(profile),
@@ -468,6 +471,24 @@ public class AccountService {
             status = AccountCompletionStatus.ACCOUNT_REQUIRED;
         }
         return new GetAccountCompletionResponse(status, activeProfile == null ? null : toProfileSummary(activeProfile));
+    }
+
+    public GetCardAccountResponse getCardAccount(GetCardAccountRequest request) {
+        UUID userId = parseUserId(request.userId());
+        UUID profileId = parseProfileId(request.profileId());
+        BankAccountRecord account = bankAccountRepository.findByUserIdAndAccountNumber(userId, request.accountNumber())
+                .filter(candidate -> candidate.profileId().equals(profileId))
+                .orElseThrow(() -> new AccountNotFoundException("Account was not found"));
+        boolean eligible = account.type() == AccountType.SAVING && account.status() == AccountStatus.ACTIVE;
+        return new GetCardAccountResponse(
+                account.accountNumber(),
+                account.userId().toString(),
+                account.profileId().toString(),
+                account.type(),
+                account.status(),
+                account.currency(),
+                eligible
+        );
     }
 
     private BankAccountRecord createUniqueAccount(

@@ -112,6 +112,20 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void registerStoresDefaultCardCreationOutboxEvent() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
+
+        assertThat(outboxEventCount(accountNumber, "DEFAULT_CARD_CREATE_REQUESTED")).isEqualTo(1);
+    }
+
+    @Test
     void internalCompletionReturnsKycRequiredWhenProfileAndAccountExist() throws Exception {
         UUID userId = UUID.randomUUID();
         JsonNode registered = objectMapper.readTree(register(userId)
