@@ -4,6 +4,7 @@ import com.redbank.account.application.AccountExternalServiceException;
 import com.redbank.account.application.CardAccountClient;
 import com.redbank.account.config.CardClientProperties;
 import com.redbank.contracts.card.CardSummary;
+import com.redbank.contracts.card.CardForm;
 import com.redbank.contracts.envelope.ApiResponse;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,14 +28,15 @@ public class HttpCardClient implements CardAccountClient {
     }
 
     @Override
-    public CardSummary createDefaultCard(String accountNumber, UUID userId, UUID profileId) {
+    public CardSummary createDefaultCard(String accountNumber, UUID userId, UUID profileId, CardForm form) {
         try {
             ApiResponse<CardSummary> response = restClient.post()
                     .uri("/internal/v1/cards/default/create")
                     .body(new CreateDefaultCardRequest(
                             accountNumber,
                             userId.toString(),
-                            profileId.toString()
+                            profileId.toString(),
+                            form
                     ))
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {
@@ -48,6 +50,43 @@ public class HttpCardClient implements CardAccountClient {
         }
     }
 
-    private record CreateDefaultCardRequest(String accountNumber, String userId, String profileId) {
+    @Override
+    public boolean close(String accountNumber) {
+        return changeAccountStatus("/internal/v1/cards/account/close", accountNumber, "INACTIVE");
+    }
+
+    @Override
+    public boolean reopen(String accountNumber) {
+        return changeAccountStatus("/internal/v1/cards/account/reopen", accountNumber, "ACTIVE");
+    }
+
+    private boolean changeAccountStatus(String path, String accountNumber, String expectedStatus) {
+        try {
+            ApiResponse<CardAccountLifecycleResponse> response = restClient.post()
+                    .uri(path)
+                    .body(new CardAccountLifecycleRequest(accountNumber))
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {
+                    });
+            return response != null
+                    && response.data() != null
+                    && expectedStatus.equals(response.data().status());
+        } catch (RestClientException exception) {
+            throw new AccountExternalServiceException("Card service call failed", exception);
+        }
+    }
+
+    private record CreateDefaultCardRequest(
+            String accountNumber,
+            String userId,
+            String profileId,
+            CardForm form
+    ) {
+    }
+
+    private record CardAccountLifecycleRequest(String accountNumber) {
+    }
+
+    private record CardAccountLifecycleResponse(String accountNumber, String status, Integer updatedCards) {
     }
 }

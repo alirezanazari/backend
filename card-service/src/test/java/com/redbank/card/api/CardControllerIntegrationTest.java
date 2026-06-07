@@ -58,6 +58,7 @@ class CardControllerIntegrationTest {
 
         JsonNode first = objectMapper.readTree(createDefaultCard(userId, profileId, accountNumber)
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.form").value("PHYSICAL"))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.maskedPan").value(org.hamcrest.Matchers.matchesPattern("\\d{6}\\*{6}\\d{4}")))
                 .andReturn()
@@ -83,6 +84,67 @@ class CardControllerIntegrationTest {
         );
         assertThat(cards).isEqualTo(1);
         assertThat(histories).isEqualTo(1);
+        Integer orders = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM card_orders WHERE card_id = ? AND status = 'PENDING'",
+                Integer.class,
+                UUID.fromString(first.path("data").path("cardId").asText())
+        );
+        assertThat(orders).isEqualTo(1);
+    }
+
+    @Test
+    void additionalProfileGetsDigitalCardWithoutPhysicalOrder() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        String accountNumber = "423456789012345678";
+
+        JsonNode card = objectMapper.readTree(createDefaultCard(
+                userId,
+                profileId,
+                accountNumber,
+                "DIGITAL"
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.form").value("DIGITAL"))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        Integer orders = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM card_orders WHERE card_id = ?",
+                Integer.class,
+                UUID.fromString(card.path("data").path("cardId").asText())
+        );
+        assertThat(orders).isZero();
+    }
+
+    @Test
+    void accountCloseAndReopenToggleOnlyActiveCards() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        String accountNumber = "523456789012345678";
+        JsonNode activeCard = objectMapper.readTree(createDefaultCard(
+                userId,
+                profileId,
+                accountNumber,
+                "DIGITAL"
+        ).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String activeCardId = activeCard.path("data").path("cardId").asText();
+
+        accountLifecycle("/internal/v1/cards/account/close", accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"))
+                .andExpect(jsonPath("$.data.updatedCards").value(1));
+
+        assertThat(cardStatus(activeCardId)).isEqualTo("INACTIVE");
+
+        accountLifecycle("/internal/v1/cards/account/reopen", accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.updatedCards").value(1));
+
+        assertThat(cardStatus(activeCardId)).isEqualTo("ACTIVE");
     }
 
     @Test
@@ -175,6 +237,15 @@ class CardControllerIntegrationTest {
             UUID profileId,
             String accountNumber
     ) throws Exception {
+        return createDefaultCard(userId, profileId, accountNumber, "PHYSICAL");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions createDefaultCard(
+            UUID userId,
+            UUID profileId,
+            String accountNumber,
+            String form
+    ) throws Exception {
         return mockMvc.perform(post("/internal/v1/cards/default/create")
                 .header(InternalCardController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
                 .contentType("application/json")
@@ -182,9 +253,32 @@ class CardControllerIntegrationTest {
                         {
                           "accountNumber": "%s",
                           "userId": "%s",
-                          "profileId": "%s"
+                          "profileId": "%s",
+                          "form": "%s"
                         }
-                        """.formatted(accountNumber, userId, profileId)));
+                        """.formatted(accountNumber, userId, profileId, form)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions accountLifecycle(
+            String path,
+            String accountNumber
+    ) throws Exception {
+        return mockMvc.perform(post(path)
+                .header(InternalCardController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "accountNumber": "%s"
+                        }
+                        """.formatted(accountNumber)));
+    }
+
+    private String cardStatus(String cardId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT status FROM cards WHERE id = ?",
+                String.class,
+                UUID.fromString(cardId)
+        );
     }
 
     private org.springframework.test.web.servlet.ResultActions cardAction(

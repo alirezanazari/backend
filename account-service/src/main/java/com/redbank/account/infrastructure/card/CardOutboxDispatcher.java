@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.redbank.account.application.AccountOutboxService;
 import com.redbank.account.application.CardAccountClient;
 import com.redbank.account.application.CardAccountCreationPayload;
+import com.redbank.account.application.CardAccountLifecyclePayload;
 import com.redbank.account.domain.OutboxEventRecord;
 import com.redbank.account.infrastructure.OutboxEventRepository;
 import java.time.Clock;
@@ -23,7 +24,9 @@ public class CardOutboxDispatcher {
     private static final int BATCH_SIZE = 20;
     private static final int MAX_RETRY_COUNT = 5;
     private static final Set<String> EVENT_TYPES = Set.of(
-            AccountOutboxService.EVENT_TYPE_DEFAULT_CARD_CREATE_REQUESTED
+            AccountOutboxService.EVENT_TYPE_DEFAULT_CARD_CREATE_REQUESTED,
+            AccountOutboxService.EVENT_TYPE_CARD_ACCOUNT_CLOSE_REQUESTED,
+            AccountOutboxService.EVENT_TYPE_CARD_ACCOUNT_REOPEN_REQUESTED
     );
 
     private final OutboxEventRepository outboxEventRepository;
@@ -56,19 +59,46 @@ public class CardOutboxDispatcher {
 
     private void dispatch(OutboxEventRecord event) {
         try {
-            CardAccountCreationPayload payload = objectMapper.readValue(
-                    event.payload(),
-                    CardAccountCreationPayload.class
-            );
-            cardAccountClient.createDefaultCard(
-                    payload.accountNumber(),
-                    UUID.fromString(payload.userId()),
-                    UUID.fromString(payload.profileId())
-            );
+            boolean acknowledged = dispatchToCard(event);
+            if (!acknowledged) {
+                throw new IllegalStateException("Card account lifecycle event was not acknowledged");
+            }
             outboxEventRepository.markPublished(event.id(), clock.instant());
         } catch (JsonProcessingException | RuntimeException exception) {
             LOGGER.warn("Default card outbox event dispatch failed: {}", event.id(), exception);
             outboxEventRepository.markAttemptFailed(event.id(), clock.instant(), MAX_RETRY_COUNT);
         }
+    }
+
+    private boolean dispatchToCard(OutboxEventRecord event) throws JsonProcessingException {
+        return switch (event.eventType()) {
+            case AccountOutboxService.EVENT_TYPE_DEFAULT_CARD_CREATE_REQUESTED -> {
+                CardAccountCreationPayload payload = objectMapper.readValue(
+                        event.payload(),
+                        CardAccountCreationPayload.class
+                );
+                yield cardAccountClient.createDefaultCard(
+                        payload.accountNumber(),
+                        UUID.fromString(payload.userId()),
+                        UUID.fromString(payload.profileId()),
+                        payload.form()
+                ) != null;
+            }
+            case AccountOutboxService.EVENT_TYPE_CARD_ACCOUNT_CLOSE_REQUESTED -> {
+                CardAccountLifecyclePayload payload = objectMapper.readValue(
+                        event.payload(),
+                        CardAccountLifecyclePayload.class
+                );
+                yield cardAccountClient.close(payload.accountNumber());
+            }
+            case AccountOutboxService.EVENT_TYPE_CARD_ACCOUNT_REOPEN_REQUESTED -> {
+                CardAccountLifecyclePayload payload = objectMapper.readValue(
+                        event.payload(),
+                        CardAccountLifecyclePayload.class
+                );
+                yield cardAccountClient.reopen(payload.accountNumber());
+            }
+            default -> throw new IllegalArgumentException("Unsupported outbox event type: " + event.eventType());
+        };
     }
 }

@@ -3,6 +3,7 @@ package com.redbank.card.infrastructure;
 import com.redbank.card.domain.CardRecord;
 import com.redbank.card.domain.CardStatusHistoryRecord;
 import com.redbank.contracts.card.CardStatus;
+import com.redbank.contracts.card.CardForm;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,9 +28,9 @@ public class CardRepository {
         jdbcTemplate.update("""
                         INSERT INTO cards (
                             id, user_id, profile_id, account_number, masked_pan, card_token,
-                            status, expires_at, issuance_reference, created_at, updated_at
+                            form, status, expires_at, issuance_reference, created_at, updated_at
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                 card.id(),
                 card.userId(),
@@ -37,6 +38,7 @@ public class CardRepository {
                 card.accountNumber(),
                 card.maskedPan(),
                 card.cardToken(),
+                card.form().name(),
                 card.status().name(),
                 Date.valueOf(card.expiresAt().atDay(1)),
                 card.issuanceReference(),
@@ -55,6 +57,34 @@ public class CardRepository {
 
     public Optional<CardRecord> findByIdAndUserId(UUID cardId, UUID userId) {
         return queryOne("WHERE id = ? AND user_id = ?", cardId, userId);
+    }
+
+    public Optional<CardRecord> findDigitalByUserIdAndProfileIdAndAccountNumber(
+            UUID userId,
+            UUID profileId,
+            String accountNumber
+    ) {
+        return queryOne("""
+                WHERE user_id = ?
+                  AND profile_id = ?
+                  AND account_number = ?
+                  AND form = 'DIGITAL'
+                  AND status = 'ACTIVE'
+                ORDER BY created_at ASC
+                LIMIT 1
+                """,
+                userId,
+                profileId,
+                accountNumber
+        );
+    }
+
+    public List<CardRecord> findByAccountNumber(String accountNumber) {
+        return jdbcTemplate.query(
+                selectBase() + " WHERE account_number = ? ORDER BY created_at ASC",
+                this::map,
+                accountNumber
+        );
     }
 
     public List<CardRecord> findByUserIdAndProfileId(
@@ -77,6 +107,20 @@ public class CardRepository {
                 Timestamp.from(updatedAt),
                 cardId,
                 expectedStatus.name()
+        );
+        return updated == 1;
+    }
+
+    public boolean updateForm(UUID cardId, CardForm expectedForm, CardForm newForm, Instant updatedAt) {
+        int updated = jdbcTemplate.update("""
+                        UPDATE cards
+                        SET form = ?, updated_at = ?
+                        WHERE id = ? AND form = ?
+                        """,
+                newForm.name(),
+                Timestamp.from(updatedAt),
+                cardId,
+                expectedForm.name()
         );
         return updated == 1;
     }
@@ -111,7 +155,7 @@ public class CardRepository {
     private String selectBase() {
         return """
                 SELECT id, user_id, profile_id, account_number, masked_pan, card_token,
-                       status, expires_at, issuance_reference, created_at, updated_at
+                       form, status, expires_at, issuance_reference, created_at, updated_at
                 FROM cards
                 """;
     }
@@ -124,6 +168,7 @@ public class CardRepository {
                 resultSet.getString("account_number"),
                 resultSet.getString("masked_pan"),
                 resultSet.getString("card_token"),
+                CardForm.valueOf(resultSet.getString("form")),
                 CardStatus.valueOf(resultSet.getString("status")),
                 YearMonth.from(resultSet.getDate("expires_at").toLocalDate()),
                 resultSet.getString("issuance_reference"),

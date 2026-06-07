@@ -1,6 +1,8 @@
 package com.redbank.card.api.internal;
 
 import com.redbank.card.api.internal.dto.CreateDefaultCardRequest;
+import com.redbank.card.api.internal.dto.CardAccountLifecycleRequest;
+import com.redbank.card.api.internal.dto.CardAccountLifecycleResponse;
 import com.redbank.card.application.CardService;
 import com.redbank.card.application.CardUnauthorizedException;
 import com.redbank.card.config.InternalAccessProperties;
@@ -35,6 +37,26 @@ public class InternalCardController {
         authorize(serviceToken);
         CardSummary response = cardService.createDefaultCard(request);
         return ResponseEntity.ok(ApiResponse.success("internal", request.profileId(), response));
+    }
+
+    @PostMapping("/account/close")
+    public ResponseEntity<ApiResponse<CardAccountLifecycleResponse>> closeAccount(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody CardAccountLifecycleRequest request
+    ) {
+        authorize(serviceToken);
+        CardAccountLifecycleResponse response = cardService.closeAccount(request.accountNumber());
+        return ResponseEntity.ok(ApiResponse.success("internal", null, response));
+    }
+
+    @PostMapping("/account/reopen")
+    public ResponseEntity<ApiResponse<CardAccountLifecycleResponse>> reopenAccount(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody CardAccountLifecycleRequest request
+    ) {
+        authorize(serviceToken);
+        CardAccountLifecycleResponse response = cardService.reopenAccount(request.accountNumber());
+        return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
     private void authorize(String serviceToken) {

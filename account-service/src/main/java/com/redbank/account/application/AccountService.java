@@ -39,6 +39,7 @@ import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.account.ProfileSummary;
 import com.redbank.contracts.account.ProfileType;
 import com.redbank.contracts.common.Image;
+import com.redbank.contracts.card.CardForm;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.identity.AccountCompletionStatus;
@@ -127,7 +128,7 @@ public class AccountService {
             throw new AccountConflictException("Account number, IBAN, or profile already exists");
         }
         accountOutboxService.enqueueLedgerAccountCreation(account);
-        accountOutboxService.enqueueDefaultCardCreation(account);
+        accountOutboxService.enqueueDefaultCardCreation(account, CardForm.PHYSICAL);
 
         return new RegisterAccountResponse(
                 toProfileSummary(profile),
@@ -173,11 +174,21 @@ public class AccountService {
                 now,
                 now
         );
+        BankAccountRecord account = createUniqueAccount(
+                profile,
+                activeProfile.selectedJobId(),
+                AccountType.SAVING,
+                accountProperties.defaultCurrency(),
+                now
+        );
         try {
             profileRepository.save(profile);
+            bankAccountRepository.save(account);
         } catch (DataIntegrityViolationException exception) {
-            throw new AccountConflictException("Profile already exists");
+            throw new AccountConflictException("Profile, account number, or IBAN already exists");
         }
+        accountOutboxService.enqueueLedgerAccountCreation(account);
+        accountOutboxService.enqueueDefaultCardCreation(account, CardForm.DIGITAL);
         return new CreateProfileResponse(toProfileSummary(profile));
     }
 
@@ -326,6 +337,7 @@ public class AccountService {
 
         boolean profileClosed = closeProfileWhenNoActiveAccountsRemain(profile, request.reasonText(), closedAt);
         accountOutboxService.enqueueLedgerAccountClosure(account);
+        accountOutboxService.enqueueCardAccountClosure(account);
         return new CloseAccountResponse(
                 account.accountNumber(),
                 AccountStatus.CLOSED,
@@ -405,6 +417,7 @@ public class AccountService {
             ));
         }
         accountOutboxService.enqueueLedgerAccountReopen(openedAccount);
+        accountOutboxService.enqueueCardAccountReopen(openedAccount);
 
         return new OpenAccountResponse(
                 toProfileSummary(openedProfile),

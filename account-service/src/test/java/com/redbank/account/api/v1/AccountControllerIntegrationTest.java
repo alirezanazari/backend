@@ -123,6 +123,29 @@ class AccountControllerIntegrationTest {
         String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
 
         assertThat(outboxEventCount(accountNumber, "DEFAULT_CARD_CREATE_REQUESTED")).isEqualTo(1);
+        assertThat(outboxPayload(accountNumber, "DEFAULT_CARD_CREATE_REQUESTED")).contains("\"form\":\"PHYSICAL\"");
+    }
+
+    @Test
+    void createProfileCreatesSavingAccountAndDigitalCardRequest() throws Exception {
+        UUID userId = UUID.randomUUID();
+        register(userId).andExpect(status().isCreated());
+        JsonNode created = objectMapper.readTree(createProfile(userToken(userId, null), "Business")
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = created.path("data").path("profile").path("profileId").asText();
+        String accountNumber = jdbcTemplate.queryForObject(
+                "SELECT account_number FROM bank_accounts WHERE profile_id = ?",
+                String.class,
+                UUID.fromString(profileId)
+        );
+
+        assertThat(accountNumber).matches("\\d{18}");
+        assertThat(outboxEventCount(accountNumber, "LEDGER_ACCOUNT_CREATE_REQUESTED")).isEqualTo(1);
+        assertThat(outboxEventCount(accountNumber, "DEFAULT_CARD_CREATE_REQUESTED")).isEqualTo(1);
+        assertThat(outboxPayload(accountNumber, "DEFAULT_CARD_CREATE_REQUESTED")).contains("\"form\":\"DIGITAL\"");
     }
 
     @Test
@@ -296,6 +319,7 @@ class AccountControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.activeProfile").value(org.hamcrest.Matchers.nullValue()));
 
         assertThat(outboxEventCount(accountNumber, "LEDGER_ACCOUNT_CLOSE_REQUESTED")).isEqualTo(1);
+        assertThat(outboxEventCount(accountNumber, "CARD_ACCOUNT_CLOSE_REQUESTED")).isEqualTo(1);
     }
 
     @Test
@@ -329,6 +353,8 @@ class AccountControllerIntegrationTest {
 
         assertThat(outboxEventCount(accountNumber, "LEDGER_ACCOUNT_CLOSE_REQUESTED")).isEqualTo(1);
         assertThat(outboxEventCount(accountNumber, "LEDGER_ACCOUNT_REOPEN_REQUESTED")).isEqualTo(1);
+        assertThat(outboxEventCount(accountNumber, "CARD_ACCOUNT_CLOSE_REQUESTED")).isEqualTo(1);
+        assertThat(outboxEventCount(accountNumber, "CARD_ACCOUNT_REOPEN_REQUESTED")).isEqualTo(1);
     }
 
     @Test
@@ -528,6 +554,22 @@ class AccountControllerIntegrationTest {
                 eventType
         );
         return count == null ? 0 : count;
+    }
+
+    private String outboxPayload(String accountNumber, String eventType) {
+        return jdbcTemplate.queryForObject("""
+                        SELECT payload
+                        FROM outbox_events
+                        WHERE aggregate_type = 'BANK_ACCOUNT'
+                          AND aggregate_id = ?
+                          AND event_type = ?
+                        ORDER BY sequence_number DESC
+                        LIMIT 1
+                        """,
+                String.class,
+                accountNumber,
+                eventType
+        );
     }
 
     private String onboardingToken(UUID userId) throws JOSEException {

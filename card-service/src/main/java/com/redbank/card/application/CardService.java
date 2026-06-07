@@ -1,6 +1,7 @@
 package com.redbank.card.application;
 
 import com.redbank.card.api.internal.dto.CreateDefaultCardRequest;
+import com.redbank.card.api.internal.dto.CardAccountLifecycleResponse;
 import com.redbank.card.api.v1.dto.BlockCardRequest;
 import com.redbank.card.api.v1.dto.BlockCardResponse;
 import com.redbank.card.api.v1.dto.CardStatusResponse;
@@ -21,6 +22,7 @@ import com.redbank.card.domain.CardStatusHistoryRecord;
 import com.redbank.card.infrastructure.CardOrderRepository;
 import com.redbank.card.infrastructure.CardRepository;
 import com.redbank.contracts.card.CardStatus;
+import com.redbank.contracts.card.CardForm;
 import com.redbank.contracts.card.CardSummary;
 import com.redbank.contracts.common.Location;
 import com.redbank.contracts.envelope.RequestContext;
@@ -38,7 +40,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CardService {
     private static final String DEFAULT_ISSUANCE_PREFIX = "DEFAULT:";
-    private static final String ORDER_ISSUANCE_PREFIX = "ORDER:";
 
     private final CardRepository cardRepository;
     private final CardOrderRepository cardOrderRepository;
@@ -72,17 +73,28 @@ public class CardService {
         UUID profileId = parseUuid(request.profileId(), "data.profileId", "PROFILE_ID_UUID");
         String issuanceReference = DEFAULT_ISSUANCE_PREFIX + request.accountNumber();
 
-        return cardRepository.findByIssuanceReference(issuanceReference)
-                .map(existing -> validateExistingDefault(existing, userId, profileId, request.accountNumber()))
+        CardSummary card = cardRepository.findByIssuanceReference(issuanceReference)
+                .map(existing -> validateExistingDefault(
+                        existing,
+                        userId,
+                        profileId,
+                        request.accountNumber(),
+                        request.form()
+                ))
                 .orElseGet(() -> createCard(
                         userId,
                         profileId,
                         request.accountNumber(),
+                        request.form(),
                         issuanceReference,
                         CardActorType.SYSTEM,
                         "account-service",
                         "Default card created"
                 ));
+        if (request.form() == CardForm.PHYSICAL) {
+            ensureInitialPhysicalOrder(card);
+        }
+        return card;
     }
 
     public ListCardsResponse listCards(
@@ -112,17 +124,17 @@ public class CardService {
                     throw new CardConflictException("An active card order already exists for this account");
                 });
 
+        CardRecord digitalCard = cardRepository.findDigitalByUserIdAndProfileIdAndAccountNumber(
+                        token.userId(),
+                        profileId,
+                        request.accountNumber()
+                )
+                .orElseThrow(() -> new CardBusinessRuleException(
+                        "An active digital card is required before ordering a physical card"
+                ));
+
         Instant now = clock.instant();
         UUID orderId = UUID.randomUUID();
-        CardSummary card = createCard(
-                token.userId(),
-                profileId,
-                request.accountNumber(),
-                ORDER_ISSUANCE_PREFIX + orderId,
-                CardActorType.USER,
-                token.userId().toString(),
-                defaultReason(request.reason(), "Card ordered")
-        );
         Location delivery = request.deliveryLocation();
         CardOrderRecord order = new CardOrderRecord(
                 orderId,
@@ -135,13 +147,55 @@ public class CardService {
                 delivery == null ? null : delivery.address(),
                 delivery == null ? null : delivery.postalCode(),
                 request.reason(),
-                CardOrderStatus.COMPLETED,
-                UUID.fromString(card.cardId()),
+                CardOrderStatus.PENDING,
+                digitalCard.id(),
                 now,
                 now
         );
         cardOrderRepository.save(order);
-        return new OrderCardResponse(order.id().toString(), card, order.status().name());
+        if (!cardRepository.updateForm(digitalCard.id(), CardForm.DIGITAL, CardForm.PHYSICAL, now)) {
+            throw new CardConflictException("Card form changed concurrently");
+        }
+        CardRecord physicalCard = digitalCard.withForm(CardForm.PHYSICAL, now);
+        return new OrderCardResponse(order.id().toString(), toSummary(physicalCard), order.status().name());
+    }
+
+    @Transactional
+    public CardAccountLifecycleResponse closeAccount(String accountNumber) {
+        int updatedCards = 0;
+        for (CardRecord card : cardRepository.findByAccountNumber(accountNumber)) {
+            if (card.status() == CardStatus.ACTIVE) {
+                changeStatus(
+                        card,
+                        CardStatus.ACTIVE,
+                        CardStatus.INACTIVE,
+                        "Linked account closed",
+                        CardActorType.SYSTEM,
+                        "account-service"
+                );
+                updatedCards++;
+            }
+        }
+        return new CardAccountLifecycleResponse(accountNumber, CardStatus.INACTIVE.name(), updatedCards);
+    }
+
+    @Transactional
+    public CardAccountLifecycleResponse reopenAccount(String accountNumber) {
+        int updatedCards = 0;
+        for (CardRecord card : cardRepository.findByAccountNumber(accountNumber)) {
+            if (card.status() == CardStatus.INACTIVE) {
+                changeStatus(
+                        card,
+                        CardStatus.INACTIVE,
+                        CardStatus.ACTIVE,
+                        "Linked account reopened",
+                        CardActorType.SYSTEM,
+                        "account-service"
+                );
+                updatedCards++;
+            }
+        }
+        return new CardAccountLifecycleResponse(accountNumber, CardStatus.ACTIVE.name(), updatedCards);
     }
 
     @Transactional
@@ -247,6 +301,7 @@ public class CardService {
             UUID userId,
             UUID profileId,
             String accountNumber,
+            CardForm form,
             String issuanceReference,
             CardActorType actorType,
             String actorId,
@@ -260,6 +315,7 @@ public class CardService {
                 accountNumber,
                 cardNumberGenerator.generate().maskedPan(),
                 UUID.randomUUID().toString(),
+                form,
                 CardStatus.ACTIVE,
                 YearMonth.from(now.atZone(ZoneOffset.UTC)).plusYears(cardProperties.expiryYears()),
                 issuanceReference,
@@ -281,14 +337,49 @@ public class CardService {
             CardRecord existing,
             UUID userId,
             UUID profileId,
-            String accountNumber
+            String accountNumber,
+            CardForm form
     ) {
         if (!existing.userId().equals(userId)
                 || !existing.profileId().equals(profileId)
-                || !existing.accountNumber().equals(accountNumber)) {
+                || !existing.accountNumber().equals(accountNumber)
+                || existing.form() != form) {
             throw new CardConflictException("Default card reference belongs to another account owner");
         }
         return toSummary(existing);
+    }
+
+    private void ensureInitialPhysicalOrder(CardSummary card) {
+        UUID cardId = UUID.fromString(card.cardId());
+        if (cardOrderRepository.findByCardId(cardId).isPresent()) {
+            return;
+        }
+        Instant now = clock.instant();
+        CardRecord cardRecord = cardRepository.findById(cardId)
+                .orElseThrow(() -> new CardNotFoundException("Card was not found"));
+        CardOrderRecord order = new CardOrderRecord(
+                UUID.randomUUID(),
+                cardRecord.userId(),
+                cardRecord.profileId(),
+                card.accountNumber(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                "Initial physical card order",
+                CardOrderStatus.PENDING,
+                cardId,
+                now,
+                now
+        );
+        try {
+            cardOrderRepository.save(order);
+        } catch (DataIntegrityViolationException exception) {
+            if (cardOrderRepository.findByCardId(cardId).isEmpty()) {
+                throw new CardConflictException("Initial physical card order could not be created");
+            }
+        }
     }
 
     private CardRecord changeStatus(
@@ -395,6 +486,7 @@ public class CardService {
                 card.id().toString(),
                 card.accountNumber(),
                 card.maskedPan(),
+                card.form(),
                 card.status(),
                 card.expiresAt()
         );

@@ -9,6 +9,7 @@ public record CardSummary(
         @NotBlank String cardId,
         @NotBlank @Pattern(regexp = "\\d{18}") String accountNumber,
         @NotBlank String maskedPan,
+        @NotNull CardForm form,
         @NotNull CardStatus status,
         YearMonth expiresAt
 ) {
