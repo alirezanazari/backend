@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "f15d63b0-5e3a-4aa8-9d49-92c2b23b5f8b",
     "name": "red-bank Backend",
-    "description": "Postman collection for the API requests currently implemented in the red-bank backend. Public business APIs use the shared context/data envelope. Debug endpoints require the develop profile and REDBANK_DEBUG_ENABLED=true. Gateway key exchange requires REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true.",
+    "description": "Postman collection for the API requests currently implemented in the red-bank backend. Each request uses the base URL of its owning microservice. Public business APIs use the shared context/data envelope. Internal APIs use X-Internal-Service-Token. Debug endpoints require the develop profile and REDBANK_DEBUG_ENABLED=true. Gateway key exchange requires REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -59,11 +59,18 @@
           "  if (data.activeProfile && data.activeProfile.profileId) pm.collectionVariables.set('profileId', data.activeProfile.profileId);",
           "  if (data.account && data.account.accountNumber) pm.collectionVariables.set('accountNumber', data.account.accountNumber);",
           "  if (data.account && data.account.iban) pm.collectionVariables.set('iban', data.account.iban);",
+          "  if (data.cardId) pm.collectionVariables.set('cardId', data.cardId);",
+          "  if (data.card && data.card.cardId) pm.collectionVariables.set('cardId', data.card.cardId);",
+          "  if (data.cards && data.cards.length && data.cards[0].cardId) pm.collectionVariables.set('cardId', data.cards[0].cardId);",
+          "  if (data.orderId) pm.collectionVariables.set('cardOrderId', data.orderId);",
+          "  if (data.ledgerAccountId) pm.collectionVariables.set('ledgerAccountId', data.ledgerAccountId);",
+          "  if (data.ledgerTransactionId) pm.collectionVariables.set('ledgerTransactionId', data.ledgerTransactionId);",
           "",
           "  if (data.accessToken) {",
           "    if (pm.info.requestName === 'Debug User Token') {",
           "      pm.collectionVariables.set('accessToken', data.accessToken);",
           "      pm.collectionVariables.set('onboardingToken', data.accessToken);",
+          "      pm.collectionVariables.set('userId', pm.collectionVariables.get('debugUserId'));",
           "    } else if (pm.info.requestName === 'Debug Admin Token') {",
           "      pm.collectionVariables.set('adminToken', data.accessToken);",
           "    } else if (pm.info.requestName === 'Debug Service Token') {",
@@ -87,7 +94,7 @@
   ],
   "variable": [
     {
-      "key": "baseUrl",
+      "key": "gatewayBaseUrl",
       "value": "http://localhost:8080",
       "type": "string"
     },
@@ -99,6 +106,21 @@
     {
       "key": "accountBaseUrl",
       "value": "http://localhost:8082",
+      "type": "string"
+    },
+    {
+      "key": "ledgerBaseUrl",
+      "value": "http://localhost:8083",
+      "type": "string"
+    },
+    {
+      "key": "cardBaseUrl",
+      "value": "http://localhost:8084",
+      "type": "string"
+    },
+    {
+      "key": "internalServiceToken",
+      "value": "local-develop-internal-service-token-change-me",
       "type": "string"
     },
     {
@@ -172,6 +194,11 @@
       "type": "string"
     },
     {
+      "key": "destinationAccountNumber",
+      "value": "876543210987654321",
+      "type": "string"
+    },
+    {
       "key": "iban",
       "value": "",
       "type": "string"
@@ -198,6 +225,26 @@
     },
     {
       "key": "serviceToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cardId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cardOrderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ledgerAccountId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ledgerTransactionId",
       "value": "",
       "type": "string"
     },
@@ -234,7 +281,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"clientPublicKey\":\"BASE64_X25519_CLIENT_PUBLIC_KEY\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/security/key-exchange",
+            "url": "{{gatewayBaseUrl}}/api/v1/security/key-exchange",
             "description": "Conditional gateway endpoint. Enable REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true before calling."
           }
         }
@@ -261,7 +308,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"nationalId\":\"{{nationalId}}\",\"phoneNumber\":\"{{phoneNumber}}\",\"username\":\"{{username}}\",\"password\":\"{{password}}\",\"firstName\":\"Ali\",\"lastName\":\"Nazari\",\"location\":{\"countryCode\":\"IR\",\"province\":\"Tehran\",\"city\":\"Tehran\",\"address\":\"Main street\",\"postalCode\":\"1234567890\"},\"jobId\":\"{{jobId}}\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/iam/register",
+            "url": "{{iamBaseUrl}}/api/v1/iam/register",
             "description": "Creates a user and returns a limited onboarding token. The collection test stores it as onboardingToken."
           }
         },
@@ -283,7 +330,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"username\":\"{{username}}\",\"password\":\"{{password}}\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/iam/login",
+            "url": "{{iamBaseUrl}}/api/v1/iam/login",
             "description": "Returns either a user token or a device verification challenge. The collection test stores challengeId as deviceChallengeId and the limited token as deviceVerifyToken."
           }
         },
@@ -309,7 +356,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"challengeId\":\"{{deviceChallengeId}}\",\"otpCode\":\"{{otpCode}}\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/iam/device-verify",
+            "url": "{{iamBaseUrl}}/api/v1/iam/device-verify",
             "description": "Uses the login challenge token. In develop, otpCode=111111 works only when REDBANK_DEBUG_MOCK_OTP_ENABLED=true."
           }
         }
@@ -340,7 +387,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"jobId\":\"{{jobId}}\",\"profileDisplayName\":\"Personal\",\"profileImage\":null,\"currency\":\"IRR\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/account/register",
+            "url": "{{accountBaseUrl}}/api/v1/account/register",
             "description": "Creates the personal profile and default saving account. The collection test stores profileId, accountNumber, and iban."
           }
         },
@@ -366,7 +413,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"types\":[\"SAVING\"],\"statuses\":[\"ACTIVE\"],\"includeBalance\":true}}"
             },
-            "url": "{{baseUrl}}/api/v1/account/list"
+            "url": "{{accountBaseUrl}}/api/v1/account/list"
           }
         },
         {
@@ -391,7 +438,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/account/balance/get"
+            "url": "{{accountBaseUrl}}/api/v1/account/balance/get"
           }
         },
         {
@@ -416,7 +463,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"reasonText\":\"Requested from Postman collection\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/account/close",
+            "url": "{{accountBaseUrl}}/api/v1/account/close",
             "description": "Only succeeds when the ledger-backed balance is zero."
           }
         },
@@ -442,7 +489,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"reasonText\":\"Requested from Postman collection\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/account/open",
+            "url": "{{accountBaseUrl}}/api/v1/account/open",
             "description": "Reopens an owned closed account and reactivates the owning profile."
           }
         },
@@ -468,7 +515,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"destinationType\":\"ACCOUNT\",\"accountNumber\":\"{{accountNumber}}\",\"iban\":null,\"cardNumber\":null}}"
             },
-            "url": "{{baseUrl}}/api/v1/account/owner/get"
+            "url": "{{accountBaseUrl}}/api/v1/account/owner/get"
           }
         }
       ]
@@ -498,7 +545,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"type\":\"BUSINESS\",\"displayName\":\"Business {{runSuffix}}\",\"image\":null}}"
             },
-            "url": "{{baseUrl}}/api/v1/profile/create",
+            "url": "{{accountBaseUrl}}/api/v1/profile/create",
             "description": "Creates an additional profile. The service currently limits users to five profiles."
           }
         },
@@ -524,7 +571,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"profileId\":\"{{profileId}}\",\"displayName\":\"Personal {{runSuffix}}\",\"image\":null}}"
             },
-            "url": "{{baseUrl}}/api/v1/profile/edit",
+            "url": "{{accountBaseUrl}}/api/v1/profile/edit",
             "description": "Edits profile display name and image. Send image:null to clear the current profile image."
           }
         },
@@ -550,7 +597,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"includeInactive\":false}}"
             },
-            "url": "{{baseUrl}}/api/v1/profile/list"
+            "url": "{{accountBaseUrl}}/api/v1/profile/list"
           }
         },
         {
@@ -575,7 +622,506 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"profileId\":\"{{profileId}}\"}}"
             },
-            "url": "{{baseUrl}}/api/v1/profile/active/set"
+            "url": "{{accountBaseUrl}}/api/v1/profile/active/set"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cards",
+      "item": [
+        {
+          "name": "List Cards",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"statuses\":[\"ACTIVE\"],\"accountNumber\":\"{{accountNumber}}\"}}"
+            },
+            "url": "{{cardBaseUrl}}/api/v1/card/list",
+            "description": "Lists cards owned by the authenticated user and selected profile, with optional status and account-number filters."
+          }
+        },
+        {
+          "name": "Order Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"deliveryLocation\":{\"countryCode\":\"IR\",\"province\":\"Tehran\",\"city\":\"Tehran\",\"address\":\"Main street\",\"postalCode\":\"1234567890\"},\"reason\":\"Physical card requested from Postman\"}}"
+            },
+            "url": "{{cardBaseUrl}}/api/v1/card/order"
+          }
+        },
+        {
+          "name": "Freeze Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\",\"reason\":\"Temporarily frozen from Postman\"}}"
+            },
+            "url": "{{cardBaseUrl}}/api/v1/card/freeze"
+          }
+        },
+        {
+          "name": "Unfreeze Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\"}}"
+            },
+            "url": "{{cardBaseUrl}}/api/v1/card/unfreeze"
+          }
+        },
+        {
+          "name": "Block Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\",\"reason\":\"Card blocked from Postman\",\"reorderRequested\":false}}"
+            },
+            "url": "{{cardBaseUrl}}/api/v1/card/block"
+          }
+        },
+        {
+          "name": "Unblock Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\",\"reason\":\"Administrative unblock from Postman\"}}"
+            },
+            "url": "{{cardBaseUrl}}/api/v1/card/unblock"
+          }
+        },
+        {
+          "name": "Expire Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\",\"reason\":\"Card expired from Postman\"}}"
+            },
+            "url": "{{cardBaseUrl}}/api/v1/card/expire"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal Account",
+      "description": "Direct account-service internal endpoints. They are not routed through the API gateway.",
+      "item": [
+        {
+          "name": "Get Account Completion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\":\"{{userId}}\"}"
+            },
+            "url": "{{accountBaseUrl}}/internal/v1/account/completion/get"
+          }
+        },
+        {
+          "name": "Get Card Eligibility",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"accountNumber\":\"{{accountNumber}}\",\"userId\":\"{{userId}}\",\"profileId\":\"{{profileId}}\"}"
+            },
+            "url": "{{accountBaseUrl}}/internal/v1/account/card/eligibility/get"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal Card",
+      "description": "Direct card-service internal endpoints. They are not routed through the API gateway.",
+      "item": [
+        {
+          "name": "Create Default Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"accountNumber\":\"{{accountNumber}}\",\"userId\":\"{{userId}}\",\"profileId\":\"{{profileId}}\",\"form\":\"DIGITAL\"}"
+            },
+            "url": "{{cardBaseUrl}}/internal/v1/card/default/create"
+          }
+        },
+        {
+          "name": "Close Card Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"accountNumber\":\"{{accountNumber}}\"}"
+            },
+            "url": "{{cardBaseUrl}}/internal/v1/card/account/close"
+          }
+        },
+        {
+          "name": "Reopen Card Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"accountNumber\":\"{{accountNumber}}\"}"
+            },
+            "url": "{{cardBaseUrl}}/internal/v1/card/account/reopen"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal Ledger",
+      "description": "Direct ledger-service internal endpoints. They are not routed through the API gateway.",
+      "item": [
+        {
+          "name": "Create Ledger Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"externalAccountNumber\":\"{{accountNumber}}\",\"ownerUserId\":\"{{userId}}\",\"currency\":\"IRR\"}"
+            },
+            "url": "{{ledgerBaseUrl}}/internal/v1/ledger/account/create"
+          }
+        },
+        {
+          "name": "Close Ledger Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"externalAccountNumber\":\"{{accountNumber}}\"}"
+            },
+            "url": "{{ledgerBaseUrl}}/internal/v1/ledger/account/close"
+          }
+        },
+        {
+          "name": "Reopen Ledger Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"externalAccountNumber\":\"{{accountNumber}}\"}"
+            },
+            "url": "{{ledgerBaseUrl}}/internal/v1/ledger/account/reopen"
+          }
+        },
+        {
+          "name": "Internal Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"referenceId\":\"postman-transfer-{{$timestamp}}\",\"sourceExternalAccountNumber\":\"{{accountNumber}}\",\"destinationExternalAccountNumber\":\"{{destinationAccountNumber}}\",\"amount\":{\"amount\":1000,\"currency\":\"IRR\"},\"idempotencyKey\":\"postman-transfer-{{$guid}}\"}"
+            },
+            "url": "{{ledgerBaseUrl}}/internal/v1/ledger/transactions/internal-transfer"
+          }
+        },
+        {
+          "name": "Referral Reward",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"referralRewardId\":\"postman-referral-{{$guid}}\",\"referrerExternalAccountNumber\":\"{{accountNumber}}\",\"amount\":{\"amount\":500,\"currency\":\"IRR\"}}"
+            },
+            "url": "{{ledgerBaseUrl}}/internal/v1/ledger/transactions/referral-reward"
+          }
+        },
+        {
+          "name": "Get Ledger Balance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"externalAccountNumber\":\"{{accountNumber}}\"}"
+            },
+            "url": "{{ledgerBaseUrl}}/internal/v1/ledger/account/balance/get"
+          }
+        },
+        {
+          "name": "List Ledger Entries",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"externalAccountNumber\":\"{{accountNumber}}\",\"fromDate\":null,\"toDate\":null,\"page\":{\"page\":0,\"size\":20}}"
+            },
+            "url": "{{ledgerBaseUrl}}/internal/v1/ledger/account/entries/list"
           }
         }
       ]
@@ -602,7 +1148,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"Postman\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{debugDeviceId}}\",\"model\":\"Postman\",\"fingerprint\":\"debug-postman\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"UNKNOWN\",\"operator\":null}},\"data\":{\"subject\":\"{{debugUserId}}\",\"profileId\":\"{{profileId}}\",\"deviceId\":\"{{debugDeviceId}}\",\"serviceName\":null,\"scopes\":[\"USER\"],\"ttlSeconds\":900}}"
             },
-            "url": "{{baseUrl}}/debug/v1/tokens/user",
+            "url": "{{gatewayBaseUrl}}/debug/v1/tokens/user",
             "description": "Stores the returned token as accessToken. subject and deviceId must be UUIDs for account-service validation."
           }
         },
@@ -624,7 +1170,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"Postman\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{debugDeviceId}}\",\"model\":\"Postman\",\"fingerprint\":\"debug-postman\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"UNKNOWN\",\"operator\":null}},\"data\":{\"subject\":\"{{debugUserId}}\",\"profileId\":\"{{profileId}}\",\"deviceId\":\"{{debugDeviceId}}\",\"serviceName\":null,\"scopes\":[\"ADMIN\"],\"ttlSeconds\":900}}"
             },
-            "url": "{{baseUrl}}/debug/v1/tokens/admin"
+            "url": "{{gatewayBaseUrl}}/debug/v1/tokens/admin"
           }
         },
         {
@@ -645,7 +1191,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"Postman\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{debugDeviceId}}\",\"model\":\"Postman\",\"fingerprint\":\"debug-postman\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"UNKNOWN\",\"operator\":null}},\"data\":{\"subject\":\"{{debugUserId}}\",\"profileId\":\"{{profileId}}\",\"deviceId\":\"{{debugDeviceId}}\",\"serviceName\":\"postman-debug-client\",\"scopes\":[\"INTERNAL_SERVICE\"],\"ttlSeconds\":900}}"
             },
-            "url": "{{baseUrl}}/debug/v1/tokens/service"
+            "url": "{{gatewayBaseUrl}}/debug/v1/tokens/service"
           }
         }
       ]
@@ -663,7 +1209,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/actuator/health"
+            "url": "{{gatewayBaseUrl}}/actuator/health"
           }
         },
         {
@@ -676,7 +1222,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/actuator/info"
+            "url": "{{gatewayBaseUrl}}/actuator/info"
           }
         },
         {
@@ -729,6 +1275,58 @@
               }
             ],
             "url": "{{accountBaseUrl}}/actuator/info"
+          }
+        },
+        {
+          "name": "Ledger Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ledgerBaseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "Ledger Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ledgerBaseUrl}}/actuator/info"
+          }
+        },
+        {
+          "name": "Card Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cardBaseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "Card Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cardBaseUrl}}/actuator/info"
           }
         }
       ]
