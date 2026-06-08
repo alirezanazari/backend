@@ -166,7 +166,7 @@ public class CardService {
         try {
             cardOrderRepository.save(order);
         } catch (DataIntegrityViolationException exception) {
-            throw new CardConflictException("An active card order already exists for this account");
+            throw new CardConflictException("A card order already exists for this card");
         }
         if (!cardRepository.updateForm(digitalCard.id(), CardForm.DIGITAL, CardForm.PHYSICAL, now)) {
             throw new CardConflictException("Card form changed concurrently");

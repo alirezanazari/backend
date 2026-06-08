@@ -9,23 +9,33 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.redbank.card.api.internal.InternalCardController;
+import com.redbank.card.application.AccountEligibilityClient;
+import com.redbank.card.application.EligibleAccount;
+import com.redbank.card.domain.CardOrderRecord;
+import com.redbank.card.domain.CardOrderStatus;
+import com.redbank.card.infrastructure.CardOrderRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static com.redbank.card.jooq.tables.CardOrders.CARD_ORDERS;
 import static com.redbank.card.jooq.tables.CardStatusHistory.CARD_STATUS_HISTORY;
 import static com.redbank.card.jooq.tables.Cards.CARDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,6 +62,18 @@ class CardControllerIntegrationTest {
 
     @Autowired
     private DSLContext dsl;
+
+    @Autowired
+    private CardOrderRepository cardOrderRepository;
+
+    @MockitoBean
+    private AccountEligibilityClient accountEligibilityClient;
+
+    @BeforeEach
+    void allowEligibleAccounts() {
+        when(accountEligibilityClient.requireEligible(anyString(), any(UUID.class), any(UUID.class)))
+                .thenAnswer(invocation -> new EligibleAccount(invocation.getArgument(0), "IRR"));
+    }
 
     @Test
     void defaultCardCreationIsIdempotentAndStoresOnlyMaskedPan() throws Exception {
@@ -108,6 +130,116 @@ class CardControllerIntegrationTest {
                 CARD_ORDERS.CARD_ID.eq(UUID.fromString(card.path("data").path("cardId").asText()))
         );
         assertThat(orders).isZero();
+    }
+
+    @Test
+    void cardListAppliesOwnershipAndOptionalFilters() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        String selectedAccount = "623456789012345678";
+        String secondAccount = "723456789012345678";
+
+        createDefaultCard(userId, profileId, selectedAccount, "DIGITAL")
+                .andExpect(status().isOk());
+        createDefaultCard(userId, profileId, secondAccount, "DIGITAL")
+                .andExpect(status().isOk());
+        createDefaultCard(userId, UUID.randomUUID(), "823456789012345678", "DIGITAL")
+                .andExpect(status().isOk());
+        createDefaultCard(UUID.randomUUID(), profileId, "923456789012345678", "DIGITAL")
+                .andExpect(status().isOk());
+
+        listCards(
+                token(userId, profileId, List.of("USER")),
+                profileId,
+                """
+                        {
+                          "statuses": ["ACTIVE"],
+                          "accountNumber": "%s"
+                        }
+                        """.formatted(selectedAccount)
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cards.length()").value(1))
+                .andExpect(jsonPath("$.data.cards[0].accountNumber").value(selectedAccount));
+
+        listCards(
+                token(userId, profileId, List.of("USER")),
+                profileId,
+                """
+                        {
+                          "statuses": null,
+                          "accountNumber": null
+                        }
+                        """
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cards.length()").value(2))
+                .andExpect(jsonPath("$.data.cards[0].accountNumber").value(selectedAccount))
+                .andExpect(jsonPath("$.data.cards[1].accountNumber").value(secondAccount));
+    }
+
+    @Test
+    void openOrderLookupReturnsNewestPendingOrder() {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        String accountNumber = "133456789012345678";
+        Instant now = Instant.now();
+        CardOrderRecord older = order(userId, profileId, accountNumber, now.minusSeconds(10));
+        CardOrderRecord newer = order(userId, profileId, accountNumber, now);
+
+        cardOrderRepository.save(older);
+        cardOrderRepository.save(newer);
+
+        assertThat(cardOrderRepository.findOpenByUserIdAndAccountNumber(userId, accountNumber))
+                .contains(newer);
+    }
+
+    @Test
+    void duplicateCardOrderReturnsConflict() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        String accountNumber = "143456789012345678";
+        createDefaultCard(userId, profileId, accountNumber, "DIGITAL")
+                .andExpect(status().isOk());
+        String authorization = token(userId, profileId, List.of("USER"));
+
+        orderCard(authorization, profileId, accountNumber)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.orderStatus").value("PENDING"));
+
+        orderCard(authorization, profileId, accountNumber)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
+    }
+
+    @Test
+    void cardOrderConstraintViolationReturnsConflict() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        String accountNumber = "153456789012345678";
+        JsonNode card = objectMapper.readTree(createDefaultCard(
+                userId,
+                profileId,
+                accountNumber,
+                "DIGITAL"
+        ).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        UUID cardId = UUID.fromString(card.path("data").path("cardId").asText());
+        Instant now = Instant.now();
+
+        dsl.insertInto(CARD_ORDERS)
+                .set(CARD_ORDERS.ID, UUID.randomUUID())
+                .set(CARD_ORDERS.USER_ID, userId)
+                .set(CARD_ORDERS.PROFILE_ID, profileId)
+                .set(CARD_ORDERS.ACCOUNT_NUMBER, accountNumber)
+                .set(CARD_ORDERS.STATUS, CardOrderStatus.COMPLETED.name())
+                .set(CARD_ORDERS.CARD_ID, cardId)
+                .set(CARD_ORDERS.CREATED_AT, now.atOffset(java.time.ZoneOffset.UTC))
+                .set(CARD_ORDERS.UPDATED_AT, now.atOffset(java.time.ZoneOffset.UTC))
+                .execute();
+
+        orderCard(token(userId, profileId, List.of("USER")), profileId, accountNumber)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
     }
 
     @Test
@@ -268,6 +400,52 @@ class CardControllerIntegrationTest {
                 .from(CARDS)
                 .where(CARDS.ID.eq(UUID.fromString(cardId)))
                 .fetchOne(CARDS.STATUS);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions listCards(
+            String token,
+            UUID profileId,
+            String data
+    ) throws Exception {
+        return cardAction("/api/v1/card/list", token, profileId, data);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions orderCard(
+            String token,
+            UUID profileId,
+            String accountNumber
+    ) throws Exception {
+        return cardAction(
+                "/api/v1/card/order",
+                token,
+                profileId,
+                """
+                        {
+                          "accountNumber": "%s",
+                          "deliveryLocation": null,
+                          "reason": "Physical card requested"
+                        }
+                        """.formatted(accountNumber)
+        );
+    }
+
+    private CardOrderRecord order(UUID userId, UUID profileId, String accountNumber, Instant createdAt) {
+        return new CardOrderRecord(
+                UUID.randomUUID(),
+                userId,
+                profileId,
+                accountNumber,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "Test order",
+                CardOrderStatus.PENDING,
+                null,
+                createdAt,
+                createdAt
+        );
     }
 
     private org.springframework.test.web.servlet.ResultActions cardAction(
