@@ -631,7 +631,7 @@ Important rules:
 
 ### POST /api/v1/card/list
 
-Fields: [See fields](./api-fields.md#post-apiv1cardslist)
+Fields: [See fields](./api-fields.md#post-apiv1cardlist)
 
 Owner:
 
@@ -661,7 +661,7 @@ Important rules:
 
 ### POST /api/v1/card/order
 
-Fields: [See fields](./api-fields.md#post-apiv1cardsorder)
+Fields: [See fields](./api-fields.md#post-apiv1cardorder)
 
 Owner:
 

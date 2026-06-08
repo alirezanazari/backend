@@ -97,13 +97,24 @@ public class CardService {
         return card;
     }
 
+    @Transactional(readOnly = true)
     public ListCardsResponse listCards(
             String authorizationHeader,
             RequestContext context,
             ListCardsRequest request
     ) {
-        // TODO(phase-5-learning): verify the user/profile, call the filtered repository query, and map CardSummary values.
-        throw new UnsupportedOperationException("TODO: implement card list service method");
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        UUID profileId = resolveProfileId(token, context);
+        List<CardRecord> cards = cardRepository.findByUserIdAndProfileId(
+                token.userId(),
+                profileId,
+                request.statuses(),
+                request.accountNumber()
+        );
+
+        return new ListCardsResponse(cards.stream()
+                .map(this::toSummary)
+                .toList());
     }
 
     @Transactional
@@ -152,7 +163,11 @@ public class CardService {
                 now,
                 now
         );
-        cardOrderRepository.save(order);
+        try {
+            cardOrderRepository.save(order);
+        } catch (DataIntegrityViolationException exception) {
+            throw new CardConflictException("An active card order already exists for this account");
+        }
         if (!cardRepository.updateForm(digitalCard.id(), CardForm.DIGITAL, CardForm.PHYSICAL, now)) {
             throw new CardConflictException("Card form changed concurrently");
         }

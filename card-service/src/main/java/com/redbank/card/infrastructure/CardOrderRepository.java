@@ -41,8 +41,13 @@ public class CardOrderRepository {
     }
 
     public Optional<CardOrderRecord> findOpenByUserIdAndAccountNumber(UUID userId, String accountNumber) {
-        // TODO(phase-5-learning): query PENDING orders for this user/account and return the newest one.
-        throw new UnsupportedOperationException("TODO: implement open card order database query");
+        return dsl.selectFrom(CARD_ORDERS)
+                .where(CARD_ORDERS.ACCOUNT_NUMBER.eq(accountNumber))
+                .and(CARD_ORDERS.USER_ID.eq(userId))
+                .and(CARD_ORDERS.STATUS.eq(CardOrderStatus.PENDING.name()))
+                .orderBy(CARD_ORDERS.CREATED_AT.desc(), CARD_ORDERS.ID.desc())
+                .limit(1)
+                .fetchOptional(this::map);
     }
 
     public Optional<CardOrderRecord> findByCardId(UUID cardId) {

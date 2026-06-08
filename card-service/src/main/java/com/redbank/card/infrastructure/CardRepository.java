@@ -11,6 +11,7 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.springframework.stereotype.Repository;
@@ -91,8 +92,18 @@ public class CardRepository {
             List<CardStatus> statuses,
             String accountNumber
     ) {
-        // TODO(phase-5-learning): build the filtered SQL query and map the matching card rows.
-        throw new UnsupportedOperationException("TODO: implement filtered card database query");
+        Condition condition = CARDS.USER_ID.eq(userId)
+                .and(CARDS.PROFILE_ID.eq(profileId));
+        if (statuses != null && !statuses.isEmpty()) {
+            condition = condition.and(CARDS.STATUS.in(statuses.stream().map(Enum::name).toList()));
+        }
+        if (accountNumber != null && !accountNumber.isBlank()) {
+            condition = condition.and(CARDS.ACCOUNT_NUMBER.eq(accountNumber));
+        }
+        return dsl.selectFrom(CARDS)
+                .where(condition)
+                .orderBy(CARDS.CREATED_AT.asc(), CARDS.ID.asc())
+                .fetch(this::map);
     }
 
     public boolean updateStatus(UUID cardId, CardStatus expectedStatus, CardStatus newStatus, Instant updatedAt) {

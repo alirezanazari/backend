@@ -659,7 +659,7 @@ Response:
 
 ### POST /api/v1/card/list
 
-Request: [See request details](./api-requests.md#post-apiv1cardslist)
+Request: [See request details](./api-requests.md#post-apiv1cardlist)
 
 Request:
 
@@ -676,7 +676,7 @@ Response:
 
 ### POST /api/v1/card/order
 
-Request: [See request details](./api-requests.md#post-apiv1cardsorder)
+Request: [See request details](./api-requests.md#post-apiv1cardorder)
 
 Request:
 
