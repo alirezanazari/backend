@@ -15,13 +15,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static com.redbank.card.jooq.tables.CardOrders.CARD_ORDERS;
+import static com.redbank.card.jooq.tables.CardStatusHistory.CARD_STATUS_HISTORY;
+import static com.redbank.card.jooq.tables.Cards.CARDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -48,7 +51,7 @@ class CardControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DSLContext dsl;
 
     @Test
     void defaultCardCreationIsIdempotentAndStoresOnlyMaskedPan() throws Exception {
@@ -69,25 +72,14 @@ class CardControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.cardId").value(first.path("data").path("cardId").asText()));
 
-        Integer cards = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM cards WHERE account_number = ?",
-                Integer.class,
-                accountNumber
-        );
-        Integer histories = jdbcTemplate.queryForObject("""
-                        SELECT COUNT(*)
-                        FROM card_status_history
-                        WHERE card_id = ?
-                        """,
-                Integer.class,
-                UUID.fromString(first.path("data").path("cardId").asText())
-        );
+        UUID cardId = UUID.fromString(first.path("data").path("cardId").asText());
+        int cards = dsl.fetchCount(CARDS, CARDS.ACCOUNT_NUMBER.eq(accountNumber));
+        int histories = dsl.fetchCount(CARD_STATUS_HISTORY, CARD_STATUS_HISTORY.CARD_ID.eq(cardId));
         assertThat(cards).isEqualTo(1);
         assertThat(histories).isEqualTo(1);
-        Integer orders = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM card_orders WHERE card_id = ? AND status = 'PENDING'",
-                Integer.class,
-                UUID.fromString(first.path("data").path("cardId").asText())
+        int orders = dsl.fetchCount(
+                CARD_ORDERS,
+                CARD_ORDERS.CARD_ID.eq(cardId).and(CARD_ORDERS.STATUS.eq("PENDING"))
         );
         assertThat(orders).isEqualTo(1);
     }
@@ -111,10 +103,9 @@ class CardControllerIntegrationTest {
                 .getResponse()
                 .getContentAsString());
 
-        Integer orders = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM card_orders WHERE card_id = ?",
-                Integer.class,
-                UUID.fromString(card.path("data").path("cardId").asText())
+        int orders = dsl.fetchCount(
+                CARD_ORDERS,
+                CARD_ORDERS.CARD_ID.eq(UUID.fromString(card.path("data").path("cardId").asText()))
         );
         assertThat(orders).isZero();
     }
@@ -202,10 +193,9 @@ class CardControllerIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
 
-        Integer histories = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM card_status_history WHERE card_id = ?",
-                Integer.class,
-                UUID.fromString(cardId)
+        int histories = dsl.fetchCount(
+                CARD_STATUS_HISTORY,
+                CARD_STATUS_HISTORY.CARD_ID.eq(UUID.fromString(cardId))
         );
         assertThat(histories).isEqualTo(6);
     }
@@ -274,11 +264,10 @@ class CardControllerIntegrationTest {
     }
 
     private String cardStatus(String cardId) {
-        return jdbcTemplate.queryForObject(
-                "SELECT status FROM cards WHERE id = ?",
-                String.class,
-                UUID.fromString(cardId)
-        );
+        return dsl.select(CARDS.STATUS)
+                .from(CARDS)
+                .where(CARDS.ID.eq(UUID.fromString(cardId)))
+                .fetchOne(CARDS.STATUS);
     }
 
     private org.springframework.test.web.servlet.ResultActions cardAction(

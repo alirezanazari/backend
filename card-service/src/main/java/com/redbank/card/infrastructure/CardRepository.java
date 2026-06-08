@@ -2,61 +2,64 @@ package com.redbank.card.infrastructure;
 
 import com.redbank.card.domain.CardRecord;
 import com.redbank.card.domain.CardStatusHistoryRecord;
-import com.redbank.contracts.card.CardStatus;
 import com.redbank.contracts.card.CardForm;
-import java.sql.Date;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import com.redbank.contracts.card.CardStatus;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.DSLContext;
+import org.jooq.Record;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.card.jooq.tables.CardStatusHistory.CARD_STATUS_HISTORY;
+import static com.redbank.card.jooq.tables.Cards.CARDS;
 
 @Repository
 public class CardRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public CardRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public CardRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void save(CardRecord card) {
-        jdbcTemplate.update("""
-                        INSERT INTO cards (
-                            id, user_id, profile_id, account_number, masked_pan, card_token,
-                            form, status, expires_at, issuance_reference, created_at, updated_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                card.id(),
-                card.userId(),
-                card.profileId(),
-                card.accountNumber(),
-                card.maskedPan(),
-                card.cardToken(),
-                card.form().name(),
-                card.status().name(),
-                Date.valueOf(card.expiresAt().atDay(1)),
-                card.issuanceReference(),
-                Timestamp.from(card.createdAt()),
-                Timestamp.from(card.updatedAt())
-        );
+        dsl.insertInto(CARDS)
+                .set(CARDS.ID, card.id())
+                .set(CARDS.USER_ID, card.userId())
+                .set(CARDS.PROFILE_ID, card.profileId())
+                .set(CARDS.ACCOUNT_NUMBER, card.accountNumber())
+                .set(CARDS.MASKED_PAN, card.maskedPan())
+                .set(CARDS.CARD_TOKEN, card.cardToken())
+                .set(CARDS.FORM, card.form().name())
+                .set(CARDS.STATUS, card.status().name())
+                .set(CARDS.EXPIRES_AT, card.expiresAt().atDay(1))
+                .set(CARDS.ISSUANCE_REFERENCE, card.issuanceReference())
+                .set(CARDS.CREATED_AT, toOffsetDateTime(card.createdAt()))
+                .set(CARDS.UPDATED_AT, toOffsetDateTime(card.updatedAt()))
+                .execute();
     }
 
     public Optional<CardRecord> findByIssuanceReference(String issuanceReference) {
-        return queryOne("WHERE issuance_reference = ?", issuanceReference);
+        return dsl.selectFrom(CARDS)
+                .where(CARDS.ISSUANCE_REFERENCE.eq(issuanceReference))
+                .fetchOptional(this::map);
     }
 
     public Optional<CardRecord> findById(UUID cardId) {
-        return queryOne("WHERE id = ?", cardId);
+        return dsl.selectFrom(CARDS)
+                .where(CARDS.ID.eq(cardId))
+                .fetchOptional(this::map);
     }
 
     public Optional<CardRecord> findByIdAndUserId(UUID cardId, UUID userId) {
-        return queryOne("WHERE id = ? AND user_id = ?", cardId, userId);
+        return dsl.selectFrom(CARDS)
+                .where(CARDS.ID.eq(cardId))
+                .and(CARDS.USER_ID.eq(userId))
+                .fetchOptional(this::map);
     }
 
     public Optional<CardRecord> findDigitalByUserIdAndProfileIdAndAccountNumber(
@@ -64,27 +67,22 @@ public class CardRepository {
             UUID profileId,
             String accountNumber
     ) {
-        return queryOne("""
-                WHERE user_id = ?
-                  AND profile_id = ?
-                  AND account_number = ?
-                  AND form = 'DIGITAL'
-                  AND status = 'ACTIVE'
-                ORDER BY created_at ASC
-                LIMIT 1
-                """,
-                userId,
-                profileId,
-                accountNumber
-        );
+        return dsl.selectFrom(CARDS)
+                .where(CARDS.USER_ID.eq(userId))
+                .and(CARDS.PROFILE_ID.eq(profileId))
+                .and(CARDS.ACCOUNT_NUMBER.eq(accountNumber))
+                .and(CARDS.FORM.eq(CardForm.DIGITAL.name()))
+                .and(CARDS.STATUS.eq(CardStatus.ACTIVE.name()))
+                .orderBy(CARDS.CREATED_AT.asc())
+                .limit(1)
+                .fetchOptional(this::map);
     }
 
     public List<CardRecord> findByAccountNumber(String accountNumber) {
-        return jdbcTemplate.query(
-                selectBase() + " WHERE account_number = ? ORDER BY created_at ASC",
-                this::map,
-                accountNumber
-        );
+        return dsl.selectFrom(CARDS)
+                .where(CARDS.ACCOUNT_NUMBER.eq(accountNumber))
+                .orderBy(CARDS.CREATED_AT.asc())
+                .fetch(this::map);
     }
 
     public List<CardRecord> findByUserIdAndProfileId(
@@ -98,82 +96,61 @@ public class CardRepository {
     }
 
     public boolean updateStatus(UUID cardId, CardStatus expectedStatus, CardStatus newStatus, Instant updatedAt) {
-        int updated = jdbcTemplate.update("""
-                        UPDATE cards
-                        SET status = ?, updated_at = ?
-                        WHERE id = ? AND status = ?
-                        """,
-                newStatus.name(),
-                Timestamp.from(updatedAt),
-                cardId,
-                expectedStatus.name()
-        );
+        int updated = dsl.update(CARDS)
+                .set(CARDS.STATUS, newStatus.name())
+                .set(CARDS.UPDATED_AT, toOffsetDateTime(updatedAt))
+                .where(CARDS.ID.eq(cardId))
+                .and(CARDS.STATUS.eq(expectedStatus.name()))
+                .execute();
         return updated == 1;
     }
 
     public boolean updateForm(UUID cardId, CardForm expectedForm, CardForm newForm, Instant updatedAt) {
-        int updated = jdbcTemplate.update("""
-                        UPDATE cards
-                        SET form = ?, updated_at = ?
-                        WHERE id = ? AND form = ?
-                        """,
-                newForm.name(),
-                Timestamp.from(updatedAt),
-                cardId,
-                expectedForm.name()
-        );
+        int updated = dsl.update(CARDS)
+                .set(CARDS.FORM, newForm.name())
+                .set(CARDS.UPDATED_AT, toOffsetDateTime(updatedAt))
+                .where(CARDS.ID.eq(cardId))
+                .and(CARDS.FORM.eq(expectedForm.name()))
+                .execute();
         return updated == 1;
     }
 
     public void saveStatusHistory(CardStatusHistoryRecord history) {
-        jdbcTemplate.update("""
-                        INSERT INTO card_status_history (
-                            id, card_id, user_id, profile_id, previous_status, new_status,
-                            reason, actor_type, actor_id, created_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                history.id(),
-                history.cardId(),
-                history.userId(),
-                history.profileId(),
-                history.previousStatus() == null ? null : history.previousStatus().name(),
-                history.newStatus().name(),
-                history.reason(),
-                history.actorType().name(),
-                history.actorId(),
-                Timestamp.from(history.createdAt())
-        );
+        dsl.insertInto(CARD_STATUS_HISTORY)
+                .set(CARD_STATUS_HISTORY.ID, history.id())
+                .set(CARD_STATUS_HISTORY.CARD_ID, history.cardId())
+                .set(CARD_STATUS_HISTORY.USER_ID, history.userId())
+                .set(CARD_STATUS_HISTORY.PROFILE_ID, history.profileId())
+                .set(
+                        CARD_STATUS_HISTORY.PREVIOUS_STATUS,
+                        history.previousStatus() == null ? null : history.previousStatus().name()
+                )
+                .set(CARD_STATUS_HISTORY.NEW_STATUS, history.newStatus().name())
+                .set(CARD_STATUS_HISTORY.REASON, history.reason())
+                .set(CARD_STATUS_HISTORY.ACTOR_TYPE, history.actorType().name())
+                .set(CARD_STATUS_HISTORY.ACTOR_ID, history.actorId())
+                .set(CARD_STATUS_HISTORY.CREATED_AT, toOffsetDateTime(history.createdAt()))
+                .execute();
     }
 
-    private Optional<CardRecord> queryOne(String predicate, Object... args) {
-        return jdbcTemplate.query(selectBase() + " " + predicate, this::map, args)
-                .stream()
-                .findFirst();
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant.atOffset(ZoneOffset.UTC);
     }
 
-    private String selectBase() {
-        return """
-                SELECT id, user_id, profile_id, account_number, masked_pan, card_token,
-                       form, status, expires_at, issuance_reference, created_at, updated_at
-                FROM cards
-                """;
-    }
-
-    private CardRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private CardRecord map(Record record) {
         return new CardRecord(
-                resultSet.getObject("id", UUID.class),
-                resultSet.getObject("user_id", UUID.class),
-                resultSet.getObject("profile_id", UUID.class),
-                resultSet.getString("account_number"),
-                resultSet.getString("masked_pan"),
-                resultSet.getString("card_token"),
-                CardForm.valueOf(resultSet.getString("form")),
-                CardStatus.valueOf(resultSet.getString("status")),
-                YearMonth.from(resultSet.getDate("expires_at").toLocalDate()),
-                resultSet.getString("issuance_reference"),
-                resultSet.getTimestamp("created_at").toInstant(),
-                resultSet.getTimestamp("updated_at").toInstant()
+                record.get(CARDS.ID),
+                record.get(CARDS.USER_ID),
+                record.get(CARDS.PROFILE_ID),
+                record.get(CARDS.ACCOUNT_NUMBER),
+                record.get(CARDS.MASKED_PAN),
+                record.get(CARDS.CARD_TOKEN),
+                CardForm.valueOf(record.get(CARDS.FORM)),
+                CardStatus.valueOf(record.get(CARDS.STATUS)),
+                YearMonth.from(record.get(CARDS.EXPIRES_AT)),
+                record.get(CARDS.ISSUANCE_REFERENCE),
+                record.get(CARDS.CREATED_AT).toInstant(),
+                record.get(CARDS.UPDATED_AT).toInstant()
         );
     }
 }

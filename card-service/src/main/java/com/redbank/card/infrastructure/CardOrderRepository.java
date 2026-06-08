@@ -1,46 +1,43 @@
 package com.redbank.card.infrastructure;
 
 import com.redbank.card.domain.CardOrderRecord;
-import java.sql.Timestamp;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import com.redbank.card.domain.CardOrderStatus;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.DSLContext;
+import org.jooq.Record;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.card.jooq.tables.CardOrders.CARD_ORDERS;
 
 @Repository
 public class CardOrderRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public CardOrderRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public CardOrderRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void save(CardOrderRecord order) {
-        jdbcTemplate.update("""
-                        INSERT INTO card_orders (
-                            id, user_id, profile_id, account_number, delivery_country_code,
-                            delivery_province, delivery_city, delivery_address, delivery_postal_code,
-                            reason, status, card_id, created_at, updated_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                order.id(),
-                order.userId(),
-                order.profileId(),
-                order.accountNumber(),
-                order.deliveryCountryCode(),
-                order.deliveryProvince(),
-                order.deliveryCity(),
-                order.deliveryAddress(),
-                order.deliveryPostalCode(),
-                order.reason(),
-                order.status().name(),
-                order.cardId(),
-                Timestamp.from(order.createdAt()),
-                Timestamp.from(order.updatedAt())
-        );
+        dsl.insertInto(CARD_ORDERS)
+                .set(CARD_ORDERS.ID, order.id())
+                .set(CARD_ORDERS.USER_ID, order.userId())
+                .set(CARD_ORDERS.PROFILE_ID, order.profileId())
+                .set(CARD_ORDERS.ACCOUNT_NUMBER, order.accountNumber())
+                .set(CARD_ORDERS.DELIVERY_COUNTRY_CODE, order.deliveryCountryCode())
+                .set(CARD_ORDERS.DELIVERY_PROVINCE, order.deliveryProvince())
+                .set(CARD_ORDERS.DELIVERY_CITY, order.deliveryCity())
+                .set(CARD_ORDERS.DELIVERY_ADDRESS, order.deliveryAddress())
+                .set(CARD_ORDERS.DELIVERY_POSTAL_CODE, order.deliveryPostalCode())
+                .set(CARD_ORDERS.REASON, order.reason())
+                .set(CARD_ORDERS.STATUS, order.status().name())
+                .set(CARD_ORDERS.CARD_ID, order.cardId())
+                .set(CARD_ORDERS.CREATED_AT, toOffsetDateTime(order.createdAt()))
+                .set(CARD_ORDERS.UPDATED_AT, toOffsetDateTime(order.updatedAt()))
+                .execute();
     }
 
     public Optional<CardOrderRecord> findOpenByUserIdAndAccountNumber(UUID userId, String accountNumber) {
@@ -49,36 +46,33 @@ public class CardOrderRepository {
     }
 
     public Optional<CardOrderRecord> findByCardId(UUID cardId) {
-        return jdbcTemplate.query("""
-                        SELECT id, user_id, profile_id, account_number, delivery_country_code,
-                               delivery_province, delivery_city, delivery_address, delivery_postal_code,
-                               reason, status, card_id, created_at, updated_at
-                        FROM card_orders
-                        WHERE card_id = ?
-                        ORDER BY created_at DESC
-                        LIMIT 1
-                        """,
-                this::map,
-                cardId
-        ).stream().findFirst();
+        return dsl.selectFrom(CARD_ORDERS)
+                .where(CARD_ORDERS.CARD_ID.eq(cardId))
+                .orderBy(CARD_ORDERS.CREATED_AT.desc())
+                .limit(1)
+                .fetchOptional(this::map);
     }
 
-    private CardOrderRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant.atOffset(ZoneOffset.UTC);
+    }
+
+    private CardOrderRecord map(Record record) {
         return new CardOrderRecord(
-                resultSet.getObject("id", UUID.class),
-                resultSet.getObject("user_id", UUID.class),
-                resultSet.getObject("profile_id", UUID.class),
-                resultSet.getString("account_number"),
-                resultSet.getString("delivery_country_code"),
-                resultSet.getString("delivery_province"),
-                resultSet.getString("delivery_city"),
-                resultSet.getString("delivery_address"),
-                resultSet.getString("delivery_postal_code"),
-                resultSet.getString("reason"),
-                com.redbank.card.domain.CardOrderStatus.valueOf(resultSet.getString("status")),
-                resultSet.getObject("card_id", UUID.class),
-                resultSet.getTimestamp("created_at").toInstant(),
-                resultSet.getTimestamp("updated_at").toInstant()
+                record.get(CARD_ORDERS.ID),
+                record.get(CARD_ORDERS.USER_ID),
+                record.get(CARD_ORDERS.PROFILE_ID),
+                record.get(CARD_ORDERS.ACCOUNT_NUMBER),
+                record.get(CARD_ORDERS.DELIVERY_COUNTRY_CODE),
+                record.get(CARD_ORDERS.DELIVERY_PROVINCE),
+                record.get(CARD_ORDERS.DELIVERY_CITY),
+                record.get(CARD_ORDERS.DELIVERY_ADDRESS),
+                record.get(CARD_ORDERS.DELIVERY_POSTAL_CODE),
+                record.get(CARD_ORDERS.REASON),
+                CardOrderStatus.valueOf(record.get(CARD_ORDERS.STATUS)),
+                record.get(CARD_ORDERS.CARD_ID),
+                record.get(CARD_ORDERS.CREATED_AT).toInstant(),
+                record.get(CARD_ORDERS.UPDATED_AT).toInstant()
         );
     }
 }
