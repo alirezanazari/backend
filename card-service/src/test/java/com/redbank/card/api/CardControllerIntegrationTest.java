@@ -123,14 +123,14 @@ class CardControllerIntegrationTest {
         ).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         String activeCardId = activeCard.path("data").path("cardId").asText();
 
-        accountLifecycle("/internal/v1/cards/account/close", accountNumber)
+        accountLifecycle("/internal/v1/card/account/close", accountNumber)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("INACTIVE"))
                 .andExpect(jsonPath("$.data.updatedCards").value(1));
 
         assertThat(cardStatus(activeCardId)).isEqualTo("INACTIVE");
 
-        accountLifecycle("/internal/v1/cards/account/reopen", accountNumber)
+        accountLifecycle("/internal/v1/card/account/reopen", accountNumber)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.updatedCards").value(1));
@@ -236,7 +236,7 @@ class CardControllerIntegrationTest {
             String accountNumber,
             String form
     ) throws Exception {
-        return mockMvc.perform(post("/internal/v1/cards/default/create")
+        return mockMvc.perform(post("/internal/v1/card/default/create")
                 .header(InternalCardController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
                 .contentType("application/json")
                 .content("""

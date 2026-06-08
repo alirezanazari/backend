@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/internal/v1/cards")
+@RequestMapping("/internal/v1/card")
 public class InternalCardController {
     public static final String INTERNAL_SERVICE_TOKEN_HEADER = "X-Internal-Service-Token";
 

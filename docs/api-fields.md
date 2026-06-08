@@ -657,7 +657,7 @@ Response:
 
 ## Card
 
-### POST /api/v1/cards/list
+### POST /api/v1/card/list
 
 Request: [See request details](./api-requests.md#post-apiv1cardslist)
 
@@ -674,7 +674,7 @@ Response:
 | --- | --- | --- | --- |
 | `cards` | `List<CardSummary>` | Yes | User cards. |
 
-### POST /api/v1/cards/order
+### POST /api/v1/card/order
 
 Request: [See request details](./api-requests.md#post-apiv1cardsorder)
 

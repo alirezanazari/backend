@@ -134,8 +134,8 @@ Owns:
 Main APIs:
 
 ```text
-POST /api/v1/cards/list
-POST /api/v1/cards/order
+POST /api/v1/card/list
+POST /api/v1/card/order
 POST /api/v1/card/freeze
 POST /api/v1/card/unfreeze
 POST /api/v1/card/block

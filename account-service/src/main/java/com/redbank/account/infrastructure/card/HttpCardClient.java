@@ -31,7 +31,7 @@ public class HttpCardClient implements CardAccountClient {
     public CardSummary createDefaultCard(String accountNumber, UUID userId, UUID profileId, CardForm form) {
         try {
             ApiResponse<CardSummary> response = restClient.post()
-                    .uri("/internal/v1/cards/default/create")
+                    .uri("/internal/v1/card/default/create")
                     .body(new CreateDefaultCardRequest(
                             accountNumber,
                             userId.toString(),
@@ -52,12 +52,12 @@ public class HttpCardClient implements CardAccountClient {
 
     @Override
     public boolean close(String accountNumber) {
-        return changeAccountStatus("/internal/v1/cards/account/close", accountNumber, "INACTIVE");
+        return changeAccountStatus("/internal/v1/card/account/close", accountNumber, "INACTIVE");
     }
 
     @Override
     public boolean reopen(String accountNumber) {
-        return changeAccountStatus("/internal/v1/cards/account/reopen", accountNumber, "ACTIVE");
+        return changeAccountStatus("/internal/v1/card/account/reopen", accountNumber, "ACTIVE");
     }
 
     private boolean changeAccountStatus(String path, String accountNumber, String expectedStatus) {

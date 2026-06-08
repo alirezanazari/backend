@@ -32,7 +32,7 @@ This applies to reads and lists too:
 
 ```text
 POST /api/v1/account/list
-POST /api/v1/cards/list
+POST /api/v1/card/list
 POST /api/v1/transfers/recent/list
 ```
 

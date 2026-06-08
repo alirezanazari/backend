@@ -29,8 +29,8 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Account | `POST /api/v1/profile/edit` | Required | Edit profile display name and image. |
 | Account | `POST /api/v1/profile/active/set` | Required | Set active profile for current user. |
 | Account | `POST /api/v1/account/owner/get` | Required | Lookup non-sensitive transfer destination display info. |
-| Card | `POST /api/v1/cards/list` | Required | List cards for current user/profile. |
-| Card | `POST /api/v1/cards/order` | Required | Order a new card. |
+| Card | `POST /api/v1/card/list` | Required | List cards for current user/profile. |
+| Card | `POST /api/v1/card/order` | Required | Order a new card. |
 | Card | `POST /api/v1/card/freeze` | Required | Temporarily freeze user's card. |
 | Card | `POST /api/v1/card/unfreeze` | Required | Unfreeze user's frozen card. |
 | Card | `POST /api/v1/card/block` | Required | Block user's card, including for reorder flow. |
@@ -629,7 +629,7 @@ Important rules:
 
 ## Card Requests
 
-### POST /api/v1/cards/list
+### POST /api/v1/card/list
 
 Fields: [See fields](./api-fields.md#post-apiv1cardslist)
 
@@ -659,7 +659,7 @@ Important rules:
 - Do not expose raw card number.
 - Use masked PAN and internal card token.
 
-### POST /api/v1/cards/order
+### POST /api/v1/card/order
 
 Fields: [See fields](./api-fields.md#post-apiv1cardsorder)
 
@@ -774,7 +774,7 @@ Important rules:
 - User can block their own card to reorder a new one.
 - Admin/system can also block cards for risk, fraud, or operational reasons.
 - Block should usually be treated as irreversible for normal user flow.
-- Reordering after user block should go through `POST /api/v1/cards/order`.
+- Reordering after user block should go through `POST /api/v1/card/order`.
 - Status history and audit record are required.
 
 ### POST /api/v1/card/unblock

@@ -19,9 +19,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping("/api/v1/card")
 public class CardController {
     private final CardService cardService;
 
@@ -29,7 +31,7 @@ public class CardController {
         this.cardService = cardService;
     }
 
-    @PostMapping("/api/v1/cards/list")
+    @PostMapping("/list")
     public ResponseEntity<ApiResponse<ListCardsResponse>> list(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<ListCardsRequest> request
@@ -46,7 +48,7 @@ public class CardController {
         ));
     }
 
-    @PostMapping("/api/v1/cards/order")
+    @PostMapping("/order")
     public ResponseEntity<ApiResponse<OrderCardResponse>> order(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<OrderCardRequest> request
@@ -63,7 +65,7 @@ public class CardController {
         ));
     }
 
-    @PostMapping("/api/v1/card/freeze")
+    @PostMapping("/freeze")
     public ResponseEntity<ApiResponse<CardStatusResponse>> freeze(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<FreezeCardRequest> request
@@ -76,7 +78,7 @@ public class CardController {
         return success(request, response);
     }
 
-    @PostMapping("/api/v1/card/unfreeze")
+    @PostMapping("/unfreeze")
     public ResponseEntity<ApiResponse<CardStatusResponse>> unfreeze(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<UnfreezeCardRequest> request
@@ -89,7 +91,7 @@ public class CardController {
         return success(request, response);
     }
 
-    @PostMapping("/api/v1/card/block")
+    @PostMapping("/block")
     public ResponseEntity<ApiResponse<BlockCardResponse>> block(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<BlockCardRequest> request
@@ -106,7 +108,7 @@ public class CardController {
         ));
     }
 
-    @PostMapping("/api/v1/card/unblock")
+    @PostMapping("/unblock")
     public ResponseEntity<ApiResponse<CardStatusResponse>> unblock(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<UnblockCardRequest> request
@@ -115,7 +117,7 @@ public class CardController {
         return success(request, response);
     }
 
-    @PostMapping("/api/v1/card/expire")
+    @PostMapping("/expire")
     public ResponseEntity<ApiResponse<CardStatusResponse>> expire(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<ExpireCardRequest> request

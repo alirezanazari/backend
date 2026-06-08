@@ -285,8 +285,8 @@ Small steps:
 4. Create `card_orders` table.
 5. Create `card_status_history` table.
 6. Implement internal default card creation.
-7. Implement `POST /api/v1/cards/list`.
-8. Implement `POST /api/v1/cards/order`.
+7. Implement `POST /api/v1/card/list`.
+8. Implement `POST /api/v1/card/order`.
 9. Implement `POST /api/v1/card/freeze`.
 10. Implement `POST /api/v1/card/unfreeze`.
 11. Implement `POST /api/v1/card/block`.
@@ -492,7 +492,7 @@ Small steps:
 2. Configure routes for every service.
 3. Route `/api/v1/iam/**` to IAM.
 4. Route `/api/v1/account/**` to account-service.
-5. Route `/api/v1/cards/**` to card-service.
+5. Route `/api/v1/card/**` to card-service.
 6. Route `/api/v1/kyc/**` to kyc-service.
 7. Route `/api/v1/pfm/**` to pfm-service.
 8. Route `/api/v1/transfers/**` to transfer-service.

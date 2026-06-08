@@ -115,8 +115,8 @@ Rules:
 | Account | `POST /api/v1/profile/edit` | `USER` | User can edit only own active profile metadata. |
 | Account | `POST /api/v1/profile/active/set` | `USER` | User can activate only own profile. |
 | Account | `POST /api/v1/account/owner/get` | `USER` | Client-facing transfer destination lookup with non-sensitive output only. |
-| Card | `POST /api/v1/cards/list` | `USER` | User sees only own cards. |
-| Card | `POST /api/v1/cards/order` | `USER` | User orders eligible card. |
+| Card | `POST /api/v1/card/list` | `USER` | User sees only own cards. |
+| Card | `POST /api/v1/card/order` | `USER` | User orders eligible card. |
 | Card | `POST /api/v1/card/freeze` | `USER` | User freezes own card. |
 | Card | `POST /api/v1/card/unfreeze` | `USER` | User unfreezes own frozen card. |
 | Card | `POST /api/v1/card/block` | `USER` | User can block own card to reorder. |
