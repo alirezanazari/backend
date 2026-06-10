@@ -277,6 +277,11 @@
       "key": "kycCaseId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "featureFlagBaseUrl",
+      "value": "http://localhost:8086",
+      "type": "string"
     }
   ],
   "item": [
@@ -956,6 +961,63 @@
       ]
     },
     {
+      "name": "Feature Flags",
+      "item": [
+        {
+          "name": "List Feature Flags",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"keys\":null,\"includeDisabled\":true}}"
+            },
+            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/list",
+            "description": "Lists runtime feature flags using an admin token."
+          }
+        },
+        {
+          "name": "Update Feature Flag",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"key\":\"card.order.enabled\",\"enabled\":true,\"description\":null,\"reason\":\"Postman operational update\"}}"
+            },
+            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/update",
+            "description": "Updates one feature flag and creates an audit record."
+          }
+        }
+      ]
+    },
+    {
       "name": "Internal Account",
       "description": "Direct account-service internal endpoints. They are not routed through the API gateway.",
       "item": [
@@ -1500,6 +1562,32 @@
               }
             ],
             "url": "{{kycBaseUrl}}/actuator/info"
+          }
+        },
+        {
+          "name": "Feature Flag Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{featureFlagBaseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "Feature Flag Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{featureFlagBaseUrl}}/actuator/info"
           }
         }
       ]

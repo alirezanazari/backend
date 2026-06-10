@@ -7,6 +7,7 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.redbank.kyc.application.ActiveReferrerAccount;
+import com.redbank.kyc.application.FeatureFlagClient;
 import com.redbank.kyc.application.ReferralRewardClient;
 import com.redbank.kyc.application.ReferralRewardResult;
 import com.redbank.kyc.application.ReferrerAccountClient;
@@ -67,13 +68,17 @@ class KycControllerIntegrationTest {
     @MockitoBean
     private ReferralRewardClient referralRewardClient;
 
+    @MockitoBean
+    private FeatureFlagClient featureFlagClient;
+
     @BeforeEach
     void clean() {
         dsl.deleteFrom(KYC_CASE_HISTORY).execute();
         dsl.deleteFrom(REFERRAL_REWARDS).execute();
         dsl.deleteFrom(REFERRALS).execute();
         dsl.deleteFrom(KYC_CASES).execute();
-        reset(referrerAccountClient, referralRewardClient);
+        reset(referrerAccountClient, referralRewardClient, featureFlagClient);
+        when(featureFlagClient.isEnabled(anyString())).thenReturn(true);
     }
 
     @Test
@@ -185,6 +190,42 @@ class KycControllerIntegrationTest {
         assertThat(dsl.select(REFERRALS.STATUS).from(REFERRALS).fetchOne(REFERRALS.STATUS))
                 .isEqualTo("REWARDED");
         verify(referralRewardClient, times(1)).requestReward(any());
+    }
+
+    @Test
+    void disabledReferralRewardFlagKeepsPreparedRewardPending() throws Exception {
+        UUID referredUserId = UUID.randomUUID();
+        UUID referrerUserId = UUID.randomUUID();
+        when(referrerAccountClient.resolveByCode(anyString()))
+                .thenReturn(new ResolvedReferrer(referrerUserId, "Alice"));
+        when(featureFlagClient.isEnabled("referral.reward.enabled")).thenReturn(false);
+
+        api(
+                "/api/v1/kyc/referral/set",
+                token(referredUserId, List.of("USER"), List.of()),
+                """
+                        {"referralCode":"ALICE_2026"}
+                        """
+        ).andExpect(status().isCreated());
+
+        api(
+                "/api/v1/kyc/complete",
+                token(UUID.randomUUID(), List.of("ADMIN"), List.of()),
+                """
+                        {
+                          "userId":"%s",
+                          "status":"APPROVED",
+                          "reason":"Documents verified"
+                        }
+                        """.formatted(referredUserId)
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.referralRewardRequested").value(false));
+
+        assertThat(dsl.select(REFERRAL_REWARDS.STATUS)
+                .from(REFERRAL_REWARDS)
+                .fetchOne(REFERRAL_REWARDS.STATUS)).isEqualTo("PENDING");
+        verify(referralRewardClient, times(0)).requestReward(any());
     }
 
     @Test

@@ -440,7 +440,7 @@ Important fields:
 
 ```text
 id
-key
+flag_key
 enabled
 description
 updated_by
@@ -458,6 +458,31 @@ transfer.account-to-card.enabled
 card.order.enabled
 referral.reward.enabled
 ```
+
+### feature_flag_audit_logs
+
+Important fields:
+
+```text
+id
+feature_flag_id
+flag_key
+old_enabled
+new_enabled
+old_description
+new_description
+changed_by
+reason
+request_id
+created_at
+```
+
+Rules:
+
+- Flag update and audit insert happen in one transaction.
+- Audit rows are append-only.
+- Store both old and new values, even when an operator submits the same value.
+- Keep the request ID so operational changes can be traced across logs and services.
 
 ## pfm_db
 

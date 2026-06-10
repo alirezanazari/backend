@@ -26,6 +26,7 @@
         <module>ledger-service</module>
         <module>card-service</module>
         <module>kyc-service</module>
+        <module>feature-flag-service</module>
     </modules>
 
     <properties>

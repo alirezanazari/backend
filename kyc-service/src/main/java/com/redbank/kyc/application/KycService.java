@@ -37,6 +37,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class KycService {
+    private static final String REFERRAL_REWARD_FLAG = "referral.reward.enabled";
+
     private final JobRepository jobRepository;
     private final KycCaseRepository kycCaseRepository;
     private final ReferralRepository referralRepository;
@@ -44,6 +46,7 @@ public class KycService {
     private final JwtTokenService jwtTokenService;
     private final ReferrerAccountClient referrerAccountClient;
     private final ReferralRewardClient referralRewardClient;
+    private final FeatureFlagClient featureFlagClient;
     private final KycProperties kycProperties;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -56,6 +59,7 @@ public class KycService {
             JwtTokenService jwtTokenService,
             ReferrerAccountClient referrerAccountClient,
             ReferralRewardClient referralRewardClient,
+            FeatureFlagClient featureFlagClient,
             KycProperties kycProperties,
             TransactionTemplate transactionTemplate,
             Clock clock
@@ -67,6 +71,7 @@ public class KycService {
         this.jwtTokenService = jwtTokenService;
         this.referrerAccountClient = referrerAccountClient;
         this.referralRewardClient = referralRewardClient;
+        this.featureFlagClient = featureFlagClient;
         this.kycProperties = kycProperties;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
@@ -244,6 +249,9 @@ public class KycService {
         if (plan.referral() == null
                 || plan.reward() == null
                 || plan.reward().status() == ReferralRewardStatus.POSTED) {
+            return false;
+        }
+        if (!featureFlagClient.isEnabled(REFERRAL_REWARD_FLAG)) {
             return false;
         }
         ActiveReferrerAccount account = referrerAccountClient.findActiveAccount(plan.referral().referrerUserId());

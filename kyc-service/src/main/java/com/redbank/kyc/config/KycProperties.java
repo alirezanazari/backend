@@ -7,7 +7,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "redbank.kyc")
 public record KycProperties(
         BigDecimal referralRewardAmount,
-        String referralRewardCurrency
+        String referralRewardCurrency,
+        boolean referralRewardEnabled
 ) {
     public KycProperties {
         if (referralRewardAmount == null || referralRewardAmount.signum() <= 0) {

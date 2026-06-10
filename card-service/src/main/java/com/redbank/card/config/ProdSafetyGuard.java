@@ -12,17 +12,20 @@ public class ProdSafetyGuard implements ApplicationRunner {
     private final DebugProperties debugProperties;
     private final JwtProperties jwtProperties;
     private final AccountClientProperties accountClientProperties;
+    private final FeatureFlagClientProperties featureFlagClientProperties;
 
     public ProdSafetyGuard(
             Environment environment,
             DebugProperties debugProperties,
             JwtProperties jwtProperties,
-            AccountClientProperties accountClientProperties
+            AccountClientProperties accountClientProperties,
+            FeatureFlagClientProperties featureFlagClientProperties
     ) {
         this.environment = environment;
         this.debugProperties = debugProperties;
         this.jwtProperties = jwtProperties;
         this.accountClientProperties = accountClientProperties;
+        this.featureFlagClientProperties = featureFlagClientProperties;
     }
 
     @Override
@@ -43,6 +46,9 @@ public class ProdSafetyGuard implements ApplicationRunner {
         }
         if (!accountClientProperties.enabled()) {
             throw new IllegalStateException("card-service requires account validation in prod");
+        }
+        if (!featureFlagClientProperties.enabled()) {
+            throw new IllegalStateException("card-service requires feature flag integration in prod");
         }
     }
 }

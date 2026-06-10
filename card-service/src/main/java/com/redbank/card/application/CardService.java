@@ -40,11 +40,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CardService {
     private static final String DEFAULT_ISSUANCE_PREFIX = "DEFAULT:";
+    private static final String CARD_ORDER_FLAG = "card.order.enabled";
 
     private final CardRepository cardRepository;
     private final CardOrderRepository cardOrderRepository;
     private final JwtTokenService jwtTokenService;
     private final AccountEligibilityClient accountEligibilityClient;
+    private final FeatureFlagClient featureFlagClient;
     private final CardNumberGenerator cardNumberGenerator;
     private final CardProperties cardProperties;
     private final Clock clock;
@@ -54,6 +56,7 @@ public class CardService {
             CardOrderRepository cardOrderRepository,
             JwtTokenService jwtTokenService,
             AccountEligibilityClient accountEligibilityClient,
+            FeatureFlagClient featureFlagClient,
             CardNumberGenerator cardNumberGenerator,
             CardProperties cardProperties,
             Clock clock
@@ -62,6 +65,7 @@ public class CardService {
         this.cardOrderRepository = cardOrderRepository;
         this.jwtTokenService = jwtTokenService;
         this.accountEligibilityClient = accountEligibilityClient;
+        this.featureFlagClient = featureFlagClient;
         this.cardNumberGenerator = cardNumberGenerator;
         this.cardProperties = cardProperties;
         this.clock = clock;
@@ -123,7 +127,7 @@ public class CardService {
             RequestContext context,
             OrderCardRequest request
     ) {
-        if (!cardProperties.orderEnabled()) {
+        if (!featureFlagClient.isEnabled(CARD_ORDER_FLAG)) {
             throw new CardFeatureDisabledException("Card ordering is disabled");
         }
         VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);

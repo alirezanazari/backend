@@ -11,6 +11,7 @@ import com.nimbusds.jwt.SignedJWT;
 import com.redbank.card.api.internal.InternalCardController;
 import com.redbank.card.application.AccountEligibilityClient;
 import com.redbank.card.application.EligibleAccount;
+import com.redbank.card.application.FeatureFlagClient;
 import com.redbank.card.domain.CardOrderRecord;
 import com.redbank.card.domain.CardOrderStatus;
 import com.redbank.card.infrastructure.CardOrderRepository;
@@ -69,10 +70,14 @@ class CardControllerIntegrationTest {
     @MockitoBean
     private AccountEligibilityClient accountEligibilityClient;
 
+    @MockitoBean
+    private FeatureFlagClient featureFlagClient;
+
     @BeforeEach
     void allowEligibleAccounts() {
         when(accountEligibilityClient.requireEligible(anyString(), any(UUID.class), any(UUID.class)))
                 .thenAnswer(invocation -> new EligibleAccount(invocation.getArgument(0), "IRR"));
+        when(featureFlagClient.isEnabled(anyString())).thenReturn(true);
     }
 
     @Test
@@ -210,6 +215,25 @@ class CardControllerIntegrationTest {
         orderCard(authorization, profileId, accountNumber)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
+    }
+
+    @Test
+    void disabledCardOrderFlagRejectsOrderBeforeExternalValidation() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        String accountNumber = "163456789012345678";
+        createDefaultCard(userId, profileId, accountNumber, "DIGITAL")
+                .andExpect(status().isOk());
+        when(featureFlagClient.isEnabled("card.order.enabled")).thenReturn(false);
+
+        orderCard(token(userId, profileId, List.of("USER")), profileId, accountNumber)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.context.status.code").value("FEATURE_DISABLED"));
+
+        assertThat(dsl.fetchCount(
+                CARD_ORDERS,
+                CARD_ORDERS.ACCOUNT_NUMBER.eq(accountNumber)
+        )).isZero();
     }
 
     @Test

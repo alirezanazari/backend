@@ -15,6 +15,7 @@ red-bank
   ledger-service       financial source of truth
   card-service         card lifecycle
   kyc-service          customer verification and referrals
+  feature-flag-service runtime operational feature controls
   docs                 architecture and implementation documents
   docker               local infrastructure support
 ```
@@ -35,6 +36,8 @@ red-bank
 | Card OpenAPI UI | `http://localhost:8084/swagger-ui.html` |
 | KYC health | `http://localhost:8085/actuator/health` |
 | KYC OpenAPI UI | `http://localhost:8085/swagger-ui.html` |
+| Feature Flag health | `http://localhost:8086/actuator/health` |
+| Feature Flag OpenAPI UI | `http://localhost:8086/swagger-ui.html` |
 
 ## Documentation
 

@@ -44,6 +44,7 @@ redbank:
   kyc:
     referral-reward-amount: ${REDBANK_KYC_REFERRAL_REWARD_AMOUNT:500000}
     referral-reward-currency: ${REDBANK_KYC_REFERRAL_REWARD_CURRENCY:IRR}
+    referral-reward-enabled: ${REDBANK_KYC_REFERRAL_REWARD_ENABLED:true}
   referrer-account-client:
     enabled: ${REDBANK_KYC_REFERRER_ACCOUNT_CLIENT_ENABLED:true}
     base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
@@ -51,4 +52,8 @@ redbank:
   referral-reward-client:
     enabled: ${REDBANK_KYC_REWARD_CLIENT_ENABLED:true}
     base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}
+    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  feature-flag-client:
+    enabled: ${REDBANK_KYC_FEATURE_FLAG_CLIENT_ENABLED:false}
+    base-url: ${FEATURE_FLAG_SERVICE_URL:http://localhost:8086}
     service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}

@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: feature-flag-service
+  datasource:
+    url: jdbc:postgresql://${FEATURE_FLAG_DB_HOST:localhost}:${FEATURE_FLAG_DB_PORT:5432}/${FEATURE_FLAG_DB_NAME:feature_flag_db}
+    username: ${FEATURE_FLAG_DB_USERNAME:${POSTGRES_USER:redbank}}
+    password: ${FEATURE_FLAG_DB_PASSWORD:${POSTGRES_PASSWORD:redbank_develop_password}}
+  flyway:
+    enabled: ${REDBANK_FLYWAY_ENABLED:true}
+
+server:
+  port: ${SERVER_PORT:8086}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: ${REDBANK_LOG_LEVEL:INFO}
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+redbank:
+  debug:
+    enabled: ${REDBANK_DEBUG_ENABLED:false}
+    jwt-secret: ${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}
+  jwt:
+    issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
+    audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
+    signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
+  internal:
+    service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}

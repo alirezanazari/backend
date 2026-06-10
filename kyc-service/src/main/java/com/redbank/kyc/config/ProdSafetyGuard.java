@@ -13,19 +13,22 @@ public class ProdSafetyGuard implements ApplicationRunner {
     private final JwtProperties jwtProperties;
     private final ReferrerAccountClientProperties accountClientProperties;
     private final ReferralRewardClientProperties rewardClientProperties;
+    private final FeatureFlagClientProperties featureFlagClientProperties;
 
     public ProdSafetyGuard(
             Environment environment,
             DebugProperties debugProperties,
             JwtProperties jwtProperties,
             ReferrerAccountClientProperties accountClientProperties,
-            ReferralRewardClientProperties rewardClientProperties
+            ReferralRewardClientProperties rewardClientProperties,
+            FeatureFlagClientProperties featureFlagClientProperties
     ) {
         this.environment = environment;
         this.debugProperties = debugProperties;
         this.jwtProperties = jwtProperties;
         this.accountClientProperties = accountClientProperties;
         this.rewardClientProperties = rewardClientProperties;
+        this.featureFlagClientProperties = featureFlagClientProperties;
     }
 
     @Override
@@ -46,6 +49,9 @@ public class ProdSafetyGuard implements ApplicationRunner {
         }
         if (!accountClientProperties.enabled() || !rewardClientProperties.enabled()) {
             throw new IllegalStateException("kyc-service requires referral integrations in prod");
+        }
+        if (!featureFlagClientProperties.enabled()) {
+            throw new IllegalStateException("kyc-service requires feature flag integration in prod");
         }
     }
 }
