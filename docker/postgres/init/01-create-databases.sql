@@ -3,3 +3,4 @@ CREATE DATABASE ledger_db;
 CREATE DATABASE card_db;
 CREATE DATABASE kyc_db;
 CREATE DATABASE feature_flag_db;
+CREATE DATABASE transfer_db;

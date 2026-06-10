@@ -16,6 +16,7 @@ red-bank
   card-service         card lifecycle
   kyc-service          customer verification and referrals
   feature-flag-service runtime operational feature controls
+  transfer-service     money movement orchestration and history
   docs                 architecture and implementation documents
   docker               local infrastructure support
 ```
@@ -38,6 +39,8 @@ red-bank
 | KYC OpenAPI UI | `http://localhost:8085/swagger-ui.html` |
 | Feature Flag health | `http://localhost:8086/actuator/health` |
 | Feature Flag OpenAPI UI | `http://localhost:8086/swagger-ui.html` |
+| Transfer health | `http://localhost:8087/actuator/health` |
+| Transfer OpenAPI UI | `http://localhost:8087/swagger-ui.html` |
 
 ## Documentation
 

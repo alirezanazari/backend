@@ -26,6 +26,10 @@ spring:
               uri: ${FEATURE_FLAG_SERVICE_URL:http://localhost:8086}
               predicates:
                 - Path=/api/v1/feature-flags/**
+            - id: transfer-service
+              uri: ${TRANSFER_SERVICE_URL:http://localhost:8087}
+              predicates:
+                - Path=/api/v1/transfers/**
 
 server:
   port: ${SERVER_PORT:8080}

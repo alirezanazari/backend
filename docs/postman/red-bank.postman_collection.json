@@ -65,6 +65,7 @@
           "  if (data.orderId) pm.collectionVariables.set('cardOrderId', data.orderId);",
           "  if (data.ledgerAccountId) pm.collectionVariables.set('ledgerAccountId', data.ledgerAccountId);",
           "  if (data.ledgerTransactionId) pm.collectionVariables.set('ledgerTransactionId', data.ledgerTransactionId);",
+          "  if (data.transferId) pm.collectionVariables.set('transferId', data.transferId);",
           "",
           "  if (data.accessToken) {",
           "    if (pm.info.requestName === 'Debug User Token') {",
@@ -281,6 +282,21 @@
     {
       "key": "featureFlagBaseUrl",
       "value": "http://localhost:8086",
+      "type": "string"
+    },
+    {
+      "key": "transferBaseUrl",
+      "value": "http://localhost:8087",
+      "type": "string"
+    },
+    {
+      "key": "transferIdempotencyKey",
+      "value": "postman-transfer-key",
+      "type": "string"
+    },
+    {
+      "key": "transferId",
+      "value": "",
       "type": "string"
     }
   ],
@@ -1018,6 +1034,93 @@
       ]
     },
     {
+      "name": "Transfers",
+      "item": [
+        {
+          "name": "List Transfer Methods",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"sourceType\":null,\"destinationType\":null}}"
+            },
+            "url": "{{transferBaseUrl}}/api/v1/transfers/methods/list",
+            "description": "Lists transfer methods after applying runtime feature flags."
+          }
+        },
+        {
+          "name": "Create Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{transferIdempotencyKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"idempotencyKey\":\"{{transferIdempotencyKey}}\",\"method\":\"ACCOUNT_TO_ACCOUNT\",\"sourceType\":\"ACCOUNT\",\"sourceAccountNumber\":\"{{accountNumber}}\",\"sourceCardNumber\":null,\"destinationType\":\"ACCOUNT\",\"destinationAccountNumber\":\"{{destinationAccountNumber}}\",\"destinationIban\":null,\"destinationCardNumber\":null,\"amount\":{\"amount\":1000,\"currency\":\"IRR\"},\"description\":\"Postman transfer\"}}"
+            },
+            "url": "{{transferBaseUrl}}/api/v1/transfers/create",
+            "description": "Creates one idempotent internal transfer. Change transferIdempotencyKey for a new transfer."
+          }
+        },
+        {
+          "name": "List Recent Transfers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"limit\":10}}"
+            },
+            "url": "{{transferBaseUrl}}/api/v1/transfers/recent/list",
+            "description": "Lists unique successful recent transfer destinations."
+          }
+        }
+      ]
+    },
+    {
       "name": "Internal Account",
       "description": "Direct account-service internal endpoints. They are not routed through the API gateway.",
       "item": [
@@ -1588,6 +1691,32 @@
               }
             ],
             "url": "{{featureFlagBaseUrl}}/actuator/info"
+          }
+        },
+        {
+          "name": "Transfer Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{transferBaseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "Transfer Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{transferBaseUrl}}/actuator/info"
           }
         }
       ]

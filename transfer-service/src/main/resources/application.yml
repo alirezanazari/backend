@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: transfer-service
+  datasource:
+    url: jdbc:postgresql://${TRANSFER_DB_HOST:localhost}:${TRANSFER_DB_PORT:5432}/${TRANSFER_DB_NAME:transfer_db}
+    username: ${TRANSFER_DB_USERNAME:${POSTGRES_USER:redbank}}
+    password: ${TRANSFER_DB_PASSWORD:${POSTGRES_PASSWORD:redbank_develop_password}}
+  flyway:
+    enabled: ${REDBANK_FLYWAY_ENABLED:true}
+
+server:
+  port: ${SERVER_PORT:8087}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: ${REDBANK_LOG_LEVEL:INFO}
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+redbank:
+  debug:
+    enabled: ${REDBANK_DEBUG_ENABLED:false}
+    jwt-secret: ${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}
+  jwt:
+    issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
+    audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
+    signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
+  transfer:
+    idempotency-ttl-hours: ${REDBANK_TRANSFER_IDEMPOTENCY_TTL_HOURS:24}
+  feature-flag-client:
+    enabled: ${REDBANK_TRANSFER_FEATURE_FLAG_CLIENT_ENABLED:true}
+    base-url: ${FEATURE_FLAG_SERVICE_URL:http://localhost:8086}
+    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  party-client:
+    enabled: ${REDBANK_TRANSFER_PARTY_CLIENT_ENABLED:true}
+    account-base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+    card-base-url: ${CARD_SERVICE_URL:http://localhost:8084}
+    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  ledger-client:
+    enabled: ${REDBANK_TRANSFER_LEDGER_CLIENT_ENABLED:true}
+    base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}
+    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
