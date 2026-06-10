@@ -1,3 +1,4 @@
 CREATE DATABASE account_db;
 CREATE DATABASE ledger_db;
 CREATE DATABASE card_db;
+CREATE DATABASE kyc_db;

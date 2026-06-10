@@ -257,6 +257,26 @@
       "key": "serverPublicKey",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "kycBaseUrl",
+      "value": "http://localhost:8085",
+      "type": "string"
+    },
+    {
+      "key": "referralCode",
+      "value": "ALICE_2026",
+      "type": "string"
+    },
+    {
+      "key": "referralId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "kycCaseId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -809,6 +829,133 @@
       ]
     },
     {
+      "name": "KYC",
+      "item": [
+        {
+          "name": "List Jobs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"language\":\"en-US\"}}"
+            },
+            "url": "{{kycBaseUrl}}/api/v1/kyc/jobs/list",
+            "description": "Lists active KYC jobs. This endpoint is public."
+          }
+        },
+        {
+          "name": "Set Referral",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.referralId) pm.collectionVariables.set('referralId', body.data.referralId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{onboardingToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"referralCode\":\"{{referralCode}}\"}}"
+            },
+            "url": "{{kycBaseUrl}}/api/v1/kyc/referral/set",
+            "description": "Sets an immutable referral during onboarding."
+          }
+        },
+        {
+          "name": "Get KYC Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"userId\":null}}"
+            },
+            "url": "{{kycBaseUrl}}/api/v1/kyc/status/get",
+            "description": "Gets the authenticated user KYC and account-completion status."
+          }
+        },
+        {
+          "name": "Complete KYC",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.kycCaseId) pm.collectionVariables.set('kycCaseId', body.data.kycCaseId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"userId\":\"{{userId}}\",\"status\":\"APPROVED\",\"reason\":\"Documents verified\"}}"
+            },
+            "url": "{{kycBaseUrl}}/api/v1/kyc/complete",
+            "description": "Completes a KYC case using an admin or system token."
+          }
+        }
+      ]
+    },
+    {
       "name": "Internal Account",
       "description": "Direct account-service internal endpoints. They are not routed through the API gateway.",
       "item": [
@@ -1327,6 +1474,32 @@
               }
             ],
             "url": "{{cardBaseUrl}}/actuator/info"
+          }
+        },
+        {
+          "name": "KYC Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{kycBaseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "KYC Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{kycBaseUrl}}/actuator/info"
           }
         }
       ]

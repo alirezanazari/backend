@@ -25,6 +25,7 @@
         <module>account-service</module>
         <module>ledger-service</module>
         <module>card-service</module>
+        <module>kyc-service</module>
     </modules>
 
     <properties>
