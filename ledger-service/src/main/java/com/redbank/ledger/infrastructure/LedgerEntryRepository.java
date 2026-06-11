@@ -2,40 +2,38 @@ package com.redbank.ledger.infrastructure;
 
 import com.redbank.contracts.ledger.LedgerDirection;
 import com.redbank.ledger.domain.LedgerEntryRecord;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.Condition;
+import org.jooq.DSLContext;
+import org.jooq.Record;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.ledger.jooq.tables.LedgerEntries.LEDGER_ENTRIES;
 
 @Repository
 public class LedgerEntryRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public LedgerEntryRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public LedgerEntryRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void saveAll(List<LedgerEntryRecord> entries) {
         for (LedgerEntryRecord entry : entries) {
-            jdbcTemplate.update("""
-                            INSERT INTO ledger_entries (
-                                id, ledger_transaction_id, ledger_account_id, direction, amount, currency, created_at
-                            )
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """,
-                    entry.id(),
-                    entry.ledgerTransactionId(),
-                    entry.ledgerAccountId(),
-                    entry.direction().name(),
-                    entry.amount(),
-                    entry.currency(),
-                    Timestamp.from(entry.createdAt())
-            );
+            dsl.insertInto(LEDGER_ENTRIES)
+                    .set(LEDGER_ENTRIES.ID, entry.id())
+                    .set(LEDGER_ENTRIES.LEDGER_TRANSACTION_ID, entry.ledgerTransactionId())
+                    .set(LEDGER_ENTRIES.LEDGER_ACCOUNT_ID, entry.ledgerAccountId())
+                    .set(LEDGER_ENTRIES.DIRECTION, entry.direction().name())
+                    .set(LEDGER_ENTRIES.AMOUNT, entry.amount())
+                    .set(LEDGER_ENTRIES.CURRENCY, entry.currency())
+                    .set(LEDGER_ENTRIES.CREATED_AT, toOffsetDateTime(entry.createdAt()))
+                    .execute();
         }
     }
 
@@ -46,61 +44,46 @@ public class LedgerEntryRepository {
             int page,
             int size
     ) {
-        List<Object> args = new ArrayList<>();
-        StringBuilder sql = new StringBuilder(selectBase());
-        appendFilters(sql, args, ledgerAccountId, fromInclusive, toExclusive);
-        sql.append(" ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?");
-        args.add(size);
-        args.add(page * size);
-
-        return jdbcTemplate.query(sql.toString(), this::map, args.toArray());
+        return dsl.selectFrom(LEDGER_ENTRIES)
+                .where(filters(ledgerAccountId, fromInclusive, toExclusive))
+                .orderBy(LEDGER_ENTRIES.CREATED_AT.desc(), LEDGER_ENTRIES.ID.desc())
+                .limit(size)
+                .offset(page * size)
+                .fetch(this::map);
     }
 
     public long countByAccountId(UUID ledgerAccountId, Instant fromInclusive, Instant toExclusive) {
-        List<Object> args = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM ledger_entries");
-        appendFilters(sql, args, ledgerAccountId, fromInclusive, toExclusive);
-
-        Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, args.toArray());
+        Long count = dsl.select(DSL.count().cast(Long.class))
+                .from(LEDGER_ENTRIES)
+                .where(filters(ledgerAccountId, fromInclusive, toExclusive))
+                .fetchOne(0, Long.class);
         return count == null ? 0L : count;
     }
 
-    private String selectBase() {
-        return """
-                SELECT id, ledger_transaction_id, ledger_account_id, direction, amount, currency, created_at
-                FROM ledger_entries
-                """;
-    }
-
-    private void appendFilters(
-            StringBuilder sql,
-            List<Object> args,
-            UUID ledgerAccountId,
-            Instant fromInclusive,
-            Instant toExclusive
-    ) {
-        sql.append(" WHERE ledger_account_id = ?");
-        args.add(ledgerAccountId);
-
+    private Condition filters(UUID ledgerAccountId, Instant fromInclusive, Instant toExclusive) {
+        Condition condition = LEDGER_ENTRIES.LEDGER_ACCOUNT_ID.eq(ledgerAccountId);
         if (fromInclusive != null) {
-            sql.append(" AND created_at >= ?");
-            args.add(Timestamp.from(fromInclusive));
+            condition = condition.and(LEDGER_ENTRIES.CREATED_AT.ge(toOffsetDateTime(fromInclusive)));
         }
         if (toExclusive != null) {
-            sql.append(" AND created_at < ?");
-            args.add(Timestamp.from(toExclusive));
+            condition = condition.and(LEDGER_ENTRIES.CREATED_AT.lt(toOffsetDateTime(toExclusive)));
         }
+        return condition;
     }
 
-    private LedgerEntryRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private LedgerEntryRecord map(Record record) {
         return new LedgerEntryRecord(
-                resultSet.getObject("id", UUID.class),
-                resultSet.getObject("ledger_transaction_id", UUID.class),
-                resultSet.getObject("ledger_account_id", UUID.class),
-                LedgerDirection.valueOf(resultSet.getString("direction")),
-                resultSet.getBigDecimal("amount"),
-                resultSet.getString("currency"),
-                resultSet.getTimestamp("created_at").toInstant()
+                record.get(LEDGER_ENTRIES.ID),
+                record.get(LEDGER_ENTRIES.LEDGER_TRANSACTION_ID),
+                record.get(LEDGER_ENTRIES.LEDGER_ACCOUNT_ID),
+                LedgerDirection.valueOf(record.get(LEDGER_ENTRIES.DIRECTION)),
+                record.get(LEDGER_ENTRIES.AMOUNT),
+                record.get(LEDGER_ENTRIES.CURRENCY),
+                record.get(LEDGER_ENTRIES.CREATED_AT).toInstant()
         );
+    }
+
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant.atOffset(ZoneOffset.UTC);
     }
 }

@@ -11,16 +11,18 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static com.redbank.iam.jooq.tables.Credentials.CREDENTIALS;
+import static com.redbank.iam.jooq.tables.OtpChallenges.OTP_CHALLENGES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -48,7 +50,7 @@ class IamControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DSLContext dsl;
 
     @Autowired
     private MutableAccountCompletionClient accountCompletionClient;
@@ -73,11 +75,10 @@ class IamControllerIntegrationTest {
                 .getContentAsString();
 
         String userId = objectMapper.readTree(response).path("data").path("userId").asText();
-        String storedPassword = jdbcTemplate.queryForObject(
-                "SELECT password_hash FROM credentials WHERE user_id = ?",
-                String.class,
-                java.util.UUID.fromString(userId)
-        );
+        String storedPassword = dsl.select(CREDENTIALS.PASSWORD_HASH)
+                .from(CREDENTIALS)
+                .where(CREDENTIALS.USER_ID.eq(UUID.fromString(userId)))
+                .fetchOne(CREDENTIALS.PASSWORD_HASH);
 
         assertThat(storedPassword).isNotBlank();
         assertThat(storedPassword).isNotEqualTo(data.password());
@@ -100,11 +101,10 @@ class IamControllerIntegrationTest {
                 .getContentAsString();
 
         String challengeId = objectMapper.readTree(response).path("data").path("challengeId").asText();
-        String otpHash = jdbcTemplate.queryForObject(
-                "SELECT otp_hash FROM otp_challenges WHERE id = ?",
-                String.class,
-                java.util.UUID.fromString(challengeId)
-        );
+        String otpHash = dsl.select(OTP_CHALLENGES.OTP_HASH)
+                .from(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.ID.eq(UUID.fromString(challengeId)))
+                .fetchOne(OTP_CHALLENGES.OTP_HASH);
 
         assertThat(otpHash).isNotBlank();
         assertThat(otpHash).isNotEqualTo("111111");

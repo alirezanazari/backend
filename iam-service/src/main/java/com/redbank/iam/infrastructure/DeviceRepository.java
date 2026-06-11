@@ -2,107 +2,83 @@ package com.redbank.iam.infrastructure;
 
 import com.redbank.iam.domain.DeviceRecord;
 import com.redbank.iam.domain.DeviceStatus;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.DSLContext;
+import org.jooq.Record;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.iam.jooq.tables.Devices.DEVICES;
 
 @Repository
 public class DeviceRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public DeviceRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public DeviceRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void save(DeviceRecord device) {
-        jdbcTemplate.update("""
-                        INSERT INTO devices (
-                            id, user_id, device_fingerprint, device_name, os, app_version,
-                            status, verified_at, created_at, updated_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                device.id(),
-                device.userId(),
-                device.deviceFingerprint(),
-                device.deviceName(),
-                device.os(),
-                device.appVersion(),
-                device.status().name(),
-                timestamp(device.verifiedAt()),
-                Timestamp.from(device.createdAt()),
-                Timestamp.from(device.updatedAt())
-        );
+        dsl.insertInto(DEVICES)
+                .set(DEVICES.ID, device.id())
+                .set(DEVICES.USER_ID, device.userId())
+                .set(DEVICES.DEVICE_FINGERPRINT, device.deviceFingerprint())
+                .set(DEVICES.DEVICE_NAME, device.deviceName())
+                .set(DEVICES.OS, device.os())
+                .set(DEVICES.APP_VERSION, device.appVersion())
+                .set(DEVICES.STATUS, device.status().name())
+                .set(DEVICES.VERIFIED_AT, toOffsetDateTime(device.verifiedAt()))
+                .set(DEVICES.CREATED_AT, toOffsetDateTime(device.createdAt()))
+                .set(DEVICES.UPDATED_AT, toOffsetDateTime(device.updatedAt()))
+                .execute();
     }
 
     public Optional<DeviceRecord> findByUserIdAndFingerprint(UUID userId, String fingerprint) {
-        return jdbcTemplate.query("""
-                        SELECT id, user_id, device_fingerprint, device_name, os, app_version,
-                               status, verified_at, created_at, updated_at
-                        FROM devices
-                        WHERE user_id = ? AND device_fingerprint = ?
-                        """,
-                this::map,
-                userId,
-                fingerprint
-        ).stream().findFirst();
+        return dsl.selectFrom(DEVICES)
+                .where(DEVICES.USER_ID.eq(userId))
+                .and(DEVICES.DEVICE_FINGERPRINT.eq(fingerprint))
+                .fetchOptional(this::map);
     }
 
     public Optional<DeviceRecord> findById(UUID id) {
-        return jdbcTemplate.query("""
-                        SELECT id, user_id, device_fingerprint, device_name, os, app_version,
-                               status, verified_at, created_at, updated_at
-                        FROM devices
-                        WHERE id = ?
-                        """,
-                this::map,
-                id
-        ).stream().findFirst();
+        return dsl.selectFrom(DEVICES)
+                .where(DEVICES.ID.eq(id))
+                .fetchOptional(this::map);
     }
 
     public void markVerified(UUID id, Instant verifiedAt) {
-        jdbcTemplate.update("""
-                        UPDATE devices
-                        SET status = ?, verified_at = ?, updated_at = ?
-                        WHERE id = ?
-                        """,
-                DeviceStatus.VERIFIED.name(),
-                Timestamp.from(verifiedAt),
-                Timestamp.from(verifiedAt),
-                id
-        );
+        OffsetDateTime timestamp = toOffsetDateTime(verifiedAt);
+        dsl.update(DEVICES)
+                .set(DEVICES.STATUS, DeviceStatus.VERIFIED.name())
+                .set(DEVICES.VERIFIED_AT, timestamp)
+                .set(DEVICES.UPDATED_AT, timestamp)
+                .where(DEVICES.ID.eq(id))
+                .execute();
     }
 
-    private DeviceRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private DeviceRecord map(Record record) {
         return new DeviceRecord(
-                resultSet.getObject("id", UUID.class),
-                resultSet.getObject("user_id", UUID.class),
-                resultSet.getString("device_fingerprint"),
-                resultSet.getString("device_name"),
-                resultSet.getString("os"),
-                resultSet.getString("app_version"),
-                DeviceStatus.valueOf(resultSet.getString("status")),
-                toNullableInstant(resultSet, "verified_at"),
-                toInstant(resultSet, "created_at"),
-                toInstant(resultSet, "updated_at")
+                record.get(DEVICES.ID),
+                record.get(DEVICES.USER_ID),
+                record.get(DEVICES.DEVICE_FINGERPRINT),
+                record.get(DEVICES.DEVICE_NAME),
+                record.get(DEVICES.OS),
+                record.get(DEVICES.APP_VERSION),
+                DeviceStatus.valueOf(record.get(DEVICES.STATUS)),
+                toInstant(record.get(DEVICES.VERIFIED_AT)),
+                record.get(DEVICES.CREATED_AT).toInstant(),
+                record.get(DEVICES.UPDATED_AT).toInstant()
         );
     }
 
-    private Timestamp timestamp(Instant value) {
-        return value == null ? null : Timestamp.from(value);
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant == null ? null : instant.atOffset(ZoneOffset.UTC);
     }
 
-    private Instant toInstant(ResultSet resultSet, String column) throws SQLException {
-        return resultSet.getTimestamp(column).toInstant();
-    }
-
-    private Instant toNullableInstant(ResultSet resultSet, String column) throws SQLException {
-        Timestamp timestamp = resultSet.getTimestamp(column);
-        return timestamp == null ? null : timestamp.toInstant();
+    private Instant toInstant(OffsetDateTime value) {
+        return value == null ? null : value.toInstant();
     }
 }

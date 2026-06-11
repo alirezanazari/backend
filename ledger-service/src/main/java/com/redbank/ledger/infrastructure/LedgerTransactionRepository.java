@@ -4,80 +4,75 @@ import com.redbank.ledger.domain.LedgerReferenceType;
 import com.redbank.ledger.domain.LedgerTransactionRecord;
 import com.redbank.ledger.domain.LedgerTransactionStatus;
 import com.redbank.ledger.domain.LedgerTransactionType;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
-import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.Condition;
+import org.jooq.DSLContext;
+import org.jooq.Record;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.ledger.jooq.tables.LedgerTransactions.LEDGER_TRANSACTIONS;
 
 @Repository
 public class LedgerTransactionRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public LedgerTransactionRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public LedgerTransactionRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void save(LedgerTransactionRecord transaction) {
-        jdbcTemplate.update("""
-                        INSERT INTO ledger_transactions (
-                            id, reference_type, reference_id, idempotency_key, transaction_type,
-                            status, created_at, updated_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                transaction.id(),
-                transaction.referenceType().name(),
-                transaction.referenceId(),
-                transaction.idempotencyKey(),
-                transaction.transactionType().name(),
-                transaction.status().name(),
-                Timestamp.from(transaction.createdAt()),
-                Timestamp.from(transaction.updatedAt())
-        );
+        dsl.insertInto(LEDGER_TRANSACTIONS)
+                .set(LEDGER_TRANSACTIONS.ID, transaction.id())
+                .set(LEDGER_TRANSACTIONS.REFERENCE_TYPE, transaction.referenceType().name())
+                .set(LEDGER_TRANSACTIONS.REFERENCE_ID, transaction.referenceId())
+                .set(LEDGER_TRANSACTIONS.IDEMPOTENCY_KEY, transaction.idempotencyKey())
+                .set(LEDGER_TRANSACTIONS.TRANSACTION_TYPE, transaction.transactionType().name())
+                .set(LEDGER_TRANSACTIONS.STATUS, transaction.status().name())
+                .set(LEDGER_TRANSACTIONS.CREATED_AT, toOffsetDateTime(transaction.createdAt()))
+                .set(LEDGER_TRANSACTIONS.UPDATED_AT, toOffsetDateTime(transaction.updatedAt()))
+                .execute();
     }
 
-    public Optional<LedgerTransactionRecord> findByReference(LedgerReferenceType referenceType, String referenceId) {
-        return queryOne("WHERE reference_type = ? AND reference_id = ?", referenceType.name(), referenceId);
+    public Optional<LedgerTransactionRecord> findByReference(
+            LedgerReferenceType referenceType,
+            String referenceId
+    ) {
+        return findOne(
+                LEDGER_TRANSACTIONS.REFERENCE_TYPE.eq(referenceType.name())
+                        .and(LEDGER_TRANSACTIONS.REFERENCE_ID.eq(referenceId))
+        );
     }
 
     public Optional<LedgerTransactionRecord> findByIdempotencyKey(String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             return Optional.empty();
         }
-        return queryOne("WHERE idempotency_key = ?", idempotencyKey);
+        return findOne(LEDGER_TRANSACTIONS.IDEMPOTENCY_KEY.eq(idempotencyKey));
     }
 
-    private Optional<LedgerTransactionRecord> queryOne(String predicate, Object... args) {
-        return jdbcTemplate.query(selectBase() + " " + predicate, this::map, args)
-                .stream()
-                .findFirst();
+    private Optional<LedgerTransactionRecord> findOne(Condition condition) {
+        return dsl.selectFrom(LEDGER_TRANSACTIONS)
+                .where(condition)
+                .fetchOptional(this::map);
     }
 
-    private String selectBase() {
-        return """
-                SELECT id, reference_type, reference_id, idempotency_key, transaction_type, status, created_at, updated_at
-                FROM ledger_transactions
-                """;
-    }
-
-    private LedgerTransactionRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private LedgerTransactionRecord map(Record record) {
         return new LedgerTransactionRecord(
-                resultSet.getObject("id", UUID.class),
-                LedgerReferenceType.valueOf(resultSet.getString("reference_type")),
-                resultSet.getString("reference_id"),
-                resultSet.getString("idempotency_key"),
-                LedgerTransactionType.valueOf(resultSet.getString("transaction_type")),
-                LedgerTransactionStatus.valueOf(resultSet.getString("status")),
-                toInstant(resultSet, "created_at"),
-                toInstant(resultSet, "updated_at")
+                record.get(LEDGER_TRANSACTIONS.ID),
+                LedgerReferenceType.valueOf(record.get(LEDGER_TRANSACTIONS.REFERENCE_TYPE)),
+                record.get(LEDGER_TRANSACTIONS.REFERENCE_ID),
+                record.get(LEDGER_TRANSACTIONS.IDEMPOTENCY_KEY),
+                LedgerTransactionType.valueOf(record.get(LEDGER_TRANSACTIONS.TRANSACTION_TYPE)),
+                LedgerTransactionStatus.valueOf(record.get(LEDGER_TRANSACTIONS.STATUS)),
+                record.get(LEDGER_TRANSACTIONS.CREATED_AT).toInstant(),
+                record.get(LEDGER_TRANSACTIONS.UPDATED_AT).toInstant()
         );
     }
 
-    private Instant toInstant(ResultSet resultSet, String column) throws SQLException {
-        return resultSet.getTimestamp(column).toInstant();
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant.atOffset(ZoneOffset.UTC);
     }
 }

@@ -2,59 +2,49 @@ package com.redbank.account.infrastructure;
 
 import com.redbank.account.domain.OutboxEventRecord;
 import com.redbank.account.domain.OutboxEventStatus;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.DSLContext;
+import org.jooq.Record;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.account.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
 
 @Repository
 public class OutboxEventRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public OutboxEventRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public OutboxEventRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void save(OutboxEventRecord event) {
-        jdbcTemplate.update("""
-                        INSERT INTO outbox_events (
-                            id, aggregate_type, aggregate_id, event_type, payload, status,
-                            created_at, updated_at, published_at, retry_count
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                event.id(),
-                event.aggregateType(),
-                event.aggregateId(),
-                event.eventType(),
-                event.payload(),
-                event.status().name(),
-                Timestamp.from(event.createdAt()),
-                Timestamp.from(event.updatedAt()),
-                timestamp(event.publishedAt()),
-                event.retryCount()
-        );
+        dsl.insertInto(OUTBOX_EVENTS)
+                .set(OUTBOX_EVENTS.ID, event.id())
+                .set(OUTBOX_EVENTS.AGGREGATE_TYPE, event.aggregateType())
+                .set(OUTBOX_EVENTS.AGGREGATE_ID, event.aggregateId())
+                .set(OUTBOX_EVENTS.EVENT_TYPE, event.eventType())
+                .set(OUTBOX_EVENTS.PAYLOAD, event.payload())
+                .set(OUTBOX_EVENTS.STATUS, event.status().name())
+                .set(OUTBOX_EVENTS.CREATED_AT, toOffsetDateTime(event.createdAt()))
+                .set(OUTBOX_EVENTS.UPDATED_AT, toOffsetDateTime(event.updatedAt()))
+                .set(OUTBOX_EVENTS.PUBLISHED_AT, toOffsetDateTime(event.publishedAt()))
+                .set(OUTBOX_EVENTS.RETRY_COUNT, event.retryCount())
+                .execute();
     }
 
     public List<OutboxEventRecord> findPending(int limit, int maxRetryCount) {
-        return jdbcTemplate.query("""
-                        SELECT id, aggregate_type, aggregate_id, event_type, payload, status,
-                               created_at, updated_at, published_at, retry_count
-                        FROM outbox_events
-                        WHERE status = 'PENDING'
-                          AND retry_count < ?
-                        ORDER BY sequence_number ASC
-                        LIMIT ?
-                        """,
-                this::map,
-                maxRetryCount,
-                limit
-        );
+        return dsl.selectFrom(OUTBOX_EVENTS)
+                .where(OUTBOX_EVENTS.STATUS.eq(OutboxEventStatus.PENDING.name()))
+                .and(OUTBOX_EVENTS.RETRY_COUNT.lt(maxRetryCount))
+                .orderBy(OUTBOX_EVENTS.SEQUENCE_NUMBER.asc())
+                .limit(limit)
+                .fetch(this::map);
     }
 
     public List<OutboxEventRecord> findPendingByEventTypes(
@@ -65,80 +55,60 @@ public class OutboxEventRepository {
         if (eventTypes.isEmpty()) {
             return List.of();
         }
-        String placeholders = String.join(",", eventTypes.stream().map(ignored -> "?").toList());
-        Object[] arguments = new Object[eventTypes.size() + 2];
-        int index = 0;
-        for (String eventType : eventTypes) {
-            arguments[index++] = eventType;
-        }
-        arguments[index++] = maxRetryCount;
-        arguments[index] = limit;
-
-        return jdbcTemplate.query("""
-                        SELECT id, aggregate_type, aggregate_id, event_type, payload, status,
-                               created_at, updated_at, published_at, retry_count
-                        FROM outbox_events
-                        WHERE event_type IN (%s)
-                          AND status = 'PENDING'
-                          AND retry_count < ?
-                        ORDER BY sequence_number ASC
-                        LIMIT ?
-                        """.formatted(placeholders),
-                this::map,
-                arguments
-        );
+        return dsl.selectFrom(OUTBOX_EVENTS)
+                .where(OUTBOX_EVENTS.EVENT_TYPE.in(eventTypes))
+                .and(OUTBOX_EVENTS.STATUS.eq(OutboxEventStatus.PENDING.name()))
+                .and(OUTBOX_EVENTS.RETRY_COUNT.lt(maxRetryCount))
+                .orderBy(OUTBOX_EVENTS.SEQUENCE_NUMBER.asc())
+                .limit(limit)
+                .fetch(this::map);
     }
 
     public void markPublished(UUID id, Instant publishedAt) {
-        jdbcTemplate.update("""
-                        UPDATE outbox_events
-                        SET status = ?, published_at = ?, updated_at = ?
-                        WHERE id = ?
-                        """,
-                OutboxEventStatus.PUBLISHED.name(),
-                Timestamp.from(publishedAt),
-                Timestamp.from(publishedAt),
-                id
-        );
+        OffsetDateTime timestamp = toOffsetDateTime(publishedAt);
+        dsl.update(OUTBOX_EVENTS)
+                .set(OUTBOX_EVENTS.STATUS, OutboxEventStatus.PUBLISHED.name())
+                .set(OUTBOX_EVENTS.PUBLISHED_AT, timestamp)
+                .set(OUTBOX_EVENTS.UPDATED_AT, timestamp)
+                .where(OUTBOX_EVENTS.ID.eq(id))
+                .execute();
     }
 
     public void markAttemptFailed(UUID id, Instant updatedAt, int maxRetryCount) {
-        jdbcTemplate.update("""
-                        UPDATE outbox_events
-                        SET retry_count = retry_count + 1,
-                            status = CASE WHEN retry_count + 1 >= ? THEN ? ELSE ? END,
-                            updated_at = ?
-                        WHERE id = ?
-                        """,
-                maxRetryCount,
-                OutboxEventStatus.FAILED.name(),
-                OutboxEventStatus.PENDING.name(),
-                Timestamp.from(updatedAt),
-                id
-        );
+        dsl.update(OUTBOX_EVENTS)
+                .set(OUTBOX_EVENTS.RETRY_COUNT, OUTBOX_EVENTS.RETRY_COUNT.add(1))
+                .set(
+                        OUTBOX_EVENTS.STATUS,
+                        DSL.when(
+                                OUTBOX_EVENTS.RETRY_COUNT.add(1).ge(maxRetryCount),
+                                OutboxEventStatus.FAILED.name()
+                        ).otherwise(OutboxEventStatus.PENDING.name())
+                )
+                .set(OUTBOX_EVENTS.UPDATED_AT, toOffsetDateTime(updatedAt))
+                .where(OUTBOX_EVENTS.ID.eq(id))
+                .execute();
     }
 
-    private OutboxEventRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private OutboxEventRecord map(Record record) {
         return new OutboxEventRecord(
-                resultSet.getObject("id", UUID.class),
-                resultSet.getString("aggregate_type"),
-                resultSet.getString("aggregate_id"),
-                resultSet.getString("event_type"),
-                resultSet.getString("payload"),
-                OutboxEventStatus.valueOf(resultSet.getString("status")),
-                resultSet.getTimestamp("created_at").toInstant(),
-                resultSet.getTimestamp("updated_at").toInstant(),
-                toNullableInstant(resultSet, "published_at"),
-                resultSet.getInt("retry_count")
+                record.get(OUTBOX_EVENTS.ID),
+                record.get(OUTBOX_EVENTS.AGGREGATE_TYPE),
+                record.get(OUTBOX_EVENTS.AGGREGATE_ID),
+                record.get(OUTBOX_EVENTS.EVENT_TYPE),
+                record.get(OUTBOX_EVENTS.PAYLOAD),
+                OutboxEventStatus.valueOf(record.get(OUTBOX_EVENTS.STATUS)),
+                record.get(OUTBOX_EVENTS.CREATED_AT).toInstant(),
+                record.get(OUTBOX_EVENTS.UPDATED_AT).toInstant(),
+                toInstant(record.get(OUTBOX_EVENTS.PUBLISHED_AT)),
+                record.get(OUTBOX_EVENTS.RETRY_COUNT)
         );
     }
 
-    private Timestamp timestamp(Instant value) {
-        return value == null ? null : Timestamp.from(value);
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant == null ? null : instant.atOffset(ZoneOffset.UTC);
     }
 
-    private Instant toNullableInstant(ResultSet resultSet, String column) throws SQLException {
-        Timestamp timestamp = resultSet.getTimestamp(column);
-        return timestamp == null ? null : timestamp.toInstant();
+    private Instant toInstant(OffsetDateTime value) {
+        return value == null ? null : value.toInstant();
     }
 }

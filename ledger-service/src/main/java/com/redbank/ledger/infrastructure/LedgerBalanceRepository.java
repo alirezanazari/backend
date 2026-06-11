@@ -2,48 +2,40 @@ package com.redbank.ledger.infrastructure;
 
 import com.redbank.ledger.domain.LedgerBalanceRecord;
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.DSLContext;
+import org.jooq.Record;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.ledger.jooq.tables.LedgerBalances.LEDGER_BALANCES;
 
 @Repository
 public class LedgerBalanceRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public LedgerBalanceRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public LedgerBalanceRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void saveInitialBalance(UUID ledgerAccountId, String currency, Instant updatedAt) {
-        jdbcTemplate.update("""
-                        INSERT INTO ledger_balances (
-                            ledger_account_id, available_balance, current_balance, currency, updated_at, version
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                ledgerAccountId,
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                currency,
-                Timestamp.from(updatedAt),
-                0L
-        );
+        dsl.insertInto(LEDGER_BALANCES)
+                .set(LEDGER_BALANCES.LEDGER_ACCOUNT_ID, ledgerAccountId)
+                .set(LEDGER_BALANCES.AVAILABLE_BALANCE, BigDecimal.ZERO)
+                .set(LEDGER_BALANCES.CURRENT_BALANCE, BigDecimal.ZERO)
+                .set(LEDGER_BALANCES.CURRENCY, currency)
+                .set(LEDGER_BALANCES.UPDATED_AT, toOffsetDateTime(updatedAt))
+                .set(LEDGER_BALANCES.VERSION, 0L)
+                .execute();
     }
 
     public Optional<LedgerBalanceRecord> findByAccountId(UUID ledgerAccountId) {
-        return jdbcTemplate.query("""
-                        SELECT ledger_account_id, available_balance, current_balance, currency, updated_at, version
-                        FROM ledger_balances
-                        WHERE ledger_account_id = ?
-                        """,
-                this::map,
-                ledgerAccountId
-        ).stream().findFirst();
+        return dsl.selectFrom(LEDGER_BALANCES)
+                .where(LEDGER_BALANCES.LEDGER_ACCOUNT_ID.eq(ledgerAccountId))
+                .fetchOptional(this::map);
     }
 
     public boolean update(
@@ -53,29 +45,28 @@ public class LedgerBalanceRepository {
             long expectedVersion,
             Instant updatedAt
     ) {
-        int updated = jdbcTemplate.update("""
-                        UPDATE ledger_balances
-                        SET available_balance = ?, current_balance = ?, updated_at = ?, version = version + 1
-                        WHERE ledger_account_id = ?
-                          AND version = ?
-                        """,
-                availableBalance,
-                currentBalance,
-                Timestamp.from(updatedAt),
-                ledgerAccountId,
-                expectedVersion
-        );
-        return updated == 1;
+        return dsl.update(LEDGER_BALANCES)
+                .set(LEDGER_BALANCES.AVAILABLE_BALANCE, availableBalance)
+                .set(LEDGER_BALANCES.CURRENT_BALANCE, currentBalance)
+                .set(LEDGER_BALANCES.UPDATED_AT, toOffsetDateTime(updatedAt))
+                .set(LEDGER_BALANCES.VERSION, LEDGER_BALANCES.VERSION.add(1L))
+                .where(LEDGER_BALANCES.LEDGER_ACCOUNT_ID.eq(ledgerAccountId))
+                .and(LEDGER_BALANCES.VERSION.eq(expectedVersion))
+                .execute() == 1;
     }
 
-    private LedgerBalanceRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private LedgerBalanceRecord map(Record record) {
         return new LedgerBalanceRecord(
-                resultSet.getObject("ledger_account_id", UUID.class),
-                resultSet.getBigDecimal("available_balance"),
-                resultSet.getBigDecimal("current_balance"),
-                resultSet.getString("currency"),
-                resultSet.getTimestamp("updated_at").toInstant(),
-                resultSet.getLong("version")
+                record.get(LEDGER_BALANCES.LEDGER_ACCOUNT_ID),
+                record.get(LEDGER_BALANCES.AVAILABLE_BALANCE),
+                record.get(LEDGER_BALANCES.CURRENT_BALANCE),
+                record.get(LEDGER_BALANCES.CURRENCY),
+                record.get(LEDGER_BALANCES.UPDATED_AT).toInstant(),
+                record.get(LEDGER_BALANCES.VERSION)
         );
+    }
+
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant.atOffset(ZoneOffset.UTC);
     }
 }

@@ -1,64 +1,56 @@
 package com.redbank.iam.infrastructure;
 
 import com.redbank.iam.domain.CredentialRecord;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.DSLContext;
+import org.jooq.Record;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.iam.jooq.tables.Credentials.CREDENTIALS;
 
 @Repository
 public class CredentialRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public CredentialRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public CredentialRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void save(CredentialRecord credential) {
-        jdbcTemplate.update("""
-                        INSERT INTO credentials (
-                            id, user_id, password_hash, password_algorithm, password_changed_at, created_at, updated_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """,
-                credential.id(),
-                credential.userId(),
-                credential.passwordHash(),
-                credential.passwordAlgorithm(),
-                Timestamp.from(credential.passwordChangedAt()),
-                Timestamp.from(credential.createdAt()),
-                Timestamp.from(credential.updatedAt())
-        );
+        dsl.insertInto(CREDENTIALS)
+                .set(CREDENTIALS.ID, credential.id())
+                .set(CREDENTIALS.USER_ID, credential.userId())
+                .set(CREDENTIALS.PASSWORD_HASH, credential.passwordHash())
+                .set(CREDENTIALS.PASSWORD_ALGORITHM, credential.passwordAlgorithm())
+                .set(CREDENTIALS.PASSWORD_CHANGED_AT, toOffsetDateTime(credential.passwordChangedAt()))
+                .set(CREDENTIALS.CREATED_AT, toOffsetDateTime(credential.createdAt()))
+                .set(CREDENTIALS.UPDATED_AT, toOffsetDateTime(credential.updatedAt()))
+                .execute();
     }
 
     public Optional<CredentialRecord> findByUserId(UUID userId) {
-        return jdbcTemplate.query("""
-                        SELECT id, user_id, password_hash, password_algorithm, password_changed_at, created_at, updated_at
-                        FROM credentials
-                        WHERE user_id = ?
-                        """,
-                this::map,
-                userId
-        ).stream().findFirst();
+        return dsl.selectFrom(CREDENTIALS)
+                .where(CREDENTIALS.USER_ID.eq(userId))
+                .fetchOptional(this::map);
     }
 
-    private CredentialRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private CredentialRecord map(Record record) {
         return new CredentialRecord(
-                resultSet.getObject("id", UUID.class),
-                resultSet.getObject("user_id", UUID.class),
-                resultSet.getString("password_hash"),
-                resultSet.getString("password_algorithm"),
-                toInstant(resultSet, "password_changed_at"),
-                toInstant(resultSet, "created_at"),
-                toInstant(resultSet, "updated_at")
+                record.get(CREDENTIALS.ID),
+                record.get(CREDENTIALS.USER_ID),
+                record.get(CREDENTIALS.PASSWORD_HASH),
+                record.get(CREDENTIALS.PASSWORD_ALGORITHM),
+                record.get(CREDENTIALS.PASSWORD_CHANGED_AT).toInstant(),
+                record.get(CREDENTIALS.CREATED_AT).toInstant(),
+                record.get(CREDENTIALS.UPDATED_AT).toInstant()
         );
     }
 
-    private Instant toInstant(ResultSet resultSet, String column) throws SQLException {
-        return resultSet.getTimestamp(column).toInstant();
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant.atOffset(ZoneOffset.UTC);
     }
 }

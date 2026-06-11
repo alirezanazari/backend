@@ -21,16 +21,18 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static com.redbank.account.jooq.tables.BankAccounts.BANK_ACCOUNTS;
+import static com.redbank.account.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -57,7 +59,7 @@ class AccountControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DSLContext dsl;
 
     @Autowired
     private MutableLedgerBalanceClient ledgerBalanceClient;
@@ -180,16 +182,11 @@ class AccountControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.account.accountNumber")
                         .value(org.hamcrest.Matchers.matchesPattern("\\d{18}")));
 
-        Integer count = jdbcTemplate.queryForObject("""
-                        SELECT COUNT(*)
-                        FROM bank_accounts
-                        WHERE user_id = ?
-                          AND profile_id = ?
-                          AND type = 'VAULT'
-                        """,
-                Integer.class,
-                userId,
-                UUID.fromString(profileId)
+        int count = dsl.fetchCount(
+                BANK_ACCOUNTS,
+                BANK_ACCOUNTS.USER_ID.eq(userId)
+                        .and(BANK_ACCOUNTS.PROFILE_ID.eq(UUID.fromString(profileId)))
+                        .and(BANK_ACCOUNTS.TYPE.eq("VAULT"))
         );
         assertThat(count).isEqualTo(1);
     }
@@ -205,18 +202,13 @@ class AccountControllerIntegrationTest {
                 .getContentAsString());
         String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
 
-        Integer count = jdbcTemplate.queryForObject("""
-                        SELECT COUNT(*)
-                        FROM outbox_events
-                        WHERE aggregate_type = 'BANK_ACCOUNT'
-                          AND aggregate_id = ?
-                          AND event_type = 'LEDGER_ACCOUNT_CREATE_REQUESTED'
-                          AND status = 'PENDING'
-                          AND payload LIKE ?
-                        """,
-                Integer.class,
-                accountNumber,
-                "%" + accountNumber + "%"
+        int count = dsl.fetchCount(
+                OUTBOX_EVENTS,
+                OUTBOX_EVENTS.AGGREGATE_TYPE.eq("BANK_ACCOUNT")
+                        .and(OUTBOX_EVENTS.AGGREGATE_ID.eq(accountNumber))
+                        .and(OUTBOX_EVENTS.EVENT_TYPE.eq("LEDGER_ACCOUNT_CREATE_REQUESTED"))
+                        .and(OUTBOX_EVENTS.STATUS.eq("PENDING"))
+                        .and(OUTBOX_EVENTS.PAYLOAD.like("%" + accountNumber + "%"))
         );
         assertThat(count).isEqualTo(1);
     }
@@ -246,11 +238,10 @@ class AccountControllerIntegrationTest {
                 .getResponse()
                 .getContentAsString());
         String profileId = created.path("data").path("profile").path("profileId").asText();
-        String accountNumber = jdbcTemplate.queryForObject(
-                "SELECT account_number FROM bank_accounts WHERE profile_id = ?",
-                String.class,
-                UUID.fromString(profileId)
-        );
+        String accountNumber = dsl.select(BANK_ACCOUNTS.ACCOUNT_NUMBER)
+                .from(BANK_ACCOUNTS)
+                .where(BANK_ACCOUNTS.PROFILE_ID.eq(UUID.fromString(profileId)))
+                .fetchOne(BANK_ACCOUNTS.ACCOUNT_NUMBER);
 
         assertThat(accountNumber).matches("\\d{18}");
         assertThat(outboxEventCount(accountNumber, "LEDGER_ACCOUNT_CREATE_REQUESTED")).isEqualTo(1);
@@ -719,35 +710,24 @@ class AccountControllerIntegrationTest {
     }
 
     private int outboxEventCount(String accountNumber, String eventType) {
-        Integer count = jdbcTemplate.queryForObject("""
-                        SELECT COUNT(*)
-                        FROM outbox_events
-                        WHERE aggregate_type = 'BANK_ACCOUNT'
-                          AND aggregate_id = ?
-                          AND event_type = ?
-                          AND status = 'PENDING'
-                        """,
-                Integer.class,
-                accountNumber,
-                eventType
+        return dsl.fetchCount(
+                OUTBOX_EVENTS,
+                OUTBOX_EVENTS.AGGREGATE_TYPE.eq("BANK_ACCOUNT")
+                        .and(OUTBOX_EVENTS.AGGREGATE_ID.eq(accountNumber))
+                        .and(OUTBOX_EVENTS.EVENT_TYPE.eq(eventType))
+                        .and(OUTBOX_EVENTS.STATUS.eq("PENDING"))
         );
-        return count == null ? 0 : count;
     }
 
     private String outboxPayload(String accountNumber, String eventType) {
-        return jdbcTemplate.queryForObject("""
-                        SELECT payload
-                        FROM outbox_events
-                        WHERE aggregate_type = 'BANK_ACCOUNT'
-                          AND aggregate_id = ?
-                          AND event_type = ?
-                        ORDER BY sequence_number DESC
-                        LIMIT 1
-                        """,
-                String.class,
-                accountNumber,
-                eventType
-        );
+        return dsl.select(OUTBOX_EVENTS.PAYLOAD)
+                .from(OUTBOX_EVENTS)
+                .where(OUTBOX_EVENTS.AGGREGATE_TYPE.eq("BANK_ACCOUNT"))
+                .and(OUTBOX_EVENTS.AGGREGATE_ID.eq(accountNumber))
+                .and(OUTBOX_EVENTS.EVENT_TYPE.eq(eventType))
+                .orderBy(OUTBOX_EVENTS.SEQUENCE_NUMBER.desc())
+                .limit(1)
+                .fetchOne(OUTBOX_EVENTS.PAYLOAD);
     }
 
     private String onboardingToken(UUID userId) throws JOSEException {

@@ -2,148 +2,123 @@ package com.redbank.account.infrastructure;
 
 import com.redbank.account.domain.AccountStatusHistoryRecord;
 import com.redbank.account.domain.BankAccountRecord;
+import com.redbank.account.domain.ProfileStatus;
 import com.redbank.contracts.account.AccountStatus;
 import com.redbank.contracts.account.AccountType;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import com.redbank.contracts.account.ProfileType;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.jooq.Condition;
+import org.jooq.DSLContext;
+import org.jooq.Record;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Repository;
+
+import static com.redbank.account.jooq.tables.AccountStatusHistory.ACCOUNT_STATUS_HISTORY;
+import static com.redbank.account.jooq.tables.BankAccounts.BANK_ACCOUNTS;
+import static com.redbank.account.jooq.tables.Profiles.PROFILES;
 
 @Repository
 public class BankAccountRepository {
-    private final JdbcTemplate jdbcTemplate;
+    private final DSLContext dsl;
 
-    public BankAccountRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public BankAccountRepository(DSLContext dsl) {
+        this.dsl = dsl;
     }
 
     public void save(BankAccountRecord account) {
-        jdbcTemplate.update("""
-                        INSERT INTO bank_accounts (
-                            id, profile_id, user_id, selected_job_id, account_number, iban, type,
-                            status, currency, closed_at, created_at, updated_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                account.id(),
-                account.profileId(),
-                account.userId(),
-                account.selectedJobId(),
-                account.accountNumber(),
-                account.iban(),
-                account.type().name(),
-                account.status().name(),
-                account.currency(),
-                timestamp(account.closedAt()),
-                Timestamp.from(account.createdAt()),
-                Timestamp.from(account.updatedAt())
-        );
+        dsl.insertInto(BANK_ACCOUNTS)
+                .set(BANK_ACCOUNTS.ID, account.id())
+                .set(BANK_ACCOUNTS.PROFILE_ID, account.profileId())
+                .set(BANK_ACCOUNTS.USER_ID, account.userId())
+                .set(BANK_ACCOUNTS.SELECTED_JOB_ID, account.selectedJobId())
+                .set(BANK_ACCOUNTS.ACCOUNT_NUMBER, account.accountNumber())
+                .set(BANK_ACCOUNTS.IBAN, account.iban())
+                .set(BANK_ACCOUNTS.TYPE, account.type().name())
+                .set(BANK_ACCOUNTS.STATUS, account.status().name())
+                .set(BANK_ACCOUNTS.CURRENCY, account.currency())
+                .set(BANK_ACCOUNTS.CLOSED_AT, toOffsetDateTime(account.closedAt()))
+                .set(BANK_ACCOUNTS.CREATED_AT, toOffsetDateTime(account.createdAt()))
+                .set(BANK_ACCOUNTS.UPDATED_AT, toOffsetDateTime(account.updatedAt()))
+                .execute();
     }
 
     public boolean existsByAccountNumber(String accountNumber) {
-        return exists("account_number", accountNumber);
+        return dsl.fetchExists(BANK_ACCOUNTS, BANK_ACCOUNTS.ACCOUNT_NUMBER.eq(accountNumber));
     }
 
     public boolean existsByIban(String iban) {
-        return exists("iban", iban);
+        return dsl.fetchExists(BANK_ACCOUNTS, BANK_ACCOUNTS.IBAN.eq(iban));
     }
 
     public Optional<BankAccountRecord> findByAccountNumber(String accountNumber) {
-        return queryOne("WHERE account_number = ?", accountNumber);
+        return findOne(BANK_ACCOUNTS.ACCOUNT_NUMBER.eq(accountNumber));
     }
 
     public Optional<BankAccountRecord> findByIban(String iban) {
-        return queryOne("WHERE iban = ?", iban);
+        return findOne(BANK_ACCOUNTS.IBAN.eq(iban));
     }
 
     public Optional<BankAccountRecord> findByUserIdAndAccountNumber(UUID userId, String accountNumber) {
-        return queryOne("WHERE user_id = ? AND account_number = ?", userId, accountNumber);
+        return findOne(BANK_ACCOUNTS.USER_ID.eq(userId)
+                .and(BANK_ACCOUNTS.ACCOUNT_NUMBER.eq(accountNumber)));
     }
 
     public Optional<BankAccountRecord> findActiveReferralRewardAccount(UUID userId, String currency) {
-        return jdbcTemplate.query("""
-                        SELECT ba.id, ba.profile_id, ba.user_id, ba.selected_job_id, ba.account_number, ba.iban, ba.type,
-                               ba.status, ba.currency, ba.closed_at, ba.created_at, ba.updated_at
-                        FROM bank_accounts ba
-                        JOIN profiles p ON p.id = ba.profile_id
-                        WHERE ba.user_id = ?
-                          AND ba.status = 'ACTIVE'
-                          AND ba.currency = ?
-                          AND p.status = 'ACTIVE'
-                        ORDER BY p.is_active DESC,
-                                 CASE WHEN p.type = 'PERSONAL' THEN 0 ELSE 1 END,
-                                 ba.created_at ASC
-                        LIMIT 1
-                        """,
-                this::map,
-                userId,
-                currency
-        ).stream().findFirst();
+        return dsl.select(BANK_ACCOUNTS.fields())
+                .from(BANK_ACCOUNTS)
+                .join(PROFILES).on(PROFILES.ID.eq(BANK_ACCOUNTS.PROFILE_ID))
+                .where(BANK_ACCOUNTS.USER_ID.eq(userId))
+                .and(BANK_ACCOUNTS.STATUS.eq(AccountStatus.ACTIVE.name()))
+                .and(BANK_ACCOUNTS.CURRENCY.eq(currency))
+                .and(PROFILES.STATUS.eq(ProfileStatus.ACTIVE.name()))
+                .orderBy(
+                        PROFILES.IS_ACTIVE.desc(),
+                        DSL.when(PROFILES.TYPE.eq(ProfileType.PERSONAL.name()), 0).otherwise(1),
+                        BANK_ACCOUNTS.CREATED_AT.asc()
+                )
+                .limit(1)
+                .fetchOptional(this::map);
     }
 
     public Optional<BankAccountRecord> findLatestClosedPersonalAccountByUserId(UUID userId) {
-        return jdbcTemplate.query("""
-                        SELECT ba.id, ba.profile_id, ba.user_id, ba.selected_job_id, ba.account_number, ba.iban, ba.type,
-                               ba.status, ba.currency, ba.closed_at, ba.created_at, ba.updated_at
-                        FROM bank_accounts ba
-                        JOIN profiles p ON p.id = ba.profile_id
-                        WHERE ba.user_id = ?
-                          AND ba.status = 'CLOSED'
-                          AND p.type = 'PERSONAL'
-                        ORDER BY ba.updated_at DESC
-                        LIMIT 1
-                        """,
-                this::map,
-                userId
-        ).stream().findFirst();
+        return dsl.select(BANK_ACCOUNTS.fields())
+                .from(BANK_ACCOUNTS)
+                .join(PROFILES).on(PROFILES.ID.eq(BANK_ACCOUNTS.PROFILE_ID))
+                .where(BANK_ACCOUNTS.USER_ID.eq(userId))
+                .and(BANK_ACCOUNTS.STATUS.eq(AccountStatus.CLOSED.name()))
+                .and(PROFILES.TYPE.eq(ProfileType.PERSONAL.name()))
+                .orderBy(BANK_ACCOUNTS.UPDATED_AT.desc())
+                .limit(1)
+                .fetchOptional(this::map);
     }
 
     public boolean existsActiveByUserIdAndProfileId(UUID userId, UUID profileId) {
-        Integer count = jdbcTemplate.queryForObject("""
-                        SELECT COUNT(*)
-                        FROM bank_accounts
-                        WHERE user_id = ?
-                          AND profile_id = ?
-                          AND status = 'ACTIVE'
-                        """,
-                Integer.class,
-                userId,
-                profileId
+        return dsl.fetchExists(
+                BANK_ACCOUNTS,
+                BANK_ACCOUNTS.USER_ID.eq(userId)
+                        .and(BANK_ACCOUNTS.PROFILE_ID.eq(profileId))
+                        .and(BANK_ACCOUNTS.STATUS.eq(AccountStatus.ACTIVE.name()))
         );
-        return count != null && count > 0;
     }
 
     public boolean existsByUserIdAndStatus(UUID userId, AccountStatus status) {
-        Integer count = jdbcTemplate.queryForObject("""
-                        SELECT COUNT(*)
-                        FROM bank_accounts
-                        WHERE user_id = ?
-                          AND status = ?
-                        """,
-                Integer.class,
-                userId,
-                status.name()
+        return dsl.fetchExists(
+                BANK_ACCOUNTS,
+                BANK_ACCOUNTS.USER_ID.eq(userId).and(BANK_ACCOUNTS.STATUS.eq(status.name()))
         );
-        return count != null && count > 0;
     }
 
     public int countActiveByProfileId(UUID profileId) {
-        Integer count = jdbcTemplate.queryForObject("""
-                        SELECT COUNT(*)
-                        FROM bank_accounts
-                        WHERE profile_id = ?
-                          AND status = 'ACTIVE'
-                        """,
-                Integer.class,
-                profileId
+        return dsl.fetchCount(
+                BANK_ACCOUNTS,
+                BANK_ACCOUNTS.PROFILE_ID.eq(profileId)
+                        .and(BANK_ACCOUNTS.STATUS.eq(AccountStatus.ACTIVE.name()))
         );
-        return count == null ? 0 : count;
     }
 
     public boolean existsActiveByProfileId(UUID profileId) {
@@ -156,123 +131,80 @@ public class BankAccountRepository {
             List<AccountType> types,
             List<AccountStatus> statuses
     ) {
-        List<Object> args = new ArrayList<>();
-        args.add(userId);
-        args.add(profileId);
-
-        StringBuilder sql = new StringBuilder(selectBase());
-        sql.append(" WHERE user_id = ? AND profile_id = ?");
-        appendInClause(sql, args, "type", types == null ? List.of() : types.stream().map(Enum::name).toList());
-        appendInClause(sql, args, "status", statuses == null ? List.of() : statuses.stream().map(Enum::name).toList());
-        sql.append(" ORDER BY created_at ASC");
-
-        return jdbcTemplate.query(sql.toString(), this::map, args.toArray());
+        Condition condition = BANK_ACCOUNTS.USER_ID.eq(userId)
+                .and(BANK_ACCOUNTS.PROFILE_ID.eq(profileId));
+        if (types != null && !types.isEmpty()) {
+            condition = condition.and(BANK_ACCOUNTS.TYPE.in(types.stream().map(Enum::name).toList()));
+        }
+        if (statuses != null && !statuses.isEmpty()) {
+            condition = condition.and(BANK_ACCOUNTS.STATUS.in(statuses.stream().map(Enum::name).toList()));
+        }
+        return dsl.selectFrom(BANK_ACCOUNTS)
+                .where(condition)
+                .orderBy(BANK_ACCOUNTS.CREATED_AT.asc())
+                .fetch(this::map);
     }
 
     public void close(BankAccountRecord account, Instant closedAt) {
-        jdbcTemplate.update("""
-                        UPDATE bank_accounts
-                        SET status = ?, closed_at = ?, updated_at = ?
-                        WHERE id = ?
-                        """,
-                AccountStatus.CLOSED.name(),
-                Timestamp.from(closedAt),
-                Timestamp.from(closedAt),
-                account.id()
-        );
+        OffsetDateTime timestamp = toOffsetDateTime(closedAt);
+        dsl.update(BANK_ACCOUNTS)
+                .set(BANK_ACCOUNTS.STATUS, AccountStatus.CLOSED.name())
+                .set(BANK_ACCOUNTS.CLOSED_AT, timestamp)
+                .set(BANK_ACCOUNTS.UPDATED_AT, timestamp)
+                .where(BANK_ACCOUNTS.ID.eq(account.id()))
+                .execute();
     }
 
     public void open(BankAccountRecord account, Instant openedAt) {
-        jdbcTemplate.update("""
-                        UPDATE bank_accounts
-                        SET status = ?, closed_at = NULL, updated_at = ?
-                        WHERE id = ?
-                        """,
-                AccountStatus.ACTIVE.name(),
-                Timestamp.from(openedAt),
-                account.id()
-        );
+        dsl.update(BANK_ACCOUNTS)
+                .set(BANK_ACCOUNTS.STATUS, AccountStatus.ACTIVE.name())
+                .setNull(BANK_ACCOUNTS.CLOSED_AT)
+                .set(BANK_ACCOUNTS.UPDATED_AT, toOffsetDateTime(openedAt))
+                .where(BANK_ACCOUNTS.ID.eq(account.id()))
+                .execute();
     }
 
     public void saveStatusHistory(AccountStatusHistoryRecord history) {
-        jdbcTemplate.update("""
-                        INSERT INTO account_status_history (
-                            id, account_id, user_id, profile_id, previous_status, new_status, reason_text, created_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                history.id(),
-                history.accountId(),
-                history.userId(),
-                history.profileId(),
-                history.previousStatus().name(),
-                history.newStatus().name(),
-                history.reasonText(),
-                Timestamp.from(history.createdAt())
-        );
+        dsl.insertInto(ACCOUNT_STATUS_HISTORY)
+                .set(ACCOUNT_STATUS_HISTORY.ID, history.id())
+                .set(ACCOUNT_STATUS_HISTORY.ACCOUNT_ID, history.accountId())
+                .set(ACCOUNT_STATUS_HISTORY.USER_ID, history.userId())
+                .set(ACCOUNT_STATUS_HISTORY.PROFILE_ID, history.profileId())
+                .set(ACCOUNT_STATUS_HISTORY.PREVIOUS_STATUS, history.previousStatus().name())
+                .set(ACCOUNT_STATUS_HISTORY.NEW_STATUS, history.newStatus().name())
+                .set(ACCOUNT_STATUS_HISTORY.REASON_TEXT, history.reasonText())
+                .set(ACCOUNT_STATUS_HISTORY.CREATED_AT, toOffsetDateTime(history.createdAt()))
+                .execute();
     }
 
-    private Optional<BankAccountRecord> queryOne(String predicate, Object... args) {
-        return jdbcTemplate.query(selectBase() + " " + predicate, this::map, args)
-                .stream()
-                .findFirst();
+    private Optional<BankAccountRecord> findOne(Condition condition) {
+        return dsl.selectFrom(BANK_ACCOUNTS)
+                .where(condition)
+                .fetchOptional(this::map);
     }
 
-    private String selectBase() {
-        return """
-                SELECT id, profile_id, user_id, selected_job_id, account_number, iban, type,
-                       status, currency, closed_at, created_at, updated_at
-                FROM bank_accounts
-                """;
-    }
-
-    private void appendInClause(StringBuilder sql, List<Object> args, String column, List<String> values) {
-        if (values.isEmpty()) {
-            return;
-        }
-        sql.append(" AND ").append(column).append(" IN (");
-        sql.append("?,".repeat(values.size()));
-        sql.setLength(sql.length() - 1);
-        sql.append(")");
-        args.addAll(values);
-    }
-
-    private boolean exists(String column, String value) {
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM bank_accounts WHERE " + column + " = ?",
-                Integer.class,
-                value
-        );
-        return count != null && count > 0;
-    }
-
-    private BankAccountRecord map(ResultSet resultSet, int rowNumber) throws SQLException {
+    private BankAccountRecord map(Record record) {
         return new BankAccountRecord(
-                resultSet.getObject("id", UUID.class),
-                resultSet.getObject("profile_id", UUID.class),
-                resultSet.getObject("user_id", UUID.class),
-                resultSet.getString("selected_job_id"),
-                resultSet.getString("account_number"),
-                resultSet.getString("iban"),
-                AccountType.valueOf(resultSet.getString("type")),
-                AccountStatus.valueOf(resultSet.getString("status")),
-                resultSet.getString("currency"),
-                toNullableInstant(resultSet, "closed_at"),
-                toInstant(resultSet, "created_at"),
-                toInstant(resultSet, "updated_at")
+                record.get(BANK_ACCOUNTS.ID),
+                record.get(BANK_ACCOUNTS.PROFILE_ID),
+                record.get(BANK_ACCOUNTS.USER_ID),
+                record.get(BANK_ACCOUNTS.SELECTED_JOB_ID),
+                record.get(BANK_ACCOUNTS.ACCOUNT_NUMBER),
+                record.get(BANK_ACCOUNTS.IBAN),
+                AccountType.valueOf(record.get(BANK_ACCOUNTS.TYPE)),
+                AccountStatus.valueOf(record.get(BANK_ACCOUNTS.STATUS)),
+                record.get(BANK_ACCOUNTS.CURRENCY),
+                toInstant(record.get(BANK_ACCOUNTS.CLOSED_AT)),
+                record.get(BANK_ACCOUNTS.CREATED_AT).toInstant(),
+                record.get(BANK_ACCOUNTS.UPDATED_AT).toInstant()
         );
     }
 
-    private Timestamp timestamp(Instant value) {
-        return value == null ? null : Timestamp.from(value);
+    private OffsetDateTime toOffsetDateTime(Instant instant) {
+        return instant == null ? null : instant.atOffset(ZoneOffset.UTC);
     }
 
-    private Instant toInstant(ResultSet resultSet, String column) throws SQLException {
-        return resultSet.getTimestamp(column).toInstant();
-    }
-
-    private Instant toNullableInstant(ResultSet resultSet, String column) throws SQLException {
-        Timestamp timestamp = resultSet.getTimestamp(column);
-        return timestamp == null ? null : timestamp.toInstant();
+    private Instant toInstant(OffsetDateTime value) {
+        return value == null ? null : value.toInstant();
     }
 }

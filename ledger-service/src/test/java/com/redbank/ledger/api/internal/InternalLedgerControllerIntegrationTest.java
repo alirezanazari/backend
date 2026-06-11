@@ -2,6 +2,7 @@ package com.redbank.ledger.api.internal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -11,13 +12,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
+import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static com.redbank.ledger.jooq.tables.LedgerAccounts.LEDGER_ACCOUNTS;
+import static com.redbank.ledger.jooq.tables.LedgerBalances.LEDGER_BALANCES;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,7 +44,7 @@ class InternalLedgerControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DSLContext dsl;
 
     @Test
     void createAccountIsIdempotentByExternalAccountNumber() throws Exception {
@@ -296,19 +299,15 @@ class InternalLedgerControllerIntegrationTest {
     }
 
     private void setBalances(String accountNumber, String availableBalance, String currentBalance) {
-        jdbcTemplate.update("""
-                        UPDATE ledger_balances
-                        SET available_balance = ?, current_balance = ?
-                        WHERE ledger_account_id = (
-                            SELECT id
-                            FROM ledger_accounts
-                            WHERE external_account_number = ?
-                        )
-                        """,
-                availableBalance,
-                currentBalance,
-                accountNumber
-        );
+        dsl.update(LEDGER_BALANCES)
+                .set(LEDGER_BALANCES.AVAILABLE_BALANCE, new BigDecimal(availableBalance))
+                .set(LEDGER_BALANCES.CURRENT_BALANCE, new BigDecimal(currentBalance))
+                .where(LEDGER_BALANCES.LEDGER_ACCOUNT_ID.eq(
+                        dsl.select(LEDGER_ACCOUNTS.ID)
+                                .from(LEDGER_ACCOUNTS)
+                                .where(LEDGER_ACCOUNTS.EXTERNAL_ACCOUNT_NUMBER.eq(accountNumber))
+                ))
+                .execute();
     }
 
     private org.springframework.test.web.servlet.ResultActions internalTransfer(
