@@ -113,6 +113,39 @@ class CardControllerIntegrationTest {
     }
 
     @Test
+    void internalTransferResolutionSupportsTokenAndMaskedPanWithOwnershipChecks() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        String accountNumber = "133456789012345678";
+        JsonNode created = objectMapper.readTree(createDefaultCard(
+                userId,
+                profileId,
+                accountNumber,
+                "DIGITAL"
+        ).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        UUID cardId = UUID.fromString(created.path("data").path("cardId").asText());
+        String cardToken = dsl.select(CARDS.CARD_TOKEN)
+                .from(CARDS)
+                .where(CARDS.ID.eq(cardId))
+                .fetchOne(CARDS.CARD_TOKEN);
+        String maskedPan = created.path("data").path("maskedPan").asText();
+
+        resolveTransferCard(cardToken, userId.toString(), profileId.toString(), true)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cardId").value(cardId.toString()))
+                .andExpect(jsonPath("$.data.accountNumber").value(accountNumber))
+                .andExpect(jsonPath("$.data.maskedCardNumber").value(maskedPan));
+
+        resolveTransferCard(maskedPan, null, null, false)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cardId").value(cardId.toString()));
+
+        resolveTransferCard(cardToken, UUID.randomUUID().toString(), profileId.toString(), true)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.context.status.code").value("NOT_FOUND"));
+    }
+
+    @Test
     void additionalProfileGetsDigitalCardWithoutPhysicalOrder() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID profileId = UUID.randomUUID();
@@ -421,6 +454,23 @@ class CardControllerIntegrationTest {
                           "accountNumber": "%s"
                         }
                         """.formatted(accountNumber)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions resolveTransferCard(
+            String cardNumber,
+            String userId,
+            String profileId,
+            boolean requireOwnership
+    ) throws Exception {
+        return mockMvc.perform(post("/internal/v1/card/transfer/resolve")
+                .header(InternalCardController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(java.util.Map.of(
+                        "cardNumber", cardNumber,
+                        "userId", userId == null ? "" : userId,
+                        "profileId", profileId == null ? "" : profileId,
+                        "requireOwnership", requireOwnership
+                ))));
     }
 
     private String cardStatus(String cardId) {

@@ -2,6 +2,8 @@ package com.redbank.card.application;
 
 import com.redbank.card.api.internal.dto.CreateDefaultCardRequest;
 import com.redbank.card.api.internal.dto.CardAccountLifecycleResponse;
+import com.redbank.card.api.internal.dto.ResolveTransferCardRequest;
+import com.redbank.card.api.internal.dto.ResolveTransferCardResponse;
 import com.redbank.card.api.v1.dto.BlockCardRequest;
 import com.redbank.card.api.v1.dto.BlockCardResponse;
 import com.redbank.card.api.v1.dto.CardStatusResponse;
@@ -218,6 +220,38 @@ public class CardService {
             }
         }
         return new CardAccountLifecycleResponse(accountNumber, CardStatus.ACTIVE.name(), updatedCards);
+    }
+
+    @Transactional(readOnly = true)
+    public ResolveTransferCardResponse resolveTransferCard(ResolveTransferCardRequest request) {
+        String cardNumber = request.cardNumber().trim();
+        CardRecord card = cardRepository.findByCardToken(cardNumber)
+                .orElseGet(() -> {
+                    List<CardRecord> matches = cardRepository.findByMaskedPan(cardNumber);
+                    if (matches.size() > 1) {
+                        throw new CardConflictException("Masked card number is ambiguous");
+                    }
+                    return matches.stream()
+                            .findFirst()
+                            .orElseThrow(() -> new CardNotFoundException("Transfer card was not found"));
+                });
+        if (card.status() != CardStatus.ACTIVE) {
+            throw new CardBusinessRuleException("Transfer card is not active");
+        }
+        if (Boolean.TRUE.equals(request.requireOwnership())) {
+            UUID userId = parseUuid(request.userId(), "data.userId", "USER_ID_UUID");
+            UUID profileId = parseUuid(request.profileId(), "data.profileId", "PROFILE_ID_UUID");
+            if (!card.userId().equals(userId) || !card.profileId().equals(profileId)) {
+                throw new CardNotFoundException("Transfer card was not found");
+            }
+        }
+        return new ResolveTransferCardResponse(
+                card.id().toString(),
+                card.userId().toString(),
+                card.profileId().toString(),
+                card.accountNumber(),
+                card.maskedPan()
+        );
     }
 
     @Transactional

@@ -8,6 +8,8 @@ import com.redbank.account.api.internal.dto.GetFeatureEvaluationContextRequest;
 import com.redbank.account.api.internal.dto.GetFeatureEvaluationContextResponse;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountRequest;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountResponse;
+import com.redbank.account.api.internal.dto.ResolveTransferAccountRequest;
+import com.redbank.account.api.internal.dto.ResolveTransferAccountResponse;
 import com.redbank.account.api.v1.dto.CloseAccountRequest;
 import com.redbank.account.api.v1.dto.CloseAccountResponse;
 import com.redbank.account.api.v1.dto.CreateProfileRequest;
@@ -521,6 +523,52 @@ public class AccountService {
     }
 
     @Transactional(readOnly = true)
+    public ResolveTransferAccountResponse resolveTransferAccount(ResolveTransferAccountRequest request) {
+        String accountNumber = trimToNull(request.accountNumber());
+        String iban = trimToNull(request.iban());
+        if ((accountNumber == null) == (iban == null)) {
+            throw validation(
+                    "data.accountNumber",
+                    "provide exactly one account number or IBAN",
+                    "TRANSFER_ACCOUNT_REFERENCE"
+            );
+        }
+
+        BankAccountRecord account = accountNumber == null
+                ? bankAccountRepository.findByIban(iban.replace(" ", "").toUpperCase(Locale.ROOT))
+                        .orElseThrow(() -> new AccountNotFoundException("Transfer account was not found"))
+                : bankAccountRepository.findByAccountNumber(accountNumber)
+                        .orElseThrow(() -> new AccountNotFoundException("Transfer account was not found"));
+        if (account.status() != AccountStatus.ACTIVE) {
+            throw new AccountBusinessRuleException("Transfer account is not active");
+        }
+
+        ProfileRecord profile = profileRepository.findById(account.profileId())
+                .orElseThrow(() -> new AccountNotFoundException("Transfer profile was not found"));
+        if (profile.status() != ProfileStatus.ACTIVE) {
+            throw new AccountBusinessRuleException("Transfer profile is not active");
+        }
+        if (Boolean.TRUE.equals(request.requireOwnership())) {
+            UUID userId = parseUserId(request.userId());
+            UUID profileId = parseProfileId(request.profileId());
+            if (!account.userId().equals(userId) || !account.profileId().equals(profileId)) {
+                throw new AccountNotFoundException("Transfer account was not found");
+            }
+        }
+
+        return new ResolveTransferAccountResponse(
+                account.id().toString(),
+                account.userId().toString(),
+                account.profileId().toString(),
+                account.accountNumber(),
+                account.iban(),
+                account.currency(),
+                profile.displayName(),
+                toImage(profile)
+        );
+    }
+
+    @Transactional(readOnly = true)
     public GetFeatureEvaluationContextResponse getFeatureEvaluationContext(
             GetFeatureEvaluationContextRequest request
     ) {
@@ -745,6 +793,13 @@ public class AccountService {
 
     private String defaultIfBlank(String value, String defaultValue) {
         return value == null || value.isBlank() ? defaultValue : value;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private String normalizeDisplayName(String value) {

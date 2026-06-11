@@ -63,6 +63,20 @@ public class CardRepository {
                 .fetchOptional(this::map);
     }
 
+    public Optional<CardRecord> findByCardToken(String cardToken) {
+        return dsl.selectFrom(CARDS)
+                .where(CARDS.CARD_TOKEN.eq(cardToken))
+                .fetchOptional(this::map);
+    }
+
+    public List<CardRecord> findByMaskedPan(String maskedPan) {
+        return dsl.selectFrom(CARDS)
+                .where(CARDS.MASKED_PAN.eq(maskedPan))
+                .orderBy(CARDS.CREATED_AT.asc(), CARDS.ID.asc())
+                .limit(2)
+                .fetch(this::map);
+    }
+
     public Optional<CardRecord> findDigitalByUserIdAndProfileIdAndAccountNumber(
             UUID userId,
             UUID profileId,

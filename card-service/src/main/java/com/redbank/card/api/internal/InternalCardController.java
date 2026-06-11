@@ -3,6 +3,8 @@ package com.redbank.card.api.internal;
 import com.redbank.card.api.internal.dto.CreateDefaultCardRequest;
 import com.redbank.card.api.internal.dto.CardAccountLifecycleRequest;
 import com.redbank.card.api.internal.dto.CardAccountLifecycleResponse;
+import com.redbank.card.api.internal.dto.ResolveTransferCardRequest;
+import com.redbank.card.api.internal.dto.ResolveTransferCardResponse;
 import com.redbank.card.application.CardService;
 import com.redbank.card.application.CardUnauthorizedException;
 import com.redbank.card.config.InternalAccessProperties;
@@ -57,6 +59,16 @@ public class InternalCardController {
         authorize(serviceToken);
         CardAccountLifecycleResponse response = cardService.reopenAccount(request.accountNumber());
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
+    }
+
+    @PostMapping("/transfer/resolve")
+    public ResponseEntity<ApiResponse<ResolveTransferCardResponse>> resolveTransferCard(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody ResolveTransferCardRequest request
+    ) {
+        authorize(serviceToken);
+        ResolveTransferCardResponse response = cardService.resolveTransferCard(request);
+        return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
     }
 
     private void authorize(String serviceToken) {

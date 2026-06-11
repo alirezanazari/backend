@@ -104,6 +104,12 @@ POST /api/v1/profile/active/set
 POST /api/v1/account/owner/get
 ```
 
+Internal APIs:
+
+```text
+POST /internal/v1/account/transfer/resolve
+```
+
 Important rule:
 
 ```text
@@ -141,6 +147,12 @@ POST /api/v1/card/unfreeze
 POST /api/v1/card/block
 POST /api/v1/card/unblock
 POST /api/v1/card/expire
+```
+
+Internal APIs:
+
+```text
+POST /internal/v1/card/transfer/resolve
 ```
 
 Current rule:

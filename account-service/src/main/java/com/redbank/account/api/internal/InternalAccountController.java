@@ -8,6 +8,8 @@ import com.redbank.account.api.internal.dto.GetFeatureEvaluationContextRequest;
 import com.redbank.account.api.internal.dto.GetFeatureEvaluationContextResponse;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountRequest;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountResponse;
+import com.redbank.account.api.internal.dto.ResolveTransferAccountRequest;
+import com.redbank.account.api.internal.dto.ResolveTransferAccountResponse;
 import com.redbank.account.application.AccountService;
 import com.redbank.account.application.AccountUnauthorizedException;
 import com.redbank.account.config.InternalAccessProperties;
@@ -70,6 +72,16 @@ public class InternalAccountController {
     ) {
         authorize(serviceToken);
         GetFeatureEvaluationContextResponse response = accountService.getFeatureEvaluationContext(request);
+        return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
+    }
+
+    @PostMapping("/transfer/resolve")
+    public ResponseEntity<ApiResponse<ResolveTransferAccountResponse>> resolveTransferAccount(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody ResolveTransferAccountRequest request
+    ) {
+        authorize(serviceToken);
+        ResolveTransferAccountResponse response = accountService.resolveTransferAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
     }
 

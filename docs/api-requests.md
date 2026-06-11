@@ -31,6 +31,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Account | `POST /api/v1/account/owner/get` | Required | Lookup non-sensitive transfer destination display info. |
 | Account | `POST /internal/v1/account/referral/reward-account/get` | Internal | Find an active account eligible for a referral reward. |
 | Account | `POST /internal/v1/account/feature-evaluation-context/get` | Internal | Resolve trusted feature evaluation attributes. |
+| Account | `POST /internal/v1/account/transfer/resolve` | Internal | Resolve an active transfer account and optionally verify ownership. |
 | Card | `POST /api/v1/card/list` | Required | List cards for current user/profile. |
 | Card | `POST /api/v1/card/order` | Required | Order a new card. |
 | Card | `POST /api/v1/card/freeze` | Required | Temporarily freeze user's card. |
@@ -38,6 +39,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Card | `POST /api/v1/card/block` | Required | Block user's card, including for reorder flow. |
 | Card | `POST /api/v1/card/unblock` | Admin/Internal | Unblock card by authorized operator/system. |
 | Card | `POST /api/v1/card/expire` | Admin/Internal | Mark card as expired. |
+| Card | `POST /internal/v1/card/transfer/resolve` | Internal | Resolve an active transfer card and optionally verify ownership. |
 | KYC | `POST /api/v1/kyc/jobs/list` | Public | List active jobs for registration. |
 | KYC | `POST /api/v1/kyc/referral/set` | Required/Limited | Save referral during registration flow. |
 | KYC | `POST /api/v1/kyc/status/get` | Required | Get current user's KYC status. |
@@ -1247,7 +1249,7 @@ Important rules:
 - Transfer method must be enabled by feature flag.
 - Source ownership must be validated.
 - Destination must be validated.
-- Destination lookup can use `POST /api/v1/account/owner/get` before transfer creation.
+- Transfer-service uses internal account/card resolution APIs during transfer creation.
 - Internal transfer is supported first.
 - External-compatible design is required for later.
 - Real debit and credit happen in ledger-service.
@@ -1365,6 +1367,69 @@ Important rules:
 - The account currency must match the requested reward currency.
 - The active profile is preferred, then the personal profile, then the oldest eligible account.
 - A missing eligible account returns `NOT_FOUND`; KYC treats this as a referral business-rule failure.
+
+### POST /internal/v1/account/transfer/resolve
+
+Fields: [See fields](./api-fields.md#post-internalv1accounttransferresolve)
+
+Owner:
+
+```text
+account-service
+```
+
+Purpose:
+
+```text
+resolve an active account for transfer orchestration and optionally verify source ownership
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- Exactly one account number or IBAN is required.
+- The account and profile must both be active.
+- When ownership is required, user ID and profile ID must both match the account.
+- Ownership failures return `NOT_FOUND` to avoid exposing another user's account.
+
+## Internal Card Requests
+
+These APIs are internal service APIs. They should not be directly exposed to mobile/web clients.
+
+### POST /internal/v1/card/transfer/resolve
+
+Fields: [See fields](./api-fields.md#post-internalv1cardtransferresolve)
+
+Owner:
+
+```text
+card-service
+```
+
+Purpose:
+
+```text
+resolve an active card and its linked account for transfer orchestration
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- The card must be active.
+- The internal card token is preferred; the existing masked PAN is accepted for current client compatibility.
+- Ambiguous masked PAN matches return `CONFLICT`.
+- When ownership is required, user ID and profile ID must both match the card.
+- Raw PAN is never stored or returned.
 
 ## Internal Ledger Requests
 

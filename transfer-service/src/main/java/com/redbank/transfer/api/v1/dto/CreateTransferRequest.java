@@ -14,11 +14,11 @@ public record CreateTransferRequest(
         @NotNull TransferMethod method,
         @NotNull DestinationType sourceType,
         @Pattern(regexp = "\\d{18}") String sourceAccountNumber,
-        @Size(max = 32) String sourceCardNumber,
+        @Size(max = 80) String sourceCardNumber,
         @NotNull DestinationType destinationType,
         @Pattern(regexp = "\\d{18}") String destinationAccountNumber,
         @Size(max = 34) String destinationIban,
-        @Size(max = 32) String destinationCardNumber,
+        @Size(max = 80) String destinationCardNumber,
         @NotNull @Valid Money amount,
         @Size(max = 500) String description
 ) {

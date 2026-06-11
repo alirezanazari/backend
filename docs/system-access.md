@@ -142,6 +142,8 @@ Rules:
 | Ledger | `POST /internal/v1/ledger/account/create` | `INTERNAL_SERVICE` | Account/PFM driven internal call. |
 | Ledger | `POST /internal/v1/ledger/account/close` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
 | Account | `POST /internal/v1/account/feature-evaluation-context/get` | `INTERNAL_SERVICE` | Returns trusted profile, account, and balance attributes for flag evaluation. |
+| Account | `POST /internal/v1/account/transfer/resolve` | `INTERNAL_SERVICE` | Resolves active transfer accounts and verifies source ownership. |
+| Card | `POST /internal/v1/card/transfer/resolve` | `INTERNAL_SERVICE` | Resolves active transfer cards and verifies source ownership. |
 | Ledger | `POST /internal/v1/ledger/account/reopen` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
 | Ledger | `POST /internal/v1/ledger/transactions/internal-transfer` | `INTERNAL_SERVICE` | Transfer-service internal call. |
 | Ledger | `POST /internal/v1/ledger/transactions/referral-reward` | `INTERNAL_SERVICE` | KYC/transfer reward flow. |

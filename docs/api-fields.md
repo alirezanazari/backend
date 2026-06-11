@@ -1199,6 +1199,58 @@ Response:
 | `accountNumber` | `String` | Yes | Eligible active 18-digit account number. |
 | `currency` | `String` | Yes | Account currency. |
 
+### POST /internal/v1/account/transfer/resolve
+
+Request: [See request details](./api-requests.md#post-internalv1accounttransferresolve)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `accountNumber` | `String` | Conditional | Active 18-digit account number; mutually exclusive with IBAN. |
+| `iban` | `String` | Conditional | Active account IBAN; mutually exclusive with account number. |
+| `userId` | `String` | Conditional | Required user UUID when ownership verification is requested. |
+| `profileId` | `String` | Conditional | Required profile UUID when ownership verification is requested. |
+| `requireOwnership` | `Boolean` | No | When true, account ownership must match user and profile. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `accountId` | `String` | Yes | Internal account UUID. |
+| `userId` | `String` | Yes | Owner user UUID. |
+| `profileId` | `String` | Yes | Owner profile UUID. |
+| `accountNumber` | `String` | Yes | Resolved 18-digit account number. |
+| `iban` | `String` | Yes | Resolved IBAN. |
+| `currency` | `String` | Yes | Account currency. |
+| `destinationName` | `String` | Yes | Non-sensitive owner display name. |
+| `image` | `Image` | No | Non-sensitive owner image. |
+
+## Internal Card
+
+### POST /internal/v1/card/transfer/resolve
+
+Request: [See request details](./api-requests.md#post-internalv1cardtransferresolve)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `cardNumber` | `String` | Yes | Internal card token or current masked PAN reference. |
+| `userId` | `String` | Conditional | Required user UUID when ownership verification is requested. |
+| `profileId` | `String` | Conditional | Required profile UUID when ownership verification is requested. |
+| `requireOwnership` | `Boolean` | No | When true, card ownership must match user and profile. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `cardId` | `String` | Yes | Internal card UUID. |
+| `userId` | `String` | Yes | Owner user UUID. |
+| `profileId` | `String` | Yes | Owner profile UUID. |
+| `accountNumber` | `String` | Yes | Linked 18-digit account number. |
+| `maskedCardNumber` | `String` | Yes | Non-sensitive masked PAN. |
+
 ## Internal Ledger
 
 ### POST /internal/v1/ledger/account/create

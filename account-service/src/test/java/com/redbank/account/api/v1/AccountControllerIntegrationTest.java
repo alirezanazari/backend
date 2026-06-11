@@ -132,6 +132,36 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void internalTransferResolutionValidatesOwnershipAndSupportsIban() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = registered.path("data").path("profile").path("profileId").asText();
+        String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
+        String iban = registered.path("data").path("account").path("iban").asText();
+
+        internalTransferAccount(accountNumber, null, userId.toString(), profileId, true)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(userId.toString()))
+                .andExpect(jsonPath("$.data.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.accountNumber").value(accountNumber))
+                .andExpect(jsonPath("$.data.iban").value(iban))
+                .andExpect(jsonPath("$.data.currency").value("IRR"))
+                .andExpect(jsonPath("$.data.destinationName").value("Personal"));
+
+        internalTransferAccount(null, iban.toLowerCase(), null, null, false)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountNumber").value(accountNumber));
+
+        internalTransferAccount(accountNumber, null, UUID.randomUUID().toString(), profileId, true)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.context.status.code").value("NOT_FOUND"));
+    }
+
+    @Test
     void registerStoresLedgerAccountCreationOutboxEvent() throws Exception {
         UUID userId = UUID.randomUUID();
 
@@ -617,6 +647,25 @@ class AccountControllerIntegrationTest {
                           "accountNumber": "%s"
                         }
                         """.formatted(userId, profileId, accountNumber)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions internalTransferAccount(
+            String accountNumber,
+            String iban,
+            String userId,
+            String profileId,
+            boolean requireOwnership
+    ) throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode data = objectMapper.createObjectNode();
+        data.put("accountNumber", accountNumber);
+        data.put("iban", iban);
+        data.put("userId", userId);
+        data.put("profileId", profileId);
+        data.put("requireOwnership", requireOwnership);
+        return mockMvc.perform(post("/internal/v1/account/transfer/resolve")
+                .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(data)));
     }
 
     private int outboxEventCount(String accountNumber, String eventType) {
