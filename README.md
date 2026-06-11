@@ -17,6 +17,7 @@ red-bank
   kyc-service          customer verification and referrals
   feature-flag-service global and user-targeted runtime feature controls
   transfer-service     money movement orchestration and history
+  pfm-service          personal finance and vault-backed boxes
   docs                 architecture and implementation documents
   docker               local infrastructure support
 ```
@@ -41,6 +42,8 @@ red-bank
 | Feature Flag OpenAPI UI | `http://localhost:8086/swagger-ui.html` |
 | Transfer health | `http://localhost:8087/actuator/health` |
 | Transfer OpenAPI UI | `http://localhost:8087/swagger-ui.html` |
+| PFM health | `http://localhost:8088/actuator/health` |
+| PFM OpenAPI UI | `http://localhost:8088/swagger-ui.html` |
 
 ## Documentation
 

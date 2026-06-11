@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: pfm-service
+  datasource:
+    url: jdbc:postgresql://${PFM_DB_HOST:localhost}:${PFM_DB_PORT:5432}/${PFM_DB_NAME:pfm_db}
+    username: ${PFM_DB_USERNAME:${POSTGRES_USER:redbank}}
+    password: ${PFM_DB_PASSWORD:${POSTGRES_PASSWORD:redbank_develop_password}}
+  flyway:
+    enabled: ${REDBANK_FLYWAY_ENABLED:true}
+
+server:
+  port: ${SERVER_PORT:8088}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: ${REDBANK_LOG_LEVEL:INFO}
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+redbank:
+  debug:
+    enabled: ${REDBANK_DEBUG_ENABLED:false}
+    jwt-secret: ${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}
+  jwt:
+    issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
+    audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
+    signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
+  pfm:
+    default-currency: ${REDBANK_PFM_DEFAULT_CURRENCY:IRR}
+    default-language: ${REDBANK_PFM_DEFAULT_LANGUAGE:en-US}
+  account-client:
+    enabled: ${REDBANK_PFM_ACCOUNT_CLIENT_ENABLED:true}
+    base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  ledger-client:
+    enabled: ${REDBANK_PFM_LEDGER_CLIENT_ENABLED:true}
+    base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}
+    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}

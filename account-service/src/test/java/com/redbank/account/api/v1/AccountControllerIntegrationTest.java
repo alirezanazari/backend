@@ -162,6 +162,39 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void internalVaultCreationCreatesActiveVaultForOwnedProfile() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = registered.path("data").path("profile").path("profileId").asText();
+
+        internalCreateVault(userId, profileId, "IRR")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.account.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.account.type").value("VAULT"))
+                .andExpect(jsonPath("$.data.account.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.account.currency").value("IRR"))
+                .andExpect(jsonPath("$.data.account.accountNumber")
+                        .value(org.hamcrest.Matchers.matchesPattern("\\d{18}")));
+
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM bank_accounts
+                        WHERE user_id = ?
+                          AND profile_id = ?
+                          AND type = 'VAULT'
+                        """,
+                Integer.class,
+                userId,
+                UUID.fromString(profileId)
+        );
+        assertThat(count).isEqualTo(1);
+    }
+
+    @Test
     void registerStoresLedgerAccountCreationOutboxEvent() throws Exception {
         UUID userId = UUID.randomUUID();
 
@@ -666,6 +699,23 @@ class AccountControllerIntegrationTest {
                 .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(data)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions internalCreateVault(
+            UUID userId,
+            String profileId,
+            String currency
+    ) throws Exception {
+        return mockMvc.perform(post("/internal/v1/account/vault/create")
+                .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
+                .contentType("application/json")
+                .content("""
+                        {
+                          "userId": "%s",
+                          "profileId": "%s",
+                          "currency": "%s"
+                        }
+                        """.formatted(userId, profileId, currency)));
     }
 
     private int outboxEventCount(String accountNumber, String eventType) {

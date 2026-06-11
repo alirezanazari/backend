@@ -1,5 +1,7 @@
 package com.redbank.account.api.internal;
 
+import com.redbank.account.api.internal.dto.CreateVaultAccountRequest;
+import com.redbank.account.api.internal.dto.CreateVaultAccountResponse;
 import com.redbank.account.api.internal.dto.GetAccountCompletionRequest;
 import com.redbank.account.api.internal.dto.GetAccountCompletionResponse;
 import com.redbank.account.api.internal.dto.GetCardAccountRequest;
@@ -83,6 +85,20 @@ public class InternalAccountController {
         authorize(serviceToken);
         ResolveTransferAccountResponse response = accountService.resolveTransferAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
+    }
+
+    @PostMapping("/vault/create")
+    public ResponseEntity<ApiResponse<CreateVaultAccountResponse>> createVaultAccount(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody CreateVaultAccountRequest request
+    ) {
+        authorize(serviceToken);
+        CreateVaultAccountResponse response = accountService.createVaultAccount(request);
+        return ResponseEntity.ok(ApiResponse.success(
+                "internal",
+                response.account().profileId(),
+                response
+        ));
     }
 
     private void authorize(String serviceToken) {

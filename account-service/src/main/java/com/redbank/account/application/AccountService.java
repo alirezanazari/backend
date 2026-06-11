@@ -1,5 +1,7 @@
 package com.redbank.account.application;
 
+import com.redbank.account.api.internal.dto.CreateVaultAccountRequest;
+import com.redbank.account.api.internal.dto.CreateVaultAccountResponse;
 import com.redbank.account.api.internal.dto.GetAccountCompletionRequest;
 import com.redbank.account.api.internal.dto.GetAccountCompletionResponse;
 import com.redbank.account.api.internal.dto.GetCardAccountRequest;
@@ -490,6 +492,33 @@ public class AccountService {
             status = AccountCompletionStatus.ACCOUNT_REQUIRED;
         }
         return new GetAccountCompletionResponse(status, activeProfile == null ? null : toProfileSummary(activeProfile));
+    }
+
+    @Transactional
+    public CreateVaultAccountResponse createVaultAccount(CreateVaultAccountRequest request) {
+        UUID userId = parseUserId(request.userId());
+        UUID profileId = parseProfileId(request.profileId());
+        ProfileRecord profile = profileRepository.findById(profileId)
+                .filter(candidate -> candidate.userId().equals(userId))
+                .orElseThrow(() -> new AccountNotFoundException("Profile was not found"));
+        if (profile.status() != ProfileStatus.ACTIVE) {
+            throw new AccountBusinessRuleException("Inactive profile cannot own a vault account");
+        }
+
+        Instant now = clock.instant();
+        BankAccountRecord account = createUniqueAccount(
+                profile,
+                profile.selectedJobId(),
+                AccountType.VAULT,
+                normalizeCurrency(request.currency()),
+                now
+        );
+        try {
+            bankAccountRepository.save(account);
+        } catch (DataIntegrityViolationException exception) {
+            throw new AccountConflictException("Vault account number or IBAN already exists");
+        }
+        return new CreateVaultAccountResponse(toAccountSummary(account, false));
     }
 
     public GetCardAccountResponse getCardAccount(GetCardAccountRequest request) {

@@ -28,6 +28,7 @@
         <module>kyc-service</module>
         <module>feature-flag-service</module>
         <module>transfer-service</module>
+        <module>pfm-service</module>
     </modules>
 
     <properties>
