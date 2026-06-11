@@ -11,9 +11,10 @@ import com.redbank.kyc.application.FeatureFlagClient;
 import com.redbank.kyc.application.ReferralRewardClient;
 import com.redbank.kyc.application.ReferralRewardResult;
 import com.redbank.kyc.application.ReferrerAccountClient;
-import com.redbank.kyc.application.ResolvedReferrer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.redbank.kyc.jooq.tables.KycCaseHistory.KYC_CASE_HISTORY;
 import static com.redbank.kyc.jooq.tables.KycCases.KYC_CASES;
+import static com.redbank.kyc.jooq.tables.ReferralCodes.REFERRAL_CODES;
 import static com.redbank.kyc.jooq.tables.ReferralRewards.REFERRAL_REWARDS;
 import static com.redbank.kyc.jooq.tables.Referrals.REFERRALS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,6 +78,7 @@ class KycControllerIntegrationTest {
         dsl.deleteFrom(KYC_CASE_HISTORY).execute();
         dsl.deleteFrom(REFERRAL_REWARDS).execute();
         dsl.deleteFrom(REFERRALS).execute();
+        dsl.deleteFrom(REFERRAL_CODES).execute();
         dsl.deleteFrom(KYC_CASES).execute();
         reset(referrerAccountClient, referralRewardClient, featureFlagClient);
         when(featureFlagClient.isEnabled(anyString())).thenReturn(true);
@@ -112,8 +115,7 @@ class KycControllerIntegrationTest {
                 List.of(),
                 List.of("ONBOARDING_REFERRAL_SET")
         );
-        when(referrerAccountClient.resolveByCode("ALICE_2026"))
-                .thenReturn(new ResolvedReferrer(referrerUserId, "Alice"));
+        saveReferralCode(referrerUserId, "ALICE_2026", "Alice");
 
         api("/api/v1/kyc/referral/set", userToken, """
                 {"referralCode":"alice_2026"}
@@ -135,7 +137,27 @@ class KycControllerIntegrationTest {
                 .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
 
         assertThat(dsl.fetchCount(REFERRALS)).isEqualTo(1);
-        verify(referrerAccountClient, times(1)).resolveByCode("ALICE_2026");
+    }
+
+    @Test
+    void referralRejectsUnknownCodeAndSelfReferral() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String userToken = token(userId, List.of(), List.of("ONBOARDING_REFERRAL_SET"));
+
+        api("/api/v1/kyc/referral/set", userToken, """
+                {"referralCode":"UNKNOWN"}
+                """)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.context.status.code").value("NOT_FOUND"));
+
+        saveReferralCode(userId, "MY_CODE", "Self");
+        api("/api/v1/kyc/referral/set", userToken, """
+                {"referralCode":"MY_CODE"}
+                """)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
+
+        assertThat(dsl.fetchCount(REFERRALS)).isZero();
     }
 
     @Test
@@ -143,8 +165,7 @@ class KycControllerIntegrationTest {
         UUID referredUserId = UUID.randomUUID();
         UUID referrerUserId = UUID.randomUUID();
         String referrerAccount = "123456789012345678";
-        when(referrerAccountClient.resolveByCode(anyString()))
-                .thenReturn(new ResolvedReferrer(referrerUserId, "Alice"));
+        saveReferralCode(referrerUserId, "ALICE_2026", "Alice");
         when(referrerAccountClient.findActiveAccount(referrerUserId))
                 .thenReturn(new ActiveReferrerAccount(referrerUserId, referrerAccount, "IRR"));
         when(referralRewardClient.requestReward(any()))
@@ -187,6 +208,11 @@ class KycControllerIntegrationTest {
         assertThat(dsl.fetchCount(KYC_CASES)).isEqualTo(1);
         assertThat(dsl.fetchCount(KYC_CASE_HISTORY)).isEqualTo(1);
         assertThat(dsl.fetchCount(REFERRAL_REWARDS)).isEqualTo(1);
+        assertThat(dsl.fetchCount(REFERRAL_CODES)).isEqualTo(2);
+        assertThat(dsl.select(REFERRAL_CODES.CODE)
+                .from(REFERRAL_CODES)
+                .where(REFERRAL_CODES.USER_ID.eq(referredUserId))
+                .fetchOne(REFERRAL_CODES.CODE)).matches("[A-Z0-9]{6}");
         assertThat(dsl.select(REFERRALS.STATUS).from(REFERRALS).fetchOne(REFERRALS.STATUS))
                 .isEqualTo("REWARDED");
         verify(referralRewardClient, times(1)).requestReward(any());
@@ -196,8 +222,7 @@ class KycControllerIntegrationTest {
     void disabledReferralRewardFlagKeepsPreparedRewardPending() throws Exception {
         UUID referredUserId = UUID.randomUUID();
         UUID referrerUserId = UUID.randomUUID();
-        when(referrerAccountClient.resolveByCode(anyString()))
-                .thenReturn(new ResolvedReferrer(referrerUserId, "Alice"));
+        saveReferralCode(referrerUserId, "ALICE_2026", "Alice");
         when(featureFlagClient.isEnabled("referral.reward.enabled")).thenReturn(false);
 
         api(
@@ -226,6 +251,16 @@ class KycControllerIntegrationTest {
                 .from(REFERRAL_REWARDS)
                 .fetchOne(REFERRAL_REWARDS.STATUS)).isEqualTo("PENDING");
         verify(referralRewardClient, times(0)).requestReward(any());
+    }
+
+    private void saveReferralCode(UUID userId, String code, String displayName) {
+        dsl.insertInto(REFERRAL_CODES)
+                .set(REFERRAL_CODES.ID, UUID.randomUUID())
+                .set(REFERRAL_CODES.USER_ID, userId)
+                .set(REFERRAL_CODES.CODE, code)
+                .set(REFERRAL_CODES.DISPLAY_NAME, displayName)
+                .set(REFERRAL_CODES.CREATED_AT, OffsetDateTime.now(ZoneOffset.UTC))
+                .execute();
     }
 
     @Test

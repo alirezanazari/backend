@@ -325,15 +325,17 @@ Small steps:
 4. Seed sample jobs with Flyway.
 5. Implement `POST /api/v1/kyc/jobs/list`.
 6. Create `kyc_cases` table.
-7. Create `referrals` table.
-8. Implement `POST /api/v1/kyc/referral/set`.
-9. Make referral immutable after registration flow.
-10. Implement `POST /api/v1/kyc/status/get`.
-11. Implement temporary admin/test endpoint to approve KYC.
-12. On KYC approved, request referral reward.
-13. Reward only if referrer has active account.
-14. Reward only once.
-15. Add tests for referral rules.
+7. Create `referral_codes` table and generate one code after KYC approval.
+8. Create `referrals` table.
+9. Implement `POST /api/v1/kyc/referral/set`.
+10. Resolve entered codes from the KYC-owned referral code registry.
+11. Make referral immutable after registration flow.
+12. Implement `POST /api/v1/kyc/status/get`.
+13. Implement temporary admin/test endpoint to approve KYC.
+14. On KYC approved, request referral reward.
+15. Reward only if referrer has active account.
+16. Reward only once.
+17. Add tests for referral rules.
 
 Engineering focus:
 

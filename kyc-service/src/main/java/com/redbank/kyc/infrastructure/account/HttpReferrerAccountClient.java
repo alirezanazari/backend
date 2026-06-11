@@ -2,7 +2,6 @@ package com.redbank.kyc.infrastructure.account;
 
 import com.redbank.kyc.application.ActiveReferrerAccount;
 import com.redbank.kyc.application.ReferrerAccountClient;
-import com.redbank.kyc.application.ResolvedReferrer;
 import com.redbank.kyc.config.ReferrerAccountClientProperties;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -26,12 +25,6 @@ public class HttpReferrerAccountClient implements ReferrerAccountClient {
                 .baseUrl(properties.baseUrl())
                 .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.serviceToken())
                 .build();
-    }
-
-    @Override
-    public ResolvedReferrer resolveByCode(String referralCode) {
-        // TODO
-        throw new UnsupportedOperationException("Implement referral code resolution");
     }
 
     @Override

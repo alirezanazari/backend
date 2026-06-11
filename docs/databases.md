@@ -356,6 +356,7 @@ Suggested tables:
 ```text
 jobs
 kyc_cases
+referral_codes
 referrals
 referral_rewards
 outbox_events
@@ -395,6 +396,26 @@ IN_PROGRESS
 PENDING_REVIEW
 APPROVED
 REJECTED
+```
+
+### referral_codes
+
+Important fields:
+
+```text
+id
+user_id
+code
+display_name
+created_at
+```
+
+Rules:
+
+```text
+one referral code per approved user
+referral code must be unique
+display_name is an optional non-sensitive snapshot
 ```
 
 ### referrals

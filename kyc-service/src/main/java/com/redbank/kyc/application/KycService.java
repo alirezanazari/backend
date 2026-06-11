@@ -16,12 +16,14 @@ import com.redbank.kyc.api.v1.dto.SetReferralResponse;
 import com.redbank.kyc.config.KycProperties;
 import com.redbank.kyc.domain.KycCaseHistoryRecord;
 import com.redbank.kyc.domain.KycCaseRecord;
+import com.redbank.kyc.domain.ReferralCodeRecord;
 import com.redbank.kyc.domain.ReferralRecord;
 import com.redbank.kyc.domain.ReferralRewardRecord;
 import com.redbank.kyc.domain.ReferralRewardStatus;
 import com.redbank.kyc.domain.ReferralStatus;
 import com.redbank.kyc.infrastructure.JobRepository;
 import com.redbank.kyc.infrastructure.KycCaseRepository;
+import com.redbank.kyc.infrastructure.ReferralCodeRepository;
 import com.redbank.kyc.infrastructure.ReferralRepository;
 import com.redbank.kyc.infrastructure.ReferralRewardRepository;
 import java.time.Clock;
@@ -38,11 +40,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class KycService {
     private static final String REFERRAL_REWARD_FLAG = "referral.reward.enabled";
+    private static final int REFERRAL_CODE_GENERATION_ATTEMPTS = 5;
 
     private final JobRepository jobRepository;
     private final KycCaseRepository kycCaseRepository;
     private final ReferralRepository referralRepository;
     private final ReferralRewardRepository referralRewardRepository;
+    private final ReferralCodeRepository referralCodeRepository;
+    private final ReferralCodeGenerator referralCodeGenerator;
     private final JwtTokenService jwtTokenService;
     private final ReferrerAccountClient referrerAccountClient;
     private final ReferralRewardClient referralRewardClient;
@@ -56,6 +61,8 @@ public class KycService {
             KycCaseRepository kycCaseRepository,
             ReferralRepository referralRepository,
             ReferralRewardRepository referralRewardRepository,
+            ReferralCodeRepository referralCodeRepository,
+            ReferralCodeGenerator referralCodeGenerator,
             JwtTokenService jwtTokenService,
             ReferrerAccountClient referrerAccountClient,
             ReferralRewardClient referralRewardClient,
@@ -68,6 +75,8 @@ public class KycService {
         this.kycCaseRepository = kycCaseRepository;
         this.referralRepository = referralRepository;
         this.referralRewardRepository = referralRewardRepository;
+        this.referralCodeRepository = referralCodeRepository;
+        this.referralCodeGenerator = referralCodeGenerator;
         this.jwtTokenService = jwtTokenService;
         this.referrerAccountClient = referrerAccountClient;
         this.referralRewardClient = referralRewardClient;
@@ -96,10 +105,8 @@ public class KycService {
             return toReferralResponse(existing);
         }
 
-        ResolvedReferrer referrer = referrerAccountClient.resolveByCode(referralCode);
-        if (referrer == null || referrer.userId() == null) {
-            throw new KycNotFoundException("Referral code was not found");
-        }
+        ReferralCodeRecord referrer = referralCodeRepository.findByCode(referralCode)
+                .orElseThrow(() -> new KycNotFoundException("Referral code was not found"));
         if (referrer.userId().equals(token.userId())) {
             throw new KycBusinessRuleException("A user cannot refer themselves");
         }
@@ -162,6 +169,9 @@ public class KycService {
         Instant now = clock.instant();
         KycCaseRecord current = kycCaseRepository.findByUserId(userId).orElse(null);
         KycCaseRecord completed = completeCase(current, userId, actorId, request, now);
+        if (request.status() == KycStatus.APPROVED) {
+            ensureReferralCode(userId, now);
+        }
 
         ReferralRecord referral = request.status() == KycStatus.APPROVED
                 ? referralRepository.findByReferredUserId(userId).orElse(null)
@@ -211,6 +221,26 @@ public class KycService {
         }
         saveHistory(current.id(), current.status(), request.status(), reason, actorId, now);
         return current.withStatus(request.status(), rejectionReason, now, now);
+    }
+
+    private void ensureReferralCode(UUID userId, Instant now) {
+        if (referralCodeRepository.findByUserId(userId).isPresent()) {
+            return;
+        }
+        for (int attempt = 0; attempt < REFERRAL_CODE_GENERATION_ATTEMPTS; attempt++) {
+            ReferralCodeRecord referralCode = new ReferralCodeRecord(
+                    UUID.randomUUID(),
+                    userId,
+                    referralCodeGenerator.generateCode(),
+                    null,
+                    now
+            );
+            if (referralCodeRepository.createIfAbsent(referralCode)
+                    || referralCodeRepository.findByUserId(userId).isPresent()) {
+                return;
+            }
+        }
+        throw new KycConflictException("A unique referral code could not be generated");
     }
 
     private ReferralRewardRecord ensureReward(ReferralRecord referral, Instant now) {
