@@ -453,6 +453,10 @@ Suggested tables:
 ```text
 feature_flags
 feature_flag_audit_logs
+feature_flag_user_overrides
+feature_flag_targeting_rules
+feature_flag_rule_conditions
+feature_flag_targeting_audit_logs
 ```
 
 ### feature_flags
@@ -464,6 +468,7 @@ id
 flag_key
 enabled
 description
+client_visible
 updated_by
 created_at
 updated_at
@@ -492,15 +497,38 @@ old_enabled
 new_enabled
 old_description
 new_description
+old_client_visible
+new_client_visible
 changed_by
 reason
 request_id
 created_at
 ```
 
+### feature_flag_user_overrides
+
+Stores an explicit enabled or disabled result for one user and flag. A user
+override has the highest evaluation precedence.
+
+### feature_flag_targeting_rules
+
+Stores ordered, active rules with `ALL` or `ANY` condition matching. Lower
+priority numbers run first, and the first matching rule decides the result.
+
+### feature_flag_rule_conditions
+
+Stores rule attributes, operators, and JSON value lists. Supported attributes
+include user/profile identifiers, profile type, job, account details, currency,
+available balance, and current balance.
+
+### feature_flag_targeting_audit_logs
+
+Stores append-only old and new targeting snapshots for each admin replacement.
+
 Rules:
 
 - Flag update and audit insert happen in one transaction.
+- Targeting replacement and targeting audit insert happen in one transaction.
 - Audit rows are append-only.
 - Store both old and new values, even when an operator submits the same value.
 - Keep the request ID so operational changes can be traced across logs and services.

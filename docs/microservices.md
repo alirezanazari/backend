@@ -198,16 +198,32 @@ runtime feature control
 Owns:
 
 - Flag list
-- Flag updates
-- Audit trail for flag changes
-- Optional rollout rules later
+- Global defaults and client visibility
+- User allow/deny overrides
+- Ordered profile, account, and balance targeting rules
+- Audit trails for global and targeting changes
+- Subject-aware evaluation for clients and internal services
 
 Main APIs:
 
 ```text
 POST /api/v1/feature-flags/list
+POST /api/v1/feature-flags/evaluate
 POST /api/v1/feature-flags/update
+POST /api/v1/feature-flags/targeting/get
+POST /api/v1/feature-flags/targeting/update
 ```
+
+Evaluation precedence:
+
+```text
+user override -> first matching active rule by priority -> global default
+```
+
+Users can evaluate only flags marked `clientVisible`. Admins manage all flag
+configuration. Internal services can evaluate operational flags for a user.
+Profile, account, job, currency, and balance attributes are loaded from
+account-service and are never trusted from a public request.
 
 Examples:
 
@@ -350,9 +366,10 @@ Use REST when the caller needs an immediate answer:
 
 ```text
 transfer-service -> account-service: validate account
-transfer-service -> feature-flag-service: check method enabled
+transfer-service -> feature-flag-service: evaluate methods for subject
 transfer-service -> ledger-service: post transfer
 iam-service -> account-service: get active profile summary
+feature-flag-service -> account-service: load trusted evaluation context
 ```
 
 ### Events

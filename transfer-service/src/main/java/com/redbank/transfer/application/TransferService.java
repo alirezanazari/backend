@@ -83,17 +83,27 @@ public class TransferService {
             ListTransferMethodsRequest request
     ) {
         VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
-        resolveProfileId(token, context);
+        UUID profileId = resolveProfileId(token, context);
         ListTransferMethodsRequest filters = request == null
                 ? new ListTransferMethodsRequest(null, null)
                 : request;
-        List<TransferMethodSummary> methods = transferMethodRepository.find(
-                        filters.sourceType(),
-                        filters.destinationType()
-                ).stream()
+        List<TransferMethodRecord> configuredMethods = transferMethodRepository.find(
+                filters.sourceType(),
+                filters.destinationType()
+        );
+        FeatureFlagSubject subject = new FeatureFlagSubject(
+                token.userId(),
+                profileId,
+                context.account() == null ? null : context.account().accountNumber()
+        );
+        Map<String, Boolean> flagValues = featureFlagClient.evaluate(
+                configuredMethods.stream().map(method -> flagKey(method.method())).distinct().toList(),
+                subject
+        );
+        List<TransferMethodSummary> methods = configuredMethods.stream()
                 .map(method -> new TransferMethodSummary(
                         method.method(),
-                        method.enabled() && featureFlagClient.isEnabled(flagKey(method.method())),
+                        method.enabled() && Boolean.TRUE.equals(flagValues.get(flagKey(method.method()))),
                         method.title()
                 ))
                 .toList();
@@ -139,7 +149,15 @@ public class TransferService {
 
         TransferMethodRecord method = transferMethodRepository.findByMethod(normalized.method())
                 .orElseThrow(() -> new TransferNotFoundException("Transfer method was not found"));
-        if (!method.enabled() || !featureFlagClient.isEnabled(flagKey(method.method()))) {
+        String evaluationAccountNumber = normalized.sourceType() == DestinationType.ACCOUNT
+                ? normalized.sourceAccountNumber()
+                : context.account() == null ? null : context.account().accountNumber();
+        String methodFlagKey = flagKey(method.method());
+        boolean enabledForSubject = Boolean.TRUE.equals(featureFlagClient.evaluate(
+                List.of(methodFlagKey),
+                new FeatureFlagSubject(token.userId(), profileId, evaluationAccountNumber)
+        ).get(methodFlagKey));
+        if (!method.enabled() || !enabledForSubject) {
             throw new TransferFeatureDisabledException("Transfer method is disabled");
         }
 

@@ -9,6 +9,7 @@ import com.nimbusds.jwt.SignedJWT;
 import com.redbank.contracts.transfer.DestinationType;
 import com.redbank.contracts.transfer.TransferDestinationSummary;
 import com.redbank.transfer.application.FeatureFlagClient;
+import com.redbank.transfer.application.FeatureFlagSubject;
 import com.redbank.transfer.application.LedgerTransferClient;
 import com.redbank.transfer.application.LedgerTransferResult;
 import com.redbank.transfer.application.ResolvedTransferParties;
@@ -18,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jooq.DSLContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,7 +84,12 @@ class TransferControllerIntegrationTest {
         dsl.deleteFrom(IDEMPOTENCY_KEYS).execute();
         dsl.deleteFrom(TRANSFERS).execute();
         reset(featureFlagClient, transferPartyClient, ledgerTransferClient);
-        when(featureFlagClient.isEnabled(anyString())).thenReturn(true);
+        when(featureFlagClient.evaluate(any(), any(FeatureFlagSubject.class)))
+                .thenAnswer(invocation -> {
+                    List<String> keys = invocation.getArgument(0);
+                    return keys.stream()
+                            .collect(java.util.stream.Collectors.toMap(key -> key, key -> true));
+                });
         when(transferPartyClient.resolve(any(), any(), any())).thenAnswer(invocation -> {
             var request = (com.redbank.transfer.api.v1.dto.CreateTransferRequest) invocation.getArgument(0);
             String destinationAccount = request.destinationAccountNumber();
@@ -96,7 +103,15 @@ class TransferControllerIntegrationTest {
     void methodListRespectsFeatureFlags() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID profileId = UUID.randomUUID();
-        when(featureFlagClient.isEnabled("transfer.account-to-account.enabled")).thenReturn(false);
+        when(featureFlagClient.evaluate(any(), any(FeatureFlagSubject.class)))
+                .thenAnswer(invocation -> {
+                    List<String> keys = invocation.getArgument(0);
+                    return keys.stream()
+                            .collect(java.util.stream.Collectors.toMap(
+                                    key -> key,
+                                    key -> !"transfer.account-to-account.enabled".equals(key)
+                            ));
+                });
 
         api(
                 "/api/v1/transfers/methods/list",
@@ -224,7 +239,8 @@ class TransferControllerIntegrationTest {
     void disabledMethodDoesNotCreateTransferOrIdempotencyRecord() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID profileId = UUID.randomUUID();
-        when(featureFlagClient.isEnabled("transfer.account-to-account.enabled")).thenReturn(false);
+        when(featureFlagClient.evaluate(any(), any(FeatureFlagSubject.class)))
+                .thenReturn(Map.of("transfer.account-to-account.enabled", false));
 
         api(
                 "/api/v1/transfers/create",

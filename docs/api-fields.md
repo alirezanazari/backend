@@ -900,6 +900,33 @@ FeatureFlagSummary:
 | `key` | `String` | Yes | Flag key. |
 | `enabled` | `Boolean` | Yes | Whether enabled. |
 | `description` | `String` | No | Description. |
+| `clientVisible` | `Boolean` | Yes | Whether authenticated users may evaluate this flag. |
+
+### POST /api/v1/feature-flags/evaluate
+
+Request: [See request details](./api-requests.md#post-apiv1feature-flagsevaluate)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `keys` | `List<String>` | No | Optional keys; empty means all flags available to the caller. |
+| `subjectUserId` | `UUID String` | Internal only | Required for internal calls and rejected for user calls. |
+| `profileId` | `UUID String` | Internal only | Optional owned profile selection. |
+| `accountNumber` | `String` | Internal only | Optional owned 18-digit account selection. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `flags` | `List<EvaluatedFeatureFlag>` | Yes | Effective values after overrides and rules. |
+
+EvaluatedFeatureFlag:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `key` | `String` | Yes | Flag key. |
+| `enabled` | `Boolean` | Yes | Effective value for the subject. |
 
 ### POST /api/v1/feature-flags/update
 
@@ -912,6 +939,7 @@ Request:
 | `key` | `String` | Yes | Flag key. |
 | `enabled` | `Boolean` | Yes | New value. |
 | `description` | `String` | No | Optional description update. |
+| `clientVisible` | `Boolean` | No | Optional client visibility update. |
 | `reason` | `String` | Yes | Audit reason. |
 
 Response:
@@ -920,6 +948,46 @@ Response:
 | --- | --- | --- | --- |
 | `flag` | `FeatureFlagSummary` | Yes | Updated flag. |
 | `updatedAt` | `Instant` | Yes | Update timestamp. |
+
+### POST /api/v1/feature-flags/targeting/get
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `key` | `String` | Yes | Flag key. |
+
+Response fields are the same as targeting update.
+
+### POST /api/v1/feature-flags/targeting/update
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `key` | `String` | Yes | Flag key. |
+| `userOverrides` | `List<FeatureFlagUserOverride>` | No | Full user allow/deny list. |
+| `rules` | `List<FeatureFlagTargetingRule>` | No | Full ordered rule list. |
+| `reason` | `String` | Yes | Audit reason. |
+
+FeatureFlagTargetingRule:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | `String` | Yes | Operator-facing rule name. |
+| `priority` | `Integer` | Yes | Unique order; lower runs first. |
+| `enabled` | `Boolean` | Yes | Result when the rule matches. |
+| `matchType` | `ALL` or `ANY` | Yes | Condition combination. |
+| `active` | `Boolean` | Yes | Whether evaluator considers the rule. |
+| `conditions` | `List<FeatureFlagCondition>` | Yes | One or more conditions. |
+
+Condition attributes: `USER_ID`, `PROFILE_ID`, `PROFILE_TYPE`, `JOB_ID`,
+`ACCOUNT_NUMBER`, `ACCOUNT_TYPE`, `ACCOUNT_STATUS`, `CURRENCY`,
+`AVAILABLE_BALANCE`, `CURRENT_BALANCE`.
+
+Condition operators: `EQUALS`, `NOT_EQUALS`, `IN`, `NOT_IN`,
+`GREATER_THAN`, `GREATER_THAN_OR_EQUAL`, `LESS_THAN`,
+`LESS_THAN_OR_EQUAL`. Comparison operators are valid only for balances.
 
 ## PFM
 

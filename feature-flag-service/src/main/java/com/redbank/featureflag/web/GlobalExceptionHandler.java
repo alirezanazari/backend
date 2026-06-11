@@ -4,6 +4,7 @@ import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.envelope.Status;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.featureflag.application.FeatureFlagConflictException;
+import com.redbank.featureflag.application.FeatureFlagExternalServiceException;
 import com.redbank.featureflag.application.FeatureFlagNotFoundException;
 import com.redbank.featureflag.application.FeatureFlagUnauthorizedException;
 import com.redbank.featureflag.application.FeatureFlagValidationException;
@@ -49,6 +50,14 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         return response(Status.conflict(exception.getMessage()), request);
+    }
+
+    @ExceptionHandler(FeatureFlagExternalServiceException.class)
+    ResponseEntity<ApiResponse<Void>> externalService(
+            FeatureFlagExternalServiceException exception,
+            HttpServletRequest request
+    ) {
+        return response(Status.serviceUnavailable(exception.getMessage()), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

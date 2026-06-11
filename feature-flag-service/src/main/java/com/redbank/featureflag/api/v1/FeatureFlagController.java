@@ -2,10 +2,15 @@ package com.redbank.featureflag.api.v1;
 
 import com.redbank.contracts.envelope.ApiRequest;
 import com.redbank.contracts.envelope.ApiResponse;
+import com.redbank.featureflag.api.v1.dto.EvaluateFeatureFlagsRequest;
+import com.redbank.featureflag.api.v1.dto.EvaluateFeatureFlagsResponse;
+import com.redbank.featureflag.api.v1.dto.FeatureFlagTargetingResponse;
+import com.redbank.featureflag.api.v1.dto.GetFeatureFlagTargetingRequest;
 import com.redbank.featureflag.api.v1.dto.ListFeatureFlagsRequest;
 import com.redbank.featureflag.api.v1.dto.ListFeatureFlagsResponse;
 import com.redbank.featureflag.api.v1.dto.UpdateFeatureFlagRequest;
 import com.redbank.featureflag.api.v1.dto.UpdateFeatureFlagResponse;
+import com.redbank.featureflag.api.v1.dto.UpdateFeatureFlagTargetingRequest;
 import com.redbank.featureflag.application.FeatureFlagService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -40,12 +45,52 @@ public class FeatureFlagController {
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), null, response));
     }
 
+    @PostMapping("/evaluate")
+    public ResponseEntity<ApiResponse<EvaluateFeatureFlagsResponse>> evaluate(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String internalServiceToken,
+            @Valid @RequestBody ApiRequest<EvaluateFeatureFlagsRequest> request
+    ) {
+        EvaluateFeatureFlagsResponse response = featureFlagService.evaluate(
+                authorizationHeader,
+                internalServiceToken,
+                request.context(),
+                request.data()
+        );
+        return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), null, response));
+    }
+
     @PostMapping("/update")
     public ResponseEntity<ApiResponse<UpdateFeatureFlagResponse>> update(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<UpdateFeatureFlagRequest> request
     ) {
         UpdateFeatureFlagResponse response = featureFlagService.update(
+                authorizationHeader,
+                request.context().requestId(),
+                request.data()
+        );
+        return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), null, response));
+    }
+
+    @PostMapping("/targeting/get")
+    public ResponseEntity<ApiResponse<FeatureFlagTargetingResponse>> getTargeting(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<GetFeatureFlagTargetingRequest> request
+    ) {
+        FeatureFlagTargetingResponse response = featureFlagService.getTargeting(
+                authorizationHeader,
+                request.data()
+        );
+        return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), null, response));
+    }
+
+    @PostMapping("/targeting/update")
+    public ResponseEntity<ApiResponse<FeatureFlagTargetingResponse>> updateTargeting(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<UpdateFeatureFlagTargetingRequest> request
+    ) {
+        FeatureFlagTargetingResponse response = featureFlagService.updateTargeting(
                 authorizationHeader,
                 request.context().requestId(),
                 request.data()

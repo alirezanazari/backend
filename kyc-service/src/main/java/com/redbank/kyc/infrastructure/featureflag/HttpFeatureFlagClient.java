@@ -4,6 +4,7 @@ import com.redbank.contracts.envelope.ApiRequest;
 import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.kyc.application.FeatureFlagClient;
+import com.redbank.kyc.application.FeatureFlagSubject;
 import com.redbank.kyc.application.KycExternalServiceException;
 import com.redbank.kyc.config.FeatureFlagClientProperties;
 import java.util.List;
@@ -36,19 +37,24 @@ public class HttpFeatureFlagClient implements FeatureFlagClient {
     }
 
     @Override
-    public boolean isEnabled(String key) {
-        ApiRequest<ListFlagsRequest> request = new ApiRequest<>(
+    public boolean isEnabled(String key, FeatureFlagSubject subject) {
+        ApiRequest<EvaluateFlagsRequest> request = new ApiRequest<>(
                 new RequestContext("kyc-" + UUID.randomUUID(), null, null, null, null, null),
-                new ListFlagsRequest(List.of(key), true)
+                new EvaluateFlagsRequest(
+                        List.of(key),
+                        subject.userId().toString(),
+                        subject.profileId() == null ? null : subject.profileId().toString(),
+                        subject.accountNumber()
+                )
         );
         try {
-            ApiResponse<ListFlagsResponse> response = restClient.post()
-                    .uri("/api/v1/feature-flags/list")
+            ApiResponse<EvaluateFlagsResponse> response = restClient.post()
+                    .uri("/api/v1/feature-flags/evaluate")
                     .body(request)
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {
                     });
-            List<FlagResponse> flags = response == null || response.data() == null
+            List<EvaluatedFlag> flags = response == null || response.data() == null
                     ? List.of()
                     : response.data().flags();
             if (flags == null) {
@@ -57,19 +63,24 @@ public class HttpFeatureFlagClient implements FeatureFlagClient {
             return flags.stream()
                     .filter(flag -> flag != null && key.equals(flag.key()))
                     .findFirst()
-                    .map(FlagResponse::enabled)
+                    .map(EvaluatedFlag::enabled)
                     .orElse(false);
         } catch (RestClientException exception) {
             throw new KycExternalServiceException("Feature flag service call failed", exception);
         }
     }
 
-    private record ListFlagsRequest(List<String> keys, Boolean includeDisabled) {
+    private record EvaluateFlagsRequest(
+            List<String> keys,
+            String subjectUserId,
+            String profileId,
+            String accountNumber
+    ) {
     }
 
-    private record ListFlagsResponse(List<FlagResponse> flags) {
+    private record EvaluateFlagsResponse(List<EvaluatedFlag> flags) {
     }
 
-    private record FlagResponse(String key, boolean enabled, String description) {
+    private record EvaluatedFlag(String key, boolean enabled) {
     }
 }

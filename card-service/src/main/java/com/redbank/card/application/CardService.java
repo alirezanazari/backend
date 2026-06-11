@@ -127,11 +127,14 @@ public class CardService {
             RequestContext context,
             OrderCardRequest request
     ) {
-        if (!featureFlagClient.isEnabled(CARD_ORDER_FLAG)) {
-            throw new CardFeatureDisabledException("Card ordering is disabled");
-        }
         VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
         UUID profileId = resolveProfileId(token, context);
+        if (!featureFlagClient.isEnabled(
+                CARD_ORDER_FLAG,
+                new FeatureFlagSubject(token.userId(), profileId, request.accountNumber())
+        )) {
+            throw new CardFeatureDisabledException("Card ordering is disabled");
+        }
         accountEligibilityClient.requireEligible(request.accountNumber(), token.userId(), profileId);
 
         cardOrderRepository.findOpenByUserIdAndAccountNumber(token.userId(), request.accountNumber())

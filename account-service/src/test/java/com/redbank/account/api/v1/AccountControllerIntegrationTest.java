@@ -106,6 +106,32 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void internalFeatureEvaluationContextReturnsTrustedProfileAccountAndBalance() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String profileId = registered.path("data").path("profile").path("profileId").asText();
+        String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
+        ledgerBalanceClient.amount(new BigDecimal("250000.00"));
+
+        internalFeatureEvaluationContext(userId, profileId, accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(userId.toString()))
+                .andExpect(jsonPath("$.data.profileId").value(profileId))
+                .andExpect(jsonPath("$.data.profileType").value("PERSONAL"))
+                .andExpect(jsonPath("$.data.jobId").value("job-engineer"))
+                .andExpect(jsonPath("$.data.accountNumber").value(accountNumber))
+                .andExpect(jsonPath("$.data.accountType").value("SAVING"))
+                .andExpect(jsonPath("$.data.accountStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.currency").value("IRR"))
+                .andExpect(jsonPath("$.data.availableBalance").value(250000.00))
+                .andExpect(jsonPath("$.data.currentBalance").value(250000.00));
+    }
+
+    @Test
     void registerStoresLedgerAccountCreationOutboxEvent() throws Exception {
         UUID userId = UUID.randomUUID();
 
@@ -574,6 +600,23 @@ class AccountControllerIntegrationTest {
                           "currency": "%s"
                         }
                         """.formatted(userId, currency)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions internalFeatureEvaluationContext(
+            UUID userId,
+            String profileId,
+            String accountNumber
+    ) throws Exception {
+        return mockMvc.perform(post("/internal/v1/account/feature-evaluation-context/get")
+                .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
+                .contentType("application/json")
+                .content("""
+                        {
+                          "userId": "%s",
+                          "profileId": "%s",
+                          "accountNumber": "%s"
+                        }
+                        """.formatted(userId, profileId, accountNumber)));
     }
 
     private int outboxEventCount(String accountNumber, String eventType) {

@@ -369,16 +369,23 @@ Small steps:
 5. Seed initial flags.
 6. Implement `POST /api/v1/feature-flags/list`.
 7. Implement `POST /api/v1/feature-flags/update`.
-8. Add authorization later for admin-only updates.
+8. Add admin authorization for mutation APIs.
 9. Use flag in transfer-service.
 10. Use flag in card-service.
 11. Use flag in KYC referral reward.
+12. Add client-visible subject evaluation.
+13. Add explicit user allow/deny overrides.
+14. Add ordered rules for profile, account, currency, job, and balance.
+15. Load evaluation attributes from account-service.
+16. Audit targeting replacements.
 
 Engineering focus:
 
 - Operational controls
 - Admin-only APIs
 - Audit logging
+- Deterministic override and rule precedence
+- Trusted targeting context
 - Avoiding redeploys for simple switches
 
 ## Phase 8: Transfer Service

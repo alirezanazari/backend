@@ -281,7 +281,10 @@ public class KycService {
                 || plan.reward().status() == ReferralRewardStatus.POSTED) {
             return false;
         }
-        if (!featureFlagClient.isEnabled(REFERRAL_REWARD_FLAG)) {
+        if (!featureFlagClient.isEnabled(
+                REFERRAL_REWARD_FLAG,
+                FeatureFlagSubject.forUser(plan.kycCase().userId())
+        )) {
             return false;
         }
         ActiveReferrerAccount account = referrerAccountClient.findActiveAccount(

@@ -8,6 +8,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.redbank.kyc.application.ActiveReferrerAccount;
 import com.redbank.kyc.application.FeatureFlagClient;
+import com.redbank.kyc.application.FeatureFlagSubject;
 import com.redbank.kyc.application.ReferralRewardClient;
 import com.redbank.kyc.application.ReferralRewardResult;
 import com.redbank.kyc.application.ReferrerAccountClient;
@@ -81,7 +82,7 @@ class KycControllerIntegrationTest {
         dsl.deleteFrom(REFERRAL_CODES).execute();
         dsl.deleteFrom(KYC_CASES).execute();
         reset(referrerAccountClient, referralRewardClient, featureFlagClient);
-        when(featureFlagClient.isEnabled(anyString())).thenReturn(true);
+        when(featureFlagClient.isEnabled(anyString(), any(FeatureFlagSubject.class))).thenReturn(true);
     }
 
     @Test
@@ -223,7 +224,10 @@ class KycControllerIntegrationTest {
         UUID referredUserId = UUID.randomUUID();
         UUID referrerUserId = UUID.randomUUID();
         saveReferralCode(referrerUserId, "ALICE_2026", "Alice");
-        when(featureFlagClient.isEnabled("referral.reward.enabled")).thenReturn(false);
+        when(featureFlagClient.isEnabled(
+                org.mockito.ArgumentMatchers.eq("referral.reward.enabled"),
+                any(FeatureFlagSubject.class)
+        )).thenReturn(false);
 
         api(
                 "/api/v1/kyc/referral/set",

@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record VerifiedToken(
         UUID actorId,
+        UUID profileId,
         List<String> roles
 ) {
     public VerifiedToken {

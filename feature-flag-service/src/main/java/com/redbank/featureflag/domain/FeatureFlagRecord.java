@@ -8,6 +8,7 @@ public record FeatureFlagRecord(
         String key,
         boolean enabled,
         String description,
+        boolean clientVisible,
         UUID updatedBy,
         Instant createdAt,
         Instant updatedAt
@@ -15,6 +16,7 @@ public record FeatureFlagRecord(
     public FeatureFlagRecord withUpdate(
             boolean nextEnabled,
             String nextDescription,
+            boolean nextClientVisible,
             UUID actorId,
             Instant nextUpdatedAt
     ) {
@@ -23,6 +25,7 @@ public record FeatureFlagRecord(
                 key,
                 nextEnabled,
                 nextDescription,
+                nextClientVisible,
                 actorId,
                 createdAt,
                 nextUpdatedAt

@@ -4,6 +4,8 @@ import com.redbank.account.api.internal.dto.GetAccountCompletionRequest;
 import com.redbank.account.api.internal.dto.GetAccountCompletionResponse;
 import com.redbank.account.api.internal.dto.GetCardAccountRequest;
 import com.redbank.account.api.internal.dto.GetCardAccountResponse;
+import com.redbank.account.api.internal.dto.GetFeatureEvaluationContextRequest;
+import com.redbank.account.api.internal.dto.GetFeatureEvaluationContextResponse;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountRequest;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountResponse;
 import com.redbank.account.application.AccountService;
@@ -36,7 +38,7 @@ public class InternalAccountController {
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody GetAccountCompletionRequest request
     ) {
-        authorize(serviceToken);        
+        authorize(serviceToken);
         GetAccountCompletionResponse response = accountService.getCompletion(request);
         return ResponseEntity.ok(ApiResponse.success("internal", response.activeProfileId(), response));
     }
@@ -59,6 +61,16 @@ public class InternalAccountController {
         authorize(serviceToken);
         GetReferralRewardAccountResponse response = accountService.getReferralRewardAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
+    }
+
+    @PostMapping("/feature-evaluation-context/get")
+    public ResponseEntity<ApiResponse<GetFeatureEvaluationContextResponse>> getFeatureEvaluationContext(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody GetFeatureEvaluationContextRequest request
+    ) {
+        authorize(serviceToken);
+        GetFeatureEvaluationContextResponse response = accountService.getFeatureEvaluationContext(request);
+        return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
     }
 
     private void authorize(String serviceToken) {

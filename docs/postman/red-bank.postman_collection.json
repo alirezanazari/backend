@@ -1006,6 +1006,32 @@
           }
         },
         {
+          "name": "Evaluate Client Feature Flags",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"keys\":[\"card.order.enabled\",\"transfer.account-to-account.enabled\"],\"subjectUserId\":null,\"profileId\":null,\"accountNumber\":null}}"
+            },
+            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/evaluate",
+            "description": "Evaluates client-visible flags for the authenticated user. Subject fields must remain null for user calls."
+          }
+        },
+        {
           "name": "Update Feature Flag",
           "request": {
             "method": "POST",
@@ -1025,10 +1051,62 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"key\":\"card.order.enabled\",\"enabled\":true,\"description\":null,\"reason\":\"Postman operational update\"}}"
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"key\":\"card.order.enabled\",\"enabled\":true,\"description\":null,\"clientVisible\":true,\"reason\":\"Postman operational update\"}}"
             },
             "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/update",
             "description": "Updates one feature flag and creates an audit record."
+          }
+        },
+        {
+          "name": "Get Feature Flag Targeting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"key\":\"card.order.enabled\"}}"
+            },
+            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/targeting/get",
+            "description": "Reads the user overrides and ordered targeting rules for one flag."
+          }
+        },
+        {
+          "name": "Update Feature Flag Targeting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"key\":\"card.order.enabled\",\"userOverrides\":[{\"userId\":\"{{userId}}\",\"enabled\":true}],\"rules\":[{\"name\":\"Business rollout\",\"priority\":10,\"enabled\":true,\"matchType\":\"ALL\",\"active\":true,\"conditions\":[{\"attribute\":\"PROFILE_TYPE\",\"operator\":\"EQUALS\",\"values\":[\"BUSINESS\"]}]}],\"reason\":\"Postman targeting update\"}}"
+            },
+            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/targeting/update",
+            "description": "Replaces and audits one flag's complete targeting configuration."
           }
         }
       ]

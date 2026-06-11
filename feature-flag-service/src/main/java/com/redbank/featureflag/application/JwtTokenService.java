@@ -46,9 +46,21 @@ public class JwtTokenService {
         return token;
     }
 
+    public VerifiedToken verifyUserToken(String authorizationHeader) {
+        VerifiedToken token = verifyBearerToken(authorizationHeader);
+        if (!token.hasRole("USER")) {
+            throw new FeatureFlagUnauthorizedException("Unauthorized");
+        }
+        return token;
+    }
+
     private VerifiedToken verifyBearerToken(String authorizationHeader) {
         JWTClaimsSet claims = verify(extractBearerToken(authorizationHeader));
-        return new VerifiedToken(parseUuid(claims.getSubject()), stringListClaim(claims, "roles"));
+        return new VerifiedToken(
+                parseUuid(claims.getSubject()),
+                parseNullableUuid(stringClaim(claims, "profile_id")),
+                stringListClaim(claims, "roles")
+        );
     }
 
     private JWTClaimsSet verify(String token) {
@@ -117,6 +129,15 @@ public class JwtTokenService {
         } catch (RuntimeException exception) {
             throw new FeatureFlagUnauthorizedException("Unauthorized");
         }
+    }
+
+    private UUID parseNullableUuid(String value) {
+        return value == null || value.isBlank() ? null : parseUuid(value);
+    }
+
+    private String stringClaim(JWTClaimsSet claims, String name) {
+        Object claim = claims.getClaim(name);
+        return claim == null ? null : claim.toString();
     }
 
     private List<String> stringListClaim(JWTClaimsSet claims, String name) {

@@ -1,6 +1,7 @@
 package com.redbank.kyc.infrastructure.featureflag;
 
 import com.redbank.kyc.application.FeatureFlagClient;
+import com.redbank.kyc.application.FeatureFlagSubject;
 import com.redbank.kyc.config.KycProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -22,7 +23,7 @@ public class ConfiguredFeatureFlagClient implements FeatureFlagClient {
     }
 
     @Override
-    public boolean isEnabled(String key) {
+    public boolean isEnabled(String key, FeatureFlagSubject subject) {
         return !REFERRAL_REWARD_FLAG.equals(key) || kycProperties.referralRewardEnabled();
     }
 }

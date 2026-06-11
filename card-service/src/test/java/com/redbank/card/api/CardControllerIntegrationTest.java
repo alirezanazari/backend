@@ -12,6 +12,7 @@ import com.redbank.card.api.internal.InternalCardController;
 import com.redbank.card.application.AccountEligibilityClient;
 import com.redbank.card.application.EligibleAccount;
 import com.redbank.card.application.FeatureFlagClient;
+import com.redbank.card.application.FeatureFlagSubject;
 import com.redbank.card.domain.CardOrderRecord;
 import com.redbank.card.domain.CardOrderStatus;
 import com.redbank.card.infrastructure.CardOrderRepository;
@@ -77,7 +78,7 @@ class CardControllerIntegrationTest {
     void allowEligibleAccounts() {
         when(accountEligibilityClient.requireEligible(anyString(), any(UUID.class), any(UUID.class)))
                 .thenAnswer(invocation -> new EligibleAccount(invocation.getArgument(0), "IRR"));
-        when(featureFlagClient.isEnabled(anyString())).thenReturn(true);
+        when(featureFlagClient.isEnabled(anyString(), any(FeatureFlagSubject.class))).thenReturn(true);
     }
 
     @Test
@@ -224,7 +225,10 @@ class CardControllerIntegrationTest {
         String accountNumber = "163456789012345678";
         createDefaultCard(userId, profileId, accountNumber, "DIGITAL")
                 .andExpect(status().isOk());
-        when(featureFlagClient.isEnabled("card.order.enabled")).thenReturn(false);
+        when(featureFlagClient.isEnabled(
+                org.mockito.ArgumentMatchers.eq("card.order.enabled"),
+                any(FeatureFlagSubject.class)
+        )).thenReturn(false);
 
         orderCard(token(userId, profileId, List.of("USER")), profileId, accountNumber)
                 .andExpect(status().isNotFound())

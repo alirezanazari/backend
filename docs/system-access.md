@@ -127,7 +127,10 @@ Rules:
 | KYC | `POST /api/v1/kyc/status/get` | `USER` | User gets own KYC status. |
 | KYC | `POST /api/v1/kyc/complete` | `ADMIN` | Admin/system approval action. |
 | Feature Flag | `POST /api/v1/feature-flags/list` | `ADMIN` or `INTERNAL_SERVICE` | Not for normal users. |
+| Feature Flag | `POST /api/v1/feature-flags/evaluate` | `USER` or `INTERNAL_SERVICE` | Users receive client-visible flags for themselves; internal services provide the subject user. |
 | Feature Flag | `POST /api/v1/feature-flags/update` | `ADMIN` | Every update must be audited. |
+| Feature Flag | `POST /api/v1/feature-flags/targeting/get` | `ADMIN` | Reads user overrides and targeting rules. |
+| Feature Flag | `POST /api/v1/feature-flags/targeting/update` | `ADMIN` | Replaces and audits targeting configuration. |
 | PFM | `POST /api/v1/pfm/transactions/list` | `USER` | User sees own PFM transactions. |
 | PFM | `POST /api/v1/pfm/boxes/list` | `USER` | User sees own boxes. |
 | PFM | `POST /api/v1/pfm/boxes/create` | `USER` | User creates own vault-backed box. |
@@ -138,6 +141,7 @@ Rules:
 | Transfer | `POST /api/v1/transfers/recent/list` | `USER` | User sees own successful recent transfers only. |
 | Ledger | `POST /internal/v1/ledger/account/create` | `INTERNAL_SERVICE` | Account/PFM driven internal call. |
 | Ledger | `POST /internal/v1/ledger/account/close` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
+| Account | `POST /internal/v1/account/feature-evaluation-context/get` | `INTERNAL_SERVICE` | Returns trusted profile, account, and balance attributes for flag evaluation. |
 | Ledger | `POST /internal/v1/ledger/account/reopen` | `INTERNAL_SERVICE` | Account lifecycle outbox call. |
 | Ledger | `POST /internal/v1/ledger/transactions/internal-transfer` | `INTERNAL_SERVICE` | Transfer-service internal call. |
 | Ledger | `POST /internal/v1/ledger/transactions/referral-reward` | `INTERNAL_SERVICE` | KYC/transfer reward flow. |

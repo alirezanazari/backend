@@ -30,6 +30,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Account | `POST /api/v1/profile/active/set` | Required | Set active profile for current user. |
 | Account | `POST /api/v1/account/owner/get` | Required | Lookup non-sensitive transfer destination display info. |
 | Account | `POST /internal/v1/account/referral/reward-account/get` | Internal | Find an active account eligible for a referral reward. |
+| Account | `POST /internal/v1/account/feature-evaluation-context/get` | Internal | Resolve trusted feature evaluation attributes. |
 | Card | `POST /api/v1/card/list` | Required | List cards for current user/profile. |
 | Card | `POST /api/v1/card/order` | Required | Order a new card. |
 | Card | `POST /api/v1/card/freeze` | Required | Temporarily freeze user's card. |
@@ -42,7 +43,10 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | KYC | `POST /api/v1/kyc/status/get` | Required | Get current user's KYC status. |
 | KYC | `POST /api/v1/kyc/complete` | Admin/Internal | Complete or approve KYC case. |
 | Feature Flag | `POST /api/v1/feature-flags/list` | Admin/Internal | List runtime feature flags. |
+| Feature Flag | `POST /api/v1/feature-flags/evaluate` | Required/Internal | Evaluate client-visible or internal flags for a trusted subject. |
 | Feature Flag | `POST /api/v1/feature-flags/update` | Admin | Update feature flag value. |
+| Feature Flag | `POST /api/v1/feature-flags/targeting/get` | Admin | Read user overrides and targeting rules. |
+| Feature Flag | `POST /api/v1/feature-flags/targeting/update` | Admin | Replace user overrides and targeting rules. |
 | PFM | `POST /api/v1/pfm/transactions/list` | Required | List personal finance transactions. |
 | PFM | `POST /api/v1/pfm/boxes/list` | Required | List user's boxes. |
 | PFM | `POST /api/v1/pfm/boxes/create` | Required | Create a new vault-backed box. |
@@ -127,7 +131,7 @@ Authenticated APIs:
 - All KYC APIs after registration/login except public job list
 - All PFM APIs
 - All transfer APIs
-- All feature flag APIs except future internal/admin exceptions
+- Feature flag evaluation for client-visible flags
 
 ## Gateway Requests
 
@@ -991,6 +995,26 @@ Important rules:
   - `card.order.enabled`
   - `referral.reward.enabled`
 
+### POST /api/v1/feature-flags/evaluate
+
+Fields: [See fields](./api-fields.md#post-apiv1feature-flagsevaluate)
+
+Authentication:
+
+```text
+user or internal service
+```
+
+Important rules:
+
+- A user token is always evaluated for its own subject and cannot submit user,
+  profile, or account targeting fields.
+- Users receive only flags where `clientVisible=true`.
+- Internal services submit `subjectUserId` and may narrow evaluation to an owned
+  profile and account.
+- Trusted profile/account/balance attributes are loaded from account-service.
+- Precedence is user override, first matching active rule, then global default.
+
 ### POST /api/v1/feature-flags/update
 
 Fields: [See fields](./api-fields.md#post-apiv1feature-flagsupdate)
@@ -1018,7 +1042,34 @@ Important rules:
 - Every update must be audited.
 - Track who changed the flag.
 - Track old value and new value.
+- `clientVisible` controls whether authenticated clients can receive the flag.
 - Feature changes can affect transfer, card, and referral flows.
+
+### POST /api/v1/feature-flags/targeting/get
+
+Authentication:
+
+```text
+admin required
+```
+
+Returns the current user overrides and ordered targeting rules for one flag.
+
+### POST /api/v1/feature-flags/targeting/update
+
+Authentication:
+
+```text
+admin required
+```
+
+Important rules:
+
+- The request replaces the complete targeting configuration for the flag.
+- User IDs and rule priorities must be unique.
+- Lower priority values run first.
+- Every replacement stores old and new JSON snapshots in an append-only audit.
+- Users never update globals, overrides, or targeting rules.
 
 ## PFM Requests
 

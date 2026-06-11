@@ -1,6 +1,7 @@
 package com.redbank.card.infrastructure.featureflag;
 
 import com.redbank.card.application.FeatureFlagClient;
+import com.redbank.card.application.FeatureFlagSubject;
 import com.redbank.card.config.CardProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -22,7 +23,7 @@ public class ConfiguredFeatureFlagClient implements FeatureFlagClient {
     }
 
     @Override
-    public boolean isEnabled(String key) {
+    public boolean isEnabled(String key, FeatureFlagSubject subject) {
         return !CARD_ORDER_FLAG.equals(key) || cardProperties.orderEnabled();
     }
 }

@@ -15,7 +15,7 @@ red-bank
   ledger-service       financial source of truth
   card-service         card lifecycle
   kyc-service          customer verification and referrals
-  feature-flag-service runtime operational feature controls
+  feature-flag-service global and user-targeted runtime feature controls
   transfer-service     money movement orchestration and history
   docs                 architecture and implementation documents
   docker               local infrastructure support

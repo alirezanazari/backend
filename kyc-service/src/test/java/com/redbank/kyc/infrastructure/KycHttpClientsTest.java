@@ -2,6 +2,7 @@ package com.redbank.kyc.infrastructure;
 
 import com.redbank.contracts.common.Money;
 import com.redbank.kyc.application.ActiveReferrerAccount;
+import com.redbank.kyc.application.FeatureFlagSubject;
 import com.redbank.kyc.application.ReferralRewardCommand;
 import com.redbank.kyc.application.ReferralRewardResult;
 import com.redbank.kyc.config.FeatureFlagClientProperties;
@@ -83,20 +84,23 @@ class KycHttpClientsTest {
     }
 
     @Test
-    void featureFlagClientReadsExactFlagIncludingDisabledFlags() {
+    void featureFlagClientEvaluatesExactFlagForTrustedSubject() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        UUID userId = UUID.randomUUID();
         HttpFeatureFlagClient client = new HttpFeatureFlagClient(
                 builder,
                 new FeatureFlagClientProperties(true, "http://flags.test", SERVICE_TOKEN)
         );
 
-        server.expect(requestTo("http://flags.test/api/v1/feature-flags/list"))
+        server.expect(requestTo("http://flags.test/api/v1/feature-flags/evaluate"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("X-Internal-Service-Token", SERVICE_TOKEN))
                 .andExpect(jsonPath("$.context.requestId").isNotEmpty())
                 .andExpect(jsonPath("$.data.keys[0]").value("referral.reward.enabled"))
-                .andExpect(jsonPath("$.data.includeDisabled").value(true))
+                .andExpect(jsonPath("$.data.subjectUserId").value(userId.toString()))
+                .andExpect(jsonPath("$.data.profileId").doesNotExist())
+                .andExpect(jsonPath("$.data.accountNumber").doesNotExist())
                 .andRespond(withSuccess("""
                         {
                           "context": null,
@@ -104,15 +108,17 @@ class KycHttpClientsTest {
                             "flags": [
                               {
                                 "key": "referral.reward.enabled",
-                                "enabled": false,
-                                "description": "Referral rewards"
+                                "enabled": false
                               }
                             ]
                           }
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        assertThat(client.isEnabled("referral.reward.enabled")).isFalse();
+        assertThat(client.isEnabled(
+                "referral.reward.enabled",
+                FeatureFlagSubject.forUser(userId)
+        )).isFalse();
         server.verify();
     }
 

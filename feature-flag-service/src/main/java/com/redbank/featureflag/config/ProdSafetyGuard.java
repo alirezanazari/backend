@@ -12,17 +12,20 @@ public class ProdSafetyGuard implements ApplicationRunner {
     private final DebugProperties debugProperties;
     private final JwtProperties jwtProperties;
     private final InternalAccessProperties internalAccessProperties;
+    private final AccountContextClientProperties accountContextClientProperties;
 
     public ProdSafetyGuard(
             Environment environment,
             DebugProperties debugProperties,
             JwtProperties jwtProperties,
-            InternalAccessProperties internalAccessProperties
+            InternalAccessProperties internalAccessProperties,
+            AccountContextClientProperties accountContextClientProperties
     ) {
         this.environment = environment;
         this.debugProperties = debugProperties;
         this.jwtProperties = jwtProperties;
         this.internalAccessProperties = internalAccessProperties;
+        this.accountContextClientProperties = accountContextClientProperties;
     }
 
     @Override
@@ -51,6 +54,11 @@ public class ProdSafetyGuard implements ApplicationRunner {
                 || internalAccessProperties.serviceTokenSecret().contains("change-me")) {
             throw new IllegalStateException(
                     "feature-flag-service cannot start in prod with a develop internal service token"
+            );
+        }
+        if (!accountContextClientProperties.enabled()) {
+            throw new IllegalStateException(
+                    "feature-flag-service requires account context integration in prod"
             );
         }
     }

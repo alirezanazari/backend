@@ -41,3 +41,7 @@ redbank:
     signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
   internal:
     service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  account-context-client:
+    enabled: ${REDBANK_FEATURE_FLAG_ACCOUNT_CONTEXT_CLIENT_ENABLED:true}
+    base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}

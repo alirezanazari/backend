@@ -8,6 +8,7 @@ public record UpdateFeatureFlagRequest(
         @NotBlank @Size(max = 160) String key,
         @NotNull Boolean enabled,
         @Size(max = 500) String description,
+        Boolean clientVisible,
         @NotBlank @Size(max = 500) String reason
 ) {
 }

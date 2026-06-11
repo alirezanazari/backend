@@ -4,6 +4,8 @@ import com.redbank.account.api.internal.dto.GetAccountCompletionRequest;
 import com.redbank.account.api.internal.dto.GetAccountCompletionResponse;
 import com.redbank.account.api.internal.dto.GetCardAccountRequest;
 import com.redbank.account.api.internal.dto.GetCardAccountResponse;
+import com.redbank.account.api.internal.dto.GetFeatureEvaluationContextRequest;
+import com.redbank.account.api.internal.dto.GetFeatureEvaluationContextResponse;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountRequest;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountResponse;
 import com.redbank.account.api.v1.dto.CloseAccountRequest;
@@ -515,6 +517,53 @@ public class AccountService {
                 account.userId().toString(),
                 account.accountNumber(),
                 account.currency()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public GetFeatureEvaluationContextResponse getFeatureEvaluationContext(
+            GetFeatureEvaluationContextRequest request
+    ) {
+        UUID userId = parseUserId(request.userId());
+        ProfileRecord profile = request.profileId() == null || request.profileId().isBlank()
+                ? profileRepository.findActiveByUserId(userId)
+                        .orElseGet(() -> profileRepository.findFirstByUserIdAndType(userId, ProfileType.PERSONAL)
+                                .orElseThrow(() -> new AccountNotFoundException("Profile was not found")))
+                : profileRepository.findById(parseProfileId(request.profileId()))
+                        .filter(candidate -> candidate.userId().equals(userId))
+                        .orElseThrow(() -> new AccountNotFoundException("Profile was not found"));
+
+        BankAccountRecord account;
+        if (request.accountNumber() != null && !request.accountNumber().isBlank()) {
+            account = bankAccountRepository.findByUserIdAndAccountNumber(userId, request.accountNumber())
+                    .filter(candidate -> candidate.profileId().equals(profile.id()))
+                    .orElseThrow(() -> new AccountNotFoundException("Account was not found"));
+        } else {
+            account = bankAccountRepository.findByUserIdAndProfileId(
+                            userId,
+                            profile.id(),
+                            List.of(),
+                            List.of(AccountStatus.ACTIVE)
+                    )
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        BalanceSummary balance = account == null
+                ? null
+                : ledgerBalanceClient.getBalance(account.accountNumber(), account.currency());
+        return new GetFeatureEvaluationContextResponse(
+                userId.toString(),
+                profile.id().toString(),
+                profile.type(),
+                profile.selectedJobId(),
+                account == null ? null : account.accountNumber(),
+                account == null ? null : account.type(),
+                account == null ? null : account.status(),
+                account == null ? null : account.currency(),
+                balance == null ? null : balance.availableBalance().amount(),
+                balance == null ? null : balance.currentBalance().amount()
         );
     }
 

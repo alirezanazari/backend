@@ -11,6 +11,8 @@ public record FeatureFlagAuditRecord(
         boolean newEnabled,
         String oldDescription,
         String newDescription,
+        boolean oldClientVisible,
+        boolean newClientVisible,
         UUID changedBy,
         String reason,
         String requestId,
