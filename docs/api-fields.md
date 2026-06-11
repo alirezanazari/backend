@@ -1110,6 +1110,27 @@ RecentTransferDestination:
 | `destinationName` | `String` | Yes | Destination display name. |
 | `destinationAccountOrCardNumber` | `String` | Yes | Destination account number or masked card number. |
 
+## Internal Account
+
+### POST /internal/v1/account/referral/reward-account/get
+
+Request: [See request details](./api-requests.md#post-internalv1accountreferralreward-accountget)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `userId` | `String` | Yes | Referrer user UUID. |
+| `currency` | `String` | Yes | Three-letter uppercase reward currency. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `userId` | `String` | Yes | Referrer user UUID. |
+| `accountNumber` | `String` | Yes | Eligible active 18-digit account number. |
+| `currency` | `String` | Yes | Account currency. |
+
 ## Internal Ledger
 
 ### POST /internal/v1/ledger/account/create

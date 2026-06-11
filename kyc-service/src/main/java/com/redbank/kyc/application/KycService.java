@@ -284,7 +284,10 @@ public class KycService {
         if (!featureFlagClient.isEnabled(REFERRAL_REWARD_FLAG)) {
             return false;
         }
-        ActiveReferrerAccount account = referrerAccountClient.findActiveAccount(plan.referral().referrerUserId());
+        ActiveReferrerAccount account = referrerAccountClient.findActiveAccount(
+                plan.referral().referrerUserId(),
+                kycProperties.referralRewardCurrency()
+        );
         if (account == null || account.accountNumber() == null || account.accountNumber().isBlank()) {
             throw new KycBusinessRuleException("Referrer must have an active account");
         }

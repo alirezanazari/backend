@@ -66,6 +66,27 @@ public class BankAccountRepository {
         return queryOne("WHERE user_id = ? AND account_number = ?", userId, accountNumber);
     }
 
+    public Optional<BankAccountRecord> findActiveReferralRewardAccount(UUID userId, String currency) {
+        return jdbcTemplate.query("""
+                        SELECT ba.id, ba.profile_id, ba.user_id, ba.selected_job_id, ba.account_number, ba.iban, ba.type,
+                               ba.status, ba.currency, ba.closed_at, ba.created_at, ba.updated_at
+                        FROM bank_accounts ba
+                        JOIN profiles p ON p.id = ba.profile_id
+                        WHERE ba.user_id = ?
+                          AND ba.status = 'ACTIVE'
+                          AND ba.currency = ?
+                          AND p.status = 'ACTIVE'
+                        ORDER BY p.is_active DESC,
+                                 CASE WHEN p.type = 'PERSONAL' THEN 0 ELSE 1 END,
+                                 ba.created_at ASC
+                        LIMIT 1
+                        """,
+                this::map,
+                userId,
+                currency
+        ).stream().findFirst();
+    }
+
     public Optional<BankAccountRecord> findLatestClosedPersonalAccountByUserId(UUID userId) {
         return jdbcTemplate.query("""
                         SELECT ba.id, ba.profile_id, ba.user_id, ba.selected_job_id, ba.account_number, ba.iban, ba.type,

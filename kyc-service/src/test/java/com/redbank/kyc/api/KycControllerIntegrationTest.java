@@ -166,7 +166,7 @@ class KycControllerIntegrationTest {
         UUID referrerUserId = UUID.randomUUID();
         String referrerAccount = "123456789012345678";
         saveReferralCode(referrerUserId, "ALICE_2026", "Alice");
-        when(referrerAccountClient.findActiveAccount(referrerUserId))
+        when(referrerAccountClient.findActiveAccount(referrerUserId, "IRR"))
                 .thenReturn(new ActiveReferrerAccount(referrerUserId, referrerAccount, "IRR"));
         when(referralRewardClient.requestReward(any()))
                 .thenReturn(new ReferralRewardResult(UUID.randomUUID().toString(), "POSTED"));

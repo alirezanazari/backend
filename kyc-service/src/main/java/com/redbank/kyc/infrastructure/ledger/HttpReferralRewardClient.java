@@ -1,12 +1,16 @@
 package com.redbank.kyc.infrastructure.ledger;
 
+import com.redbank.contracts.envelope.ApiResponse;
+import com.redbank.kyc.application.KycExternalServiceException;
 import com.redbank.kyc.application.ReferralRewardClient;
 import com.redbank.kyc.application.ReferralRewardCommand;
 import com.redbank.kyc.application.ReferralRewardResult;
 import com.redbank.kyc.config.ReferralRewardClientProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 @Component
 @ConditionalOnProperty(
@@ -20,8 +24,11 @@ public class HttpReferralRewardClient implements ReferralRewardClient {
 
     private final RestClient restClient;
 
-    public HttpReferralRewardClient(ReferralRewardClientProperties properties) {
-        this.restClient = RestClient.builder()
+    public HttpReferralRewardClient(
+            RestClient.Builder restClientBuilder,
+            ReferralRewardClientProperties properties
+    ) {
+        this.restClient = restClientBuilder
                 .baseUrl(properties.baseUrl())
                 .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.serviceToken())
                 .build();
@@ -29,7 +36,19 @@ public class HttpReferralRewardClient implements ReferralRewardClient {
 
     @Override
     public ReferralRewardResult requestReward(ReferralRewardCommand command) {
-        // TODO
-        throw new UnsupportedOperationException("Implement referral reward dispatch");
+        try {
+            ApiResponse<ReferralRewardResult> response = restClient.post()
+                    .uri("/internal/v1/ledger/transactions/referral-reward")
+                    .body(command)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {
+                    });
+            if (response == null || response.data() == null) {
+                throw new KycExternalServiceException("Ledger service response was empty", null);
+            }
+            return response.data();
+        } catch (RestClientException exception) {
+            throw new KycExternalServiceException("Ledger service call failed", exception);
+        }
     }
 }

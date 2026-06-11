@@ -4,6 +4,8 @@ import com.redbank.account.api.internal.dto.GetAccountCompletionRequest;
 import com.redbank.account.api.internal.dto.GetAccountCompletionResponse;
 import com.redbank.account.api.internal.dto.GetCardAccountRequest;
 import com.redbank.account.api.internal.dto.GetCardAccountResponse;
+import com.redbank.account.api.internal.dto.GetReferralRewardAccountRequest;
+import com.redbank.account.api.internal.dto.GetReferralRewardAccountResponse;
 import com.redbank.account.api.v1.dto.CloseAccountRequest;
 import com.redbank.account.api.v1.dto.CloseAccountResponse;
 import com.redbank.account.api.v1.dto.CreateProfileRequest;
@@ -501,6 +503,18 @@ public class AccountService {
                 account.status(),
                 account.currency(),
                 eligible
+        );
+    }
+
+    public GetReferralRewardAccountResponse getReferralRewardAccount(GetReferralRewardAccountRequest request) {
+        UUID userId = parseUserId(request.userId());
+        BankAccountRecord account = bankAccountRepository
+                .findActiveReferralRewardAccount(userId, request.currency())
+                .orElseThrow(() -> new AccountNotFoundException("Active referral reward account was not found"));
+        return new GetReferralRewardAccountResponse(
+                account.userId().toString(),
+                account.accountNumber(),
+                account.currency()
         );
     }
 

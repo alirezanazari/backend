@@ -4,6 +4,8 @@ import com.redbank.account.api.internal.dto.GetAccountCompletionRequest;
 import com.redbank.account.api.internal.dto.GetAccountCompletionResponse;
 import com.redbank.account.api.internal.dto.GetCardAccountRequest;
 import com.redbank.account.api.internal.dto.GetCardAccountResponse;
+import com.redbank.account.api.internal.dto.GetReferralRewardAccountRequest;
+import com.redbank.account.api.internal.dto.GetReferralRewardAccountResponse;
 import com.redbank.account.application.AccountService;
 import com.redbank.account.application.AccountUnauthorizedException;
 import com.redbank.account.config.InternalAccessProperties;
@@ -47,6 +49,16 @@ public class InternalAccountController {
         authorize(serviceToken);
         GetCardAccountResponse response = accountService.getCardAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
+    }
+
+    @PostMapping("/referral/reward-account/get")
+    public ResponseEntity<ApiResponse<GetReferralRewardAccountResponse>> getReferralRewardAccount(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody GetReferralRewardAccountRequest request
+    ) {
+        authorize(serviceToken);
+        GetReferralRewardAccountResponse response = accountService.getReferralRewardAccount(request);
+        return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
     private void authorize(String serviceToken) {

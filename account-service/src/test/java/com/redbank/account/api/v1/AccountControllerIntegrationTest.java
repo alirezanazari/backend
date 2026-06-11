@@ -85,6 +85,27 @@ class AccountControllerIntegrationTest {
     }
 
     @Test
+    void internalReferralRewardAccountReturnsActiveAccountForRequestedCurrency() throws Exception {
+        UUID userId = UUID.randomUUID();
+        JsonNode registered = objectMapper.readTree(register(userId)
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String accountNumber = registered.path("data").path("account").path("accountNumber").asText();
+
+        internalReferralRewardAccount(userId, "IRR")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(userId.toString()))
+                .andExpect(jsonPath("$.data.accountNumber").value(accountNumber))
+                .andExpect(jsonPath("$.data.currency").value("IRR"));
+
+        internalReferralRewardAccount(userId, "USD")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.context.status.code").value("NOT_FOUND"));
+    }
+
+    @Test
     void registerStoresLedgerAccountCreationOutboxEvent() throws Exception {
         UUID userId = UUID.randomUUID();
 
@@ -538,6 +559,21 @@ class AccountControllerIntegrationTest {
                           "userId": "%s"
                         }
                         """.formatted(userId)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions internalReferralRewardAccount(
+            UUID userId,
+            String currency
+    ) throws Exception {
+        return mockMvc.perform(post("/internal/v1/account/referral/reward-account/get")
+                .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
+                .contentType("application/json")
+                .content("""
+                        {
+                          "userId": "%s",
+                          "currency": "%s"
+                        }
+                        """.formatted(userId, currency)));
     }
 
     private int outboxEventCount(String accountNumber, String eventType) {

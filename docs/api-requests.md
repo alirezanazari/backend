@@ -29,6 +29,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Account | `POST /api/v1/profile/edit` | Required | Edit profile display name and image. |
 | Account | `POST /api/v1/profile/active/set` | Required | Set active profile for current user. |
 | Account | `POST /api/v1/account/owner/get` | Required | Lookup non-sensitive transfer destination display info. |
+| Account | `POST /internal/v1/account/referral/reward-account/get` | Internal | Find an active account eligible for a referral reward. |
 | Card | `POST /api/v1/card/list` | Required | List cards for current user/profile. |
 | Card | `POST /api/v1/card/order` | Required | Order a new card. |
 | Card | `POST /api/v1/card/freeze` | Required | Temporarily freeze user's card. |
@@ -1280,6 +1281,39 @@ Important rules:
 - Response should include only destination name and destination card/account number.
 - Do not return destination phone number, national ID, address, balance, or sensitive card data.
 - This is a transfer history view, not the ledger source of truth.
+
+## Internal Account Requests
+
+These APIs are internal service APIs. They should not be directly exposed to mobile/web clients.
+
+### POST /internal/v1/account/referral/reward-account/get
+
+Fields: [See fields](./api-fields.md#post-internalv1accountreferralreward-accountget)
+
+Owner:
+
+```text
+account-service
+```
+
+Purpose:
+
+```text
+find an active referrer account in the requested reward currency
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- The account and its profile must both be active.
+- The account currency must match the requested reward currency.
+- The active profile is preferred, then the personal profile, then the oldest eligible account.
+- A missing eligible account returns `NOT_FOUND`; KYC treats this as a referral business-rule failure.
 
 ## Internal Ledger Requests
 
