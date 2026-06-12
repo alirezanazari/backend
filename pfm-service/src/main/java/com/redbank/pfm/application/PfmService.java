@@ -10,6 +10,7 @@ import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.pfm.BoxPresetSummary;
 import com.redbank.contracts.pfm.BoxStatus;
 import com.redbank.contracts.pfm.BoxSummary;
+import com.redbank.contracts.pfm.PfmTransactionSummary;
 import com.redbank.pfm.api.v1.dto.CreateBoxRequest;
 import com.redbank.pfm.api.v1.dto.CreateBoxResponse;
 import com.redbank.pfm.api.v1.dto.EditBoxRequest;
@@ -200,8 +201,57 @@ public class PfmService {
             RequestContext context,
             ListPfmTransactionsRequest request
     ) {
-        // TODO
-        throw new UnsupportedOperationException("TODO");
+        // Auth
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        UUID profileId = resolveProfileId(token, context);
+
+        // Input
+        if (request == null) {
+            throw validation("data", "request body is required", "REQUEST_BODY_REQUIRED");
+        }
+
+        if (request.fromDate() != null && 
+            request.toDate() != null &&
+            request.fromDate().isAfter(request.toDate())) {
+            throw validation("data.fromDate", "must be equal to or after toDate", "FROM_DATE_AFTER_TO_DATE");
+        }
+
+        // Ownership
+        UUID boxId = parseUuid(request.boxId(), "data.boxId", "BOX_ID_FORMAT");
+
+        BoxRecord box = boxRepository.findByIdAndOwner(boxId, token.userId(), profileId)
+                .orElseThrow(() -> new PfmNotFoundException("Box was not found"));
+
+        if (request.accountNumber() != null && 
+            !request.accountNumber().equals(box.accountNumber())) {
+            throw new PfmBusinessRuleException("Account number does not belong to the requested box");
+        }
+
+        if (box.status() != BoxStatus.ACTIVE) {
+            throw new PfmBusinessRuleException("Transactions of an inactive box cannot be listed");
+        }
+
+        // Ledger
+        LedgerPfmClient.LedgerEntries entries = ledgerPfmClient.listEntries(
+                box.accountNumber(),
+                request.fromDate(),
+                request.toDate(),
+                request.page()
+        );
+
+        // Mapping
+        List<PfmTransactionSummary> transactions = entries.entries().stream()
+                .map(entry -> new PfmTransactionSummary(
+                        entry.ledgerTransactionId(),
+                        box.accountNumber(),
+                        box.title(),
+                        entry.amount(),
+                        entry.direction(),
+                        entry.createdAt()
+                ))
+                .toList();
+
+        return new ListPfmTransactionsResponse(transactions, entries.page());
     }
 
     private UUID resolveProfileId(VerifiedToken token, RequestContext context) {
