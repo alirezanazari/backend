@@ -11,11 +11,18 @@ import com.redbank.contracts.account.AccountSummary;
 import com.redbank.contracts.account.AccountType;
 import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.common.Money;
+import com.redbank.contracts.common.PageRequest;
+import com.redbank.contracts.common.PageResponse;
+import com.redbank.contracts.ledger.LedgerDirection;
+import com.redbank.contracts.pfm.BoxStatus;
 import com.redbank.pfm.application.LedgerPfmClient;
 import com.redbank.pfm.application.VaultAccountClient;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +40,9 @@ import static com.redbank.pfm.jooq.tables.Boxes.BOXES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -198,12 +208,255 @@ class PfmControllerIntegrationTest {
                 .andExpect(jsonPath("$.context.status.code").value("NOT_FOUND"));
     }
 
+    @Test
+    void listsTransactionsByBoxAndMapsLedgerEntries() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(userId, profileId, VAULT_ACCOUNT, "Rainy day", BoxStatus.ACTIVE);
+        PageRequest page = new PageRequest(0, 20);
+        when(ledgerPfmClient.listEntries(
+                VAULT_ACCOUNT,
+                LocalDate.parse("2026-06-01"),
+                LocalDate.parse("2026-06-11"),
+                page
+        )).thenReturn(new LedgerPfmClient.LedgerEntries(
+                List.of(new LedgerPfmClient.LedgerEntry(
+                        "entry-1",
+                        "transaction-1",
+                        LedgerDirection.DEBIT,
+                        new Money(new BigDecimal("125000.00"), "IRR"),
+                        Instant.parse("2026-06-10T12:30:00Z")
+                )),
+                new PageResponse(0, 20, 1L, false)
+        ));
+
+        api(
+                "/api/v1/pfm/transactions/list",
+                token(userId, profileId),
+                profileId,
+                """
+                {
+                  "boxId":"%s",
+                  "accountNumber":"%s",
+                  "fromDate":"2026-06-01",
+                  "toDate":"2026-06-11",
+                  "page":{"page":0,"size":20}
+                }
+                """.formatted(boxId, VAULT_ACCOUNT)
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.transactions.length()").value(1))
+                .andExpect(jsonPath("$.data.transactions[0].transactionId")
+                        .value("transaction-1"))
+                .andExpect(jsonPath("$.data.transactions[0].accountNumber")
+                        .value(VAULT_ACCOUNT))
+                .andExpect(jsonPath("$.data.transactions[0].title").value("Rainy day"))
+                .andExpect(jsonPath("$.data.transactions[0].amount.amount").value(125000.00))
+                .andExpect(jsonPath("$.data.transactions[0].amount.currency").value("IRR"))
+                .andExpect(jsonPath("$.data.transactions[0].direction").value("DEBIT"))
+                .andExpect(jsonPath("$.data.transactions[0].occurredAt")
+                        .value("2026-06-10T12:30:00Z"))
+                .andExpect(jsonPath("$.data.page.page").value(0))
+                .andExpect(jsonPath("$.data.page.totalItems").value(1));
+
+        verify(ledgerPfmClient).listEntries(
+                VAULT_ACCOUNT,
+                LocalDate.parse("2026-06-01"),
+                LocalDate.parse("2026-06-11"),
+                page
+        );
+    }
+
+    @Test
+    void listsTransactionsByRequestAccountNumber() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        insertBox(userId, profileId, VAULT_ACCOUNT, "Savings", BoxStatus.ACTIVE);
+        when(ledgerPfmClient.listEntries(
+                eq(VAULT_ACCOUNT),
+                isNull(),
+                isNull(),
+                isNull()
+        )).thenReturn(emptyEntries());
+
+        api(
+                "/api/v1/pfm/transactions/list",
+                token(userId, profileId),
+                profileId,
+                """
+                {"accountNumber":"%s"}
+                """.formatted(VAULT_ACCOUNT)
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.transactions.length()").value(0));
+
+        verify(ledgerPfmClient).listEntries(VAULT_ACCOUNT, null, null, null);
+    }
+
+    @Test
+    void listsTransactionsBySelectedContextAccount() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        insertBox(userId, profileId, VAULT_ACCOUNT, "Savings", BoxStatus.ACTIVE);
+        when(ledgerPfmClient.listEntries(
+                eq(VAULT_ACCOUNT),
+                isNull(),
+                isNull(),
+                isNull()
+        )).thenReturn(emptyEntries());
+
+        api(
+                "/api/v1/pfm/transactions/list",
+                token(userId, profileId),
+                profileId,
+                VAULT_ACCOUNT,
+                "{}"
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.transactions.length()").value(0));
+
+        verify(ledgerPfmClient).listEntries(VAULT_ACCOUNT, null, null, null);
+    }
+
+    @Test
+    void rejectsMismatchedTransactionSelectors() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(userId, profileId, VAULT_ACCOUNT, "Savings", BoxStatus.ACTIVE);
+
+        api(
+                "/api/v1/pfm/transactions/list",
+                token(userId, profileId),
+                profileId,
+                """
+                {
+                  "boxId":"%s",
+                  "accountNumber":"888888888888888888"
+                }
+                """.formatted(boxId)
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code")
+                        .value("BUSINESS_RULE_VIOLATION"));
+
+        verify(ledgerPfmClient, never()).listEntries(anyString(), any(), any(), any());
+    }
+
+    @Test
+    void rejectsInvalidTransactionDateRange() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+
+        api(
+                "/api/v1/pfm/transactions/list",
+                token(userId, profileId),
+                profileId,
+                """
+                {
+                  "accountNumber":"%s",
+                  "fromDate":"2026-06-12",
+                  "toDate":"2026-06-11"
+                }
+                """.formatted(VAULT_ACCOUNT)
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.context.status.details[0].field")
+                        .value("data.fromDate"))
+                .andExpect(jsonPath("$.context.status.details[0].message")
+                        .value("must be before or equal to toDate"))
+                .andExpect(jsonPath("$.context.status.details[0].code")
+                        .value("FROM_DATE_AFTER_TO_DATE"));
+
+        verify(ledgerPfmClient, never()).listEntries(anyString(), any(), any(), any());
+    }
+
+    @Test
+    void rejectsTransactionRequestWithoutAccountSelector() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+
+        api(
+                "/api/v1/pfm/transactions/list",
+                token(userId, profileId),
+                profileId,
+                "{}"
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.context.status.details[0].code")
+                        .value("TRANSACTION_ACCOUNT_REQUIRED"));
+
+        verify(ledgerPfmClient, never()).listEntries(anyString(), any(), any(), any());
+    }
+
+    @Test
+    void anotherProfileCannotListTransactions() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        insertBox(userId, profileId, VAULT_ACCOUNT, "Private", BoxStatus.ACTIVE);
+        UUID otherProfileId = UUID.randomUUID();
+
+        api(
+                "/api/v1/pfm/transactions/list",
+                token(userId, otherProfileId),
+                otherProfileId,
+                """
+                {"accountNumber":"%s"}
+                """.formatted(VAULT_ACCOUNT)
+        )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.context.status.code").value("NOT_FOUND"));
+
+        verify(ledgerPfmClient, never()).listEntries(anyString(), any(), any(), any());
+    }
+
+    @Test
+    void rejectsTransactionsForInactiveBox() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.INACTIVE
+        );
+
+        api(
+                "/api/v1/pfm/transactions/list",
+                token(userId, profileId),
+                profileId,
+                """
+                {"boxId":"%s"}
+                """.formatted(boxId)
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code")
+                        .value("BUSINESS_RULE_VIOLATION"));
+
+        verify(ledgerPfmClient, never()).listEntries(anyString(), any(), any(), any());
+    }
+
     private org.springframework.test.web.servlet.ResultActions api(
             String path,
             String token,
             UUID profileId,
             String data
     ) throws Exception {
+        return api(path, token, profileId, null, data);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions api(
+            String path,
+            String token,
+            UUID profileId,
+            String accountNumber,
+            String data
+    ) throws Exception {
+        String contextAccountNumber = accountNumber == null
+                ? "null"
+                : "\"" + accountNumber + "\"";
         return mockMvc.perform(post(path)
                 .contentType("application/json")
                 .header("Authorization", "Bearer " + token)
@@ -212,7 +465,7 @@ class PfmControllerIntegrationTest {
                           "context": {
                             "requestId": "req-pfm-test",
                             "account": {
-                              "accountNumber": null,
+                              "accountNumber": %s,
                               "profileId": "%s"
                             },
                             "os": null,
@@ -228,7 +481,36 @@ class PfmControllerIntegrationTest {
                           },
                           "data": %s
                         }
-                        """.formatted(profileId, data)));
+                        """.formatted(contextAccountNumber, profileId, data)));
+    }
+
+    private UUID insertBox(
+            UUID userId,
+            UUID profileId,
+            String accountNumber,
+            String title,
+            BoxStatus status
+    ) {
+        UUID boxId = UUID.randomUUID();
+        OffsetDateTime now = Instant.parse("2026-06-01T00:00:00Z").atOffset(ZoneOffset.UTC);
+        dsl.insertInto(BOXES)
+                .set(BOXES.ID, boxId)
+                .set(BOXES.USER_ID, userId)
+                .set(BOXES.PROFILE_ID, profileId)
+                .set(BOXES.ACCOUNT_NUMBER, accountNumber)
+                .set(BOXES.TITLE, title)
+                .set(BOXES.STATUS, status.name())
+                .set(BOXES.CREATED_AT, now)
+                .set(BOXES.UPDATED_AT, now)
+                .execute();
+        return boxId;
+    }
+
+    private LedgerPfmClient.LedgerEntries emptyEntries() {
+        return new LedgerPfmClient.LedgerEntries(
+                List.of(),
+                new PageResponse(0, 20, 0L, false)
+        );
     }
 
     private AccountSummary vault(UUID profileId, String accountNumber) {

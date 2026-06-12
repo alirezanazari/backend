@@ -196,6 +196,7 @@ public class PfmService {
         return new EditBoxResponse(toBoxSummary(edited, null));
     }
 
+    @Transactional(readOnly = true)
     public ListPfmTransactionsResponse listTransactions(
             String authorizationHeader,
             RequestContext context,
@@ -209,21 +210,46 @@ public class PfmService {
         if (request == null) {
             throw validation("data", "request body is required", "REQUEST_BODY_REQUIRED");
         }
-
-        if (request.fromDate() != null && 
-            request.toDate() != null &&
-            request.fromDate().isAfter(request.toDate())) {
-            throw validation("data.fromDate", "must be equal to or after toDate", "FROM_DATE_AFTER_TO_DATE");
+        if (request.fromDate() != null
+                && request.toDate() != null
+                && request.fromDate().isAfter(request.toDate())) {
+            throw validation(
+                    "data.fromDate",
+                    "must be before or equal to toDate",
+                    "FROM_DATE_AFTER_TO_DATE"
+            );
         }
 
         // Ownership
-        UUID boxId = parseUuid(request.boxId(), "data.boxId", "BOX_ID_FORMAT");
+        String boxId = trimToNull(request.boxId());
+        String requestAccountNumber = trimToNull(request.accountNumber());
+        String contextAccountNumber = context.account() == null
+                ? null
+                : trimToNull(context.account().accountNumber());
+        String accountNumber = requestAccountNumber == null
+                ? contextAccountNumber
+                : requestAccountNumber;
+        if (boxId == null && accountNumber == null) {
+            throw validation(
+                    "data",
+                    "boxId or accountNumber is required",
+                    "TRANSACTION_ACCOUNT_REQUIRED"
+            );
+        }
 
-        BoxRecord box = boxRepository.findByIdAndOwner(boxId, token.userId(), profileId)
-                .orElseThrow(() -> new PfmNotFoundException("Box was not found"));
-
-        if (request.accountNumber() != null && 
-            !request.accountNumber().equals(box.accountNumber())) {
+        BoxRecord box = boxId == null
+                ? boxRepository.findByAccountNumberAndOwner(
+                        accountNumber,
+                        token.userId(),
+                        profileId
+                ).orElseThrow(() -> new PfmNotFoundException("Box was not found"))
+                : boxRepository.findByIdAndOwner(
+                        parseUuid(boxId, "data.boxId", "BOX_ID_FORMAT"),
+                        token.userId(),
+                        profileId
+                ).orElseThrow(() -> new PfmNotFoundException("Box was not found"));
+        if (requestAccountNumber != null
+                && !requestAccountNumber.equals(box.accountNumber())) {
             throw new PfmBusinessRuleException("Account number does not belong to the requested box");
         }
 

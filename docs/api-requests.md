@@ -1101,6 +1101,9 @@ Important rules:
 
 - Transaction data should come from ledger or a ledger-synchronized read model.
 - User must see only their own profile/account transactions.
+- Resolve the target box from `boxId`, request `accountNumber`, or selected
+  `context.account.accountNumber`, in that order.
+- At least one box or account selector must be available.
 - This API is a read experience, not the financial source of truth.
 
 ### POST /api/v1/pfm/boxes/list
