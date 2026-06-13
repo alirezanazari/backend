@@ -57,4 +57,5 @@ red-bank
 - [Database Design](./docs/databases.md)
 - [Security Design](./docs/security.md)
 - [Observability and Centralized Logging](./docs/observability.md)
+- [Image and Asset Storage](./docs/image-storage.md)
 - [Implementation Roadmap](./docs/implementation-roadmap.md)

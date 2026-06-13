@@ -750,6 +750,85 @@ Engineering focus:
 - Backup and recovery
 - SLO and incident readiness
 
+## Phase 15: Image and Asset Storage
+
+Topic:
+
+```text
+backend-managed light and dark assets through MinIO
+```
+
+Tasks:
+
+- Add MinIO to the develop Docker Compose environment
+- Add persistent object-storage volume
+- Add MinIO Console for backend developer uploads
+- Create environment-isolated buckets
+- Store stable object keys instead of complete URLs
+- Add profile default images
+- Resolve PFM box and vault images through box presets
+- Serve PNG, SVG, and iOS PDF visual assets
+- Keep public object reads for the initial implementation
+- Prepare the resolver for future 15-minute presigned URLs
+- Add reproducible required-asset bootstrap and backup guidance
+
+Small steps:
+
+1. Pin the selected MinIO container version.
+2. Add the MinIO server and persistent volume to develop Docker Compose.
+3. Add develop-only root credentials through environment variables.
+4. Expose the MinIO S3 API and Console on local ports.
+5. Create `redbank-assets-develop` through an idempotent bootstrap process.
+6. Apply anonymous object-read access without anonymous list or write access.
+7. Create a manifest for required profile and box-preset assets.
+8. Bootstrap every required light and dark asset with content-type and cache
+   metadata.
+9. Add asset endpoint, bucket, URL mode, and TTL configuration.
+10. Add a small S3-compatible URL resolver shared as an implementation pattern
+    by services that return images.
+11. Migrate profile image persistence from complete URLs to stable object keys.
+12. Configure default profile light and dark keys.
+13. Migrate box-preset image persistence from complete URLs to stable object
+    keys.
+14. Resolve a box image through its `preset_id`.
+15. Resolve a related `VAULT` account image through its box preset.
+16. Keep `bank_accounts` free of independent image fields.
+17. Preserve the public `Image(lightUrl, darkUrl, alt)` response contract.
+18. Verify PNG, SVG, and PDF assets with their intended clients.
+19. Add tests for defaults, preset resolution, URL generation, content types,
+    persistence, and access policy.
+20. Document the later switch from public URLs to private 15-minute presigned
+    URLs.
+21. Define production bucket isolation, TLS, backup, restore, monitoring, and
+    supported-version review before production launch.
+
+Exit criteria:
+
+- MinIO and its Console run in the develop environment.
+- Required assets survive a container restart.
+- Fresh environments receive the required bucket and default assets.
+- Profiles use backend-configured default object keys.
+- Box and vault images resolve through box presets.
+- Database rows contain object keys, not environment-specific or signed URLs.
+- Anonymous clients can read approved assets but cannot upload or delete them.
+- The existing `Image` API returns working light and dark URLs for PNG, SVG,
+  and PDF assets.
+- No user-facing binary upload endpoint exists.
+- Private 15-minute URL mode can be introduced without changing stored keys.
+
+Engineering focus:
+
+- Object storage and S3 concepts
+- Stable object identity vs temporary delivery URL
+- Environment isolation
+- Cache-safe immutable naming
+- Least-privilege storage access
+- Backup and restore across database and object storage
+
+Detailed design:
+
+- [Image and Asset Storage](./image-storage.md)
+
 ## Recommended Implementation Order
 
 Build in this exact order:
@@ -769,6 +848,7 @@ Build in this exact order:
 12. testing strategy
 13. observability platform
 14. production readiness
+15. image and asset storage
 ```
 
 Reason:
@@ -782,6 +862,8 @@ Feature flags give operational control before risky flows.
 Transfer needs IAM, account, ledger, card, KYC, and feature flags.
 PFM depends on account and ledger.
 Observability is implemented before production readiness is declared.
+Image and asset storage is kept as the final planned phase and introduces
+MinIO without changing business-service ownership boundaries.
 ```
 
 ## First Real Implementation Milestone

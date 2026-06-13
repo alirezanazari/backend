@@ -327,6 +327,7 @@ Detailed future infrastructure plans:
 
 - [Observability and Centralized Logging](./observability.md)
 - [OpenSearch Observability Platform](./opensearch-platform.md)
+- [Image and Asset Storage](./image-storage.md)
 
 ## Why PostgreSQL
 

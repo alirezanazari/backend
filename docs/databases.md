@@ -225,7 +225,9 @@ user_id
 job_id
 type
 display_name
-image_url
+image_light_key
+image_dark_key
+image_alt
 status
 is_active
 created_at
@@ -239,7 +241,11 @@ first profile is PERSONAL
 one user can have maximum 5 profiles
 only one active profile at a time
 job_id is selected from kyc-service jobs during registration
+new profiles receive backend-configured default light and dark image keys
 ```
+
+Profile image fields store stable object keys, not complete or signed URLs. See
+[Image and Asset Storage](./image-storage.md).
 
 ### bank_accounts
 
@@ -561,7 +567,6 @@ profile_id
 account_number
 title
 preset_id nullable
-image_url
 status
 created_at
 updated_at
@@ -572,6 +577,7 @@ Important:
 ```text
 account_number points to a VAULT account owned by account-service.
 pfm-service stores display metadata only.
+box image is resolved from the selected box preset.
 ```
 
 ### box_presets
@@ -581,12 +587,18 @@ Important fields:
 ```text
 id
 title
-image_url
+image_light_key
+image_dark_key
+image_alt
 sort_order
 is_active
 created_at
 updated_at
 ```
+
+Both light and dark image keys are required for an active preset. Boxes and
+their related vault accounts use these preset images and do not duplicate the
+keys. See [Image and Asset Storage](./image-storage.md).
 
 ## transfer_db
 
