@@ -590,43 +590,165 @@ Engineering focus:
 - Why database tests matter
 - Why financial systems need edge-case tests
 
-## Phase 13: Production Readiness
+## Phase 13: Observability Platform
 
 Topic:
 
 ```text
-prepare for real deployment thinking
+centralized logs, metrics, traces, dashboards, and alerts
 ```
 
 Tasks:
 
-- Centralized logging
-- Metrics
-- Tracing
+- Structured ECS JSON logs
+- OpenTelemetry metrics and distributed tracing
+- OpenSearch ingestion, storage, dashboards, and alerting
+- Separate develop and production environments
+- Retention, security, backup, and recovery controls
+
+### Stage 13.1: Application Telemetry Contract
+
+1. Define required log fields and blocked sensitive fields.
+2. Enable Spring Boot ECS JSON console logging for deployed environments.
+3. Keep human-readable logs as the developer-machine default.
+4. Replace repetitive request logs with one structured completion event.
+5. Normalize `X-Correlation-Id` at the API Gateway.
+6. Return correlation and request IDs in controlled error responses.
+7. Add CI tests that reject passwords, OTPs, tokens, card data, account data,
+   and national IDs in logs.
+
+Exit criteria:
+
+- Every service emits valid structured JSON in its deployed profile.
+- A request can be found by correlation ID.
+- Sensitive-value logging tests pass.
+
+### Stage 13.2: Shared Develop OpenSearch
+
+1. Add an optional local/develop Compose profile for OpenSearch and Dashboards.
+2. Add Fluent Bit for container standard-output collection.
+3. Add OpenSearch Data Prepper for parsing, redaction, and routing.
+4. Create version-controlled index templates and mappings.
+5. Create develop rollover and retention policies.
+6. Add dead-letter handling for invalid telemetry.
+7. Ingest one service first, verify the pipeline, then roll through all services.
+
+Exit criteria:
+
+- Every shared develop service is searchable in OpenSearch Dashboards.
+- Invalid or sensitive events are rejected or redacted.
+- Rollover and deletion policies execute successfully.
+
+### Stage 13.3: Traces and Metrics
+
+1. Add OpenTelemetry Collector.
+2. Add Micrometer Tracing with OpenTelemetry.
+3. Export service metrics and traces through OTLP.
+4. Propagate W3C trace context through the gateway and every HTTP client.
+5. Fix Reactor context propagation in the API Gateway.
+6. Add context propagation to scheduled jobs, async executors, and outbox
+   dispatchers.
+7. Add JVM, HTTP, database pool, outbound HTTP, outbox, transfer, and ledger
+   metrics.
+
+Exit criteria:
+
+- A gateway request and its downstream calls appear in one distributed trace.
+- Logs can be correlated with trace and span IDs.
+- Required service and business-operation metrics are visible.
+
+### Stage 13.4: Dashboards and Alerts
+
+1. Create service request-rate, error-rate, and latency dashboards.
+2. Create JVM, database pool, and outbound dependency dashboards.
+3. Create authentication, outbox, ledger, and transfer dashboards.
+4. Create OpenSearch, Data Prepper, and collector health dashboards.
+5. Add alerts for HTTP failures, latency, database exhaustion, outbox backlog,
+   ingestion failure, cluster health, disk watermarks, and failed snapshots.
+6. Export dashboards and monitors into version control.
+
+Exit criteria:
+
+- Dashboards cover every production service and the observability platform.
+- Alerts are verified through controlled failure injection.
+- Dashboard and alert definitions can be recreated from version control.
+
+### Stage 13.5: Production OpenSearch
+
+1. Provision a separate production OpenSearch cluster with at least three
+   cluster-manager-eligible nodes.
+2. Configure internal networking and TLS for every platform connection.
+3. Create least-privilege ingestion, reader, support, administrator, and
+   operator roles.
+4. Configure production index templates, rollover, and retention.
+5. Configure an external encrypted snapshot repository.
+6. Mirror pinned OpenSearch, Dashboards, Data Prepper, collector, and Fluent Bit
+   images into an internal registry.
+7. Run capacity, node-failure, ingestion-backpressure, snapshot-restore, and
+   upgrade tests.
+8. Document access approval, incident handling, restore, and upgrade runbooks.
+
+Exit criteria:
+
+- Develop and production share no credentials, certificates, indexes, or
+  snapshots.
+- Production APIs are not publicly reachable.
+- One-node failure does not stop ingestion.
+- A production-like snapshot restore succeeds.
+- Recovery artifacts are available from the internal registry.
+
+Engineering focus:
+
+- Logs vs durable business audit
+- Structured telemetry
+- Cross-thread and cross-service context propagation
+- Retention, cost, and access control
+- Alert quality
+
+Detailed design:
+
+- [Observability and Centralized Logging](./observability.md)
+- [OpenSearch Observability Platform](./opensearch-platform.md)
+
+## Phase 14: Production Readiness
+
+Topic:
+
+```text
+prepare for controlled production deployment
+```
+
+Tasks:
+
 - Secrets
 - CI pipeline
 - Security hardening
 - Backup strategy
+- Disaster recovery
+- Operational runbooks
 
 Small steps:
 
-1. Add structured JSON logs.
-2. Add metrics with Actuator.
-3. Add distributed trace IDs.
-4. Move secrets out of config files.
-5. Add CI build.
-6. Add test step in CI.
-7. Add Docker image build.
-8. Add database backup notes.
+1. Verify Phase 13 observability acceptance criteria.
+2. Move secrets out of config files.
+3. Add CI build.
+4. Add test step in CI.
+5. Add Docker image build.
+6. Add dependency and container vulnerability scanning.
+7. Add database backup procedures.
+8. Test restore and disaster-recovery procedures.
 9. Add rate limiting.
 10. Add security review checklist.
+11. Add deployment rollback and database migration runbooks.
+12. Define service SLOs and on-call ownership.
 
 Engineering focus:
 
-- Observability
 - CI/CD
 - Configuration management
 - Operational safety
+- Backup and recovery
+- SLO and incident readiness
 
 ## Recommended Implementation Order
 
@@ -644,6 +766,9 @@ Build in this exact order:
 9. pfm-service
 10. api-gateway hardening
 11. events and reliability
+12. testing strategy
+13. observability platform
+14. production readiness
 ```
 
 Reason:
@@ -656,6 +781,7 @@ Ledger gives safe money movement.
 Feature flags give operational control before risky flows.
 Transfer needs IAM, account, ledger, card, KYC, and feature flags.
 PFM depends on account and ledger.
+Observability is implemented before production readiness is declared.
 ```
 
 ## First Real Implementation Milestone

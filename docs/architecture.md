@@ -318,9 +318,15 @@ Later additions:
 
 - Redis for OTP and gateway key-exchange temporary state if needed
 - Kafka or RabbitMQ for events
-- Observability stack: logs, metrics, tracing
+- OpenSearch observability stack for centralized logs, metrics, tracing,
+  dashboards, and alerts
 - Secrets management
 - CI pipeline
+
+Detailed future infrastructure plans:
+
+- [Observability and Centralized Logging](./observability.md)
+- [OpenSearch Observability Platform](./opensearch-platform.md)
 
 ## Why PostgreSQL
 
@@ -380,3 +386,4 @@ key rotation support
 - Tests around business rules
 - Health checks for every service
 - Separate `develop` and `prod` configuration
+- Structured logs with trace and correlation identifiers

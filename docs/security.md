@@ -311,3 +311,8 @@ from where
 correlation id
 before and after status when useful
 ```
+
+Operational logs are not the authoritative business audit store. Sensitive
+business audit records remain in service-owned append-only tables or events. See
+[Observability and Centralized Logging](./observability.md) and
+[OpenSearch Observability Platform](./opensearch-platform.md).

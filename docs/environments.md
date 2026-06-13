@@ -207,6 +207,10 @@ Common examples:
 | `REDBANK_DB_PASSWORD` | develop secret | prod secret | Database password. |
 | `REDBANK_FLYWAY_ENABLED` | `true` | deployment-controlled | Database migration toggle. |
 | `REDBANK_LOG_LEVEL` | `DEBUG` or `INFO` | `INFO` | Application log level. |
+| `REDBANK_LOG_FORMAT` | `text` or `ecs` | `ecs` | Console log format. |
+| `REDBANK_OBSERVABILITY_ENVIRONMENT` | `develop` | `prod` | Telemetry environment attribute. |
+| `REDBANK_OTEL_EXPORTER_OTLP_ENDPOINT` | develop collector URL | production collector URL | OTLP metrics and traces endpoint. |
+| `REDBANK_OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `grpc` | OTLP export protocol. |
 | `REDBANK_EXTERNAL_TRANSFER_BASE_URL` | mock URL | real URL | Third-party transfer provider URL. |
 | `REDBANK_EXTERNAL_TRANSFER_API_KEY` | mock secret | prod secret | Third-party transfer credential. |
 
@@ -497,16 +501,27 @@ Examples of secrets:
 
 ## Logging By Environment
 
-Develop:
+Developer machine:
 
 ```text
-more verbose logs allowed
+human-readable console logs by default
+ECS JSON available for ingestion testing
 debug logs can be enabled temporarily
+```
+
+Shared develop:
+
+```text
+centralized non-production log platform
+separate credentials and indexes from prod
+short retention
 ```
 
 Prod:
 
 ```text
+centralized production log platform
+ECS JSON written to stdout
 INFO by default
 no sensitive data
 no passwords
@@ -515,6 +530,20 @@ no full tokens
 no full card numbers
 no raw request body for sensitive APIs
 ```
+
+Use separate self-hosted OpenSearch Observability stacks for shared `develop`
+and `prod`. Use Data Prepper plus OpenTelemetry Collector or Fluent Bit for
+ingestion.
+
+Foreign managed observability services must not be required for runtime or
+recovery unless legal eligibility, payment, and account continuity have been
+confirmed for the Iranian organization. Mirror approved observability images
+and packages into an internal registry.
+
+See:
+
+- [Observability and Centralized Logging](./observability.md)
+- [OpenSearch Observability Platform](./opensearch-platform.md)
 
 ## Environment Startup Validation
 
@@ -530,6 +559,7 @@ Fail startup in prod if:
 - Required service URLs are missing
 - External provider credentials are missing
 - TLS requirement is disabled for public gateway
+- Production logging collector or destination is missing
 
 ## Implementation Checklist
 

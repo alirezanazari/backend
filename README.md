@@ -56,4 +56,5 @@ red-bank
 - [Microservices Design](./docs/microservices.md)
 - [Database Design](./docs/databases.md)
 - [Security Design](./docs/security.md)
+- [Observability and Centralized Logging](./docs/observability.md)
 - [Implementation Roadmap](./docs/implementation-roadmap.md)
