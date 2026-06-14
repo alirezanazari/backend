@@ -194,9 +194,13 @@ Common examples:
 | `REDBANK_JWT_ISSUER` | `red-bank-develop` | `red-bank` | JWT issuer. |
 | `REDBANK_JWT_AUDIENCE` | `red-bank-api` | `red-bank-api` | JWT audience. |
 | `REDBANK_JWT_ACCESS_TOKEN_TTL_SECONDS` | `900` | `900` | User access token lifetime. |
+| `REDBANK_JWT_SIGNING_SECRET` | develop secret | prod secret | Current HS256 token signing/verification secret. |
 | `REDBANK_JWT_PRIVATE_KEY` | develop secret | prod secret | JWT signing private key. |
 | `REDBANK_JWT_PUBLIC_KEY` | develop secret | prod secret | JWT verification public key. |
 | `REDBANK_GATEWAY_PUBLIC_BASE_URL` | develop URL | prod URL | Public gateway base URL. |
+| `REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED` | `false` | deployment-controlled | Enables gateway X25519/AES-GCM request decryption. |
+| `REDBANK_GATEWAY_KEY_EXCHANGE_TTL_SECONDS` | `300` | `300` | Temporary gateway encryption-session lifetime. |
+| `REDBANK_GATEWAY_MAX_ENCRYPTED_BODY_BYTES` | `1048576` | policy-controlled | Maximum encrypted and decrypted request body size. |
 | `REDBANK_INTERNAL_SERVICE_TOKEN_SECRET` | develop secret | prod secret | Internal service token secret. |
 | `REDBANK_LEDGER_CLIENT_ENABLED` | `false` or `true` | `true` | Lets account-service call ledger-service for account creation and balances. |
 | `REDBANK_LEDGER_BASE_URL` | `http://localhost:8083` | prod URL | Internal ledger-service base URL. |

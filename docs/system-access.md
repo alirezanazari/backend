@@ -29,8 +29,23 @@ Gateway responsibilities:
 - Reject authenticated users without permission with `403 Forbidden`.
 - Strip all inbound identity headers from external clients.
 - Add trusted internal identity headers only after validation.
+- Strip `X-Internal-Service-Token` from every public request.
 - Own app-level request decryption if enabled.
 - Route public, user, admin, and internal requests correctly.
+
+Trusted headers added after successful JWT validation:
+
+```text
+X-Authenticated-User-Id
+X-Authenticated-Profile-Id
+X-Authenticated-Device-Id
+X-Authenticated-Token-Id
+X-Authenticated-Roles
+X-Authenticated-Scopes
+```
+
+These headers are internal hints only. Services continue to validate the
+forwarded bearer token and enforce ownership/business authorization.
 
 Service responsibilities:
 

@@ -94,6 +94,40 @@ microservices never decrypt request payloads
 session expires quickly
 ```
 
+Implemented transport:
+
+```text
+key agreement: X25519
+client/server public-key encoding: Base64 of X.509 SubjectPublicKeyInfo bytes
+key derivation: HKDF-SHA-256
+HKDF salt: UTF-8 keyExchangeId
+HKDF info: red-bank-gateway-app-encryption-v1
+payload encryption: AES-256-GCM
+nonce: 12 random bytes, never reused with the same session key
+additional authenticated data: UTF-8 keyExchangeId
+```
+
+When a client encrypts a public request, it sends:
+
+```text
+X-Key-Exchange-Id: value returned by key exchange
+X-Encryption-Nonce: Base64 12-byte AES-GCM nonce
+Content-Type: text/plain
+body: Base64 AES-GCM ciphertext of the complete normal JSON request envelope
+```
+
+The gateway:
+
+1. Rejects unknown or expired sessions.
+2. Authenticates and decrypts the payload in memory.
+3. Removes the encryption transport headers.
+4. Replaces the request body with the raw JSON envelope.
+5. Forwards `Content-Type: application/json` to the owning microservice.
+
+Unencrypted requests remain supported when app-level encryption is enabled so
+non-sensitive endpoints and controlled migrations can continue to work. HTTPS
+is mandatory in production in both modes.
+
 Do not use simple random string concatenation as a secret key. It may look secure but usually is not.
 
 ## Login
@@ -134,6 +168,11 @@ Use asymmetric signing:
 ```text
 ES256 or RS256
 ```
+
+The current service and gateway implementation accepts HS256 through
+`REDBANK_JWT_SIGNING_SECRET` for compatibility. Treat this as a transitional
+implementation detail; the production target remains asymmetric signing so
+services can verify tokens without sharing signing capability.
 
 Reason:
 

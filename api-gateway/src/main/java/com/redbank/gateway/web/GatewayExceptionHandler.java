@@ -3,6 +3,7 @@ package com.redbank.gateway.web;
 import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.envelope.Status;
 import com.redbank.contracts.envelope.StatusDetail;
+import com.redbank.gateway.security.AppEncryptionException;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -30,6 +31,15 @@ public class GatewayExceptionHandler {
     @ExceptionHandler(ServerWebInputException.class)
     ResponseEntity<ApiResponse<Void>> malformed(ServerWebInputException exception, ServerWebExchange exchange) {
         Status status = Status.validationError(List.of(new StatusDetail(null, "Request body is missing or malformed", "MALFORMED_BODY")));
+        return ResponseEntity.status(status.httpStatus())
+                .body(ApiResponse.failure(requestId(exchange), null, status));
+    }
+
+    @ExceptionHandler(AppEncryptionException.class)
+    ResponseEntity<ApiResponse<Void>> encryption(AppEncryptionException exception, ServerWebExchange exchange) {
+        Status status = Status.validationError(List.of(
+                new StatusDetail("data.clientPublicKey", exception.getMessage(), "INVALID_KEY_EXCHANGE")
+        ));
         return ResponseEntity.status(status.httpStatus())
                 .body(ApiResponse.failure(requestId(exchange), null, status));
     }

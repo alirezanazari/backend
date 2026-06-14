@@ -10,10 +10,16 @@ import org.springframework.stereotype.Component;
 public class ProdSafetyGuard implements ApplicationRunner {
     private final Environment environment;
     private final DebugProperties debugProperties;
+    private final JwtProperties jwtProperties;
 
-    public ProdSafetyGuard(Environment environment, DebugProperties debugProperties) {
+    public ProdSafetyGuard(
+            Environment environment,
+            DebugProperties debugProperties,
+            JwtProperties jwtProperties
+    ) {
         this.environment = environment;
         this.debugProperties = debugProperties;
+        this.jwtProperties = jwtProperties;
     }
 
     @Override
@@ -28,6 +34,13 @@ public class ProdSafetyGuard implements ApplicationRunner {
         }
         if (debugProperties.mockOtp().enabled()) {
             throw new IllegalStateException("api-gateway cannot start in prod with redbank.debug.mock-otp.enabled=true");
+        }
+        if (jwtProperties.issuer().contains("develop") || jwtProperties.issuer().contains("debug")) {
+            throw new IllegalStateException("api-gateway cannot start in prod with a develop/debug JWT issuer");
+        }
+        if (jwtProperties.signingSecret().contains("local-develop")
+                || jwtProperties.signingSecret().contains("change-me")) {
+            throw new IllegalStateException("api-gateway cannot start in prod with a develop JWT signing secret");
         }
     }
 }

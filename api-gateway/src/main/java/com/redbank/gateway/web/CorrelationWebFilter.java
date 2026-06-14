@@ -15,11 +15,12 @@ import reactor.core.publisher.Mono;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CorrelationWebFilter implements WebFilter {
     public static final String HEADER_NAME = "X-Correlation-Id";
+    private static final int MAX_LENGTH = 80;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String correlationId = exchange.getRequest().getHeaders().getFirst(HEADER_NAME);
-        if (correlationId == null || correlationId.isBlank()) {
+        if (!isValid(correlationId)) {
             correlationId = UUID.randomUUID().toString();
         }
 
@@ -32,5 +33,22 @@ public class CorrelationWebFilter implements WebFilter {
         MDC.put("correlationId", correlationId);
         return chain.filter(exchange.mutate().request(request).build())
                 .doFinally(signalType -> MDC.remove("correlationId"));
+    }
+
+    private boolean isValid(String correlationId) {
+        if (correlationId == null || correlationId.isBlank() || correlationId.length() > MAX_LENGTH) {
+            return false;
+        }
+        for (int index = 0; index < correlationId.length(); index++) {
+            char value = correlationId.charAt(index);
+            if (!Character.isLetterOrDigit(value)
+                    && value != '-'
+                    && value != '_'
+                    && value != '.'
+                    && value != ':') {
+                return false;
+            }
+        }
+        return true;
     }
 }

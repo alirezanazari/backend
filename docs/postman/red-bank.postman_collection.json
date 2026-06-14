@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "f15d63b0-5e3a-4aa8-9d49-92c2b23b5f8b",
     "name": "red-bank Backend",
-    "description": "Postman collection for the API requests currently implemented in the red-bank backend. Each request uses the base URL of its owning microservice. Public business APIs use the shared context/data envelope. Internal APIs use X-Internal-Service-Token. Debug endpoints require the develop profile and REDBANK_DEBUG_ENABLED=true. Gateway key exchange requires REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true.",
+    "description": "Postman collection for the API requests currently implemented in the red-bank backend. Public business APIs use gatewayBaseUrl and the shared context/data envelope. Internal APIs call their owning microservice directly with X-Internal-Service-Token. Debug endpoints require the develop profile and REDBANK_DEBUG_ENABLED=true. Gateway key exchange requires REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -66,6 +66,9 @@
           "  if (data.ledgerAccountId) pm.collectionVariables.set('ledgerAccountId', data.ledgerAccountId);",
           "  if (data.ledgerTransactionId) pm.collectionVariables.set('ledgerTransactionId', data.ledgerTransactionId);",
           "  if (data.transferId) pm.collectionVariables.set('transferId', data.transferId);",
+          "  if (data.box && data.box.boxId) pm.collectionVariables.set('boxId', data.box.boxId);",
+          "  if (data.boxes && data.boxes.length && data.boxes[0].boxId) pm.collectionVariables.set('boxId', data.boxes[0].boxId);",
+          "  if (data.presets && data.presets.length && data.presets[0].presetId) pm.collectionVariables.set('boxPresetId', data.presets[0].presetId);",
           "",
           "  if (data.accessToken) {",
           "    if (pm.info.requestName === 'Debug User Token') {",
@@ -298,6 +301,21 @@
       "key": "transferId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "pfmBaseUrl",
+      "value": "http://localhost:8088",
+      "type": "string"
+    },
+    {
+      "key": "boxId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "boxPresetId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -323,7 +341,7 @@
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"clientPublicKey\":\"BASE64_X25519_CLIENT_PUBLIC_KEY\"}}"
             },
             "url": "{{gatewayBaseUrl}}/api/v1/security/key-exchange",
-            "description": "Conditional gateway endpoint. Enable REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true before calling."
+            "description": "Conditional gateway endpoint. Enable REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED=true before calling. clientPublicKey is Base64 X.509 X25519 public-key bytes. Encrypted API calls use X-Key-Exchange-Id, a Base64 12-byte X-Encryption-Nonce, and a Base64 AES-256-GCM request body."
           }
         }
       ]
@@ -349,7 +367,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"nationalId\":\"{{nationalId}}\",\"phoneNumber\":\"{{phoneNumber}}\",\"username\":\"{{username}}\",\"password\":\"{{password}}\",\"firstName\":\"Ali\",\"lastName\":\"Nazari\",\"location\":{\"countryCode\":\"IR\",\"province\":\"Tehran\",\"city\":\"Tehran\",\"address\":\"Main street\",\"postalCode\":\"1234567890\"},\"jobId\":\"{{jobId}}\"}}"
             },
-            "url": "{{iamBaseUrl}}/api/v1/iam/register",
+            "url": "{{gatewayBaseUrl}}/api/v1/iam/register",
             "description": "Creates a user and returns a limited onboarding token. The collection test stores it as onboardingToken."
           }
         },
@@ -371,7 +389,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"username\":\"{{username}}\",\"password\":\"{{password}}\"}}"
             },
-            "url": "{{iamBaseUrl}}/api/v1/iam/login",
+            "url": "{{gatewayBaseUrl}}/api/v1/iam/login",
             "description": "Returns either a user token or a device verification challenge. The collection test stores challengeId as deviceChallengeId and the limited token as deviceVerifyToken."
           }
         },
@@ -397,7 +415,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"challengeId\":\"{{deviceChallengeId}}\",\"otpCode\":\"{{otpCode}}\"}}"
             },
-            "url": "{{iamBaseUrl}}/api/v1/iam/device-verify",
+            "url": "{{gatewayBaseUrl}}/api/v1/iam/device-verify",
             "description": "Uses the login challenge token. In develop, otpCode=111111 works only when REDBANK_DEBUG_MOCK_OTP_ENABLED=true."
           }
         }
@@ -428,7 +446,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"jobId\":\"{{jobId}}\",\"profileDisplayName\":\"Personal\",\"profileImage\":null,\"currency\":\"IRR\"}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/account/register",
+            "url": "{{gatewayBaseUrl}}/api/v1/account/register",
             "description": "Creates the personal profile and default saving account. The collection test stores profileId, accountNumber, and iban."
           }
         },
@@ -454,7 +472,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"types\":[\"SAVING\"],\"statuses\":[\"ACTIVE\"],\"includeBalance\":true}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/account/list"
+            "url": "{{gatewayBaseUrl}}/api/v1/account/list"
           }
         },
         {
@@ -479,7 +497,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\"}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/account/balance/get"
+            "url": "{{gatewayBaseUrl}}/api/v1/account/balance/get"
           }
         },
         {
@@ -504,7 +522,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"reasonText\":\"Requested from Postman collection\"}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/account/close",
+            "url": "{{gatewayBaseUrl}}/api/v1/account/close",
             "description": "Only succeeds when the ledger-backed balance is zero."
           }
         },
@@ -530,7 +548,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"reasonText\":\"Requested from Postman collection\"}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/account/open",
+            "url": "{{gatewayBaseUrl}}/api/v1/account/open",
             "description": "Reopens an owned closed account and reactivates the owning profile."
           }
         },
@@ -556,7 +574,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"destinationType\":\"ACCOUNT\",\"accountNumber\":\"{{accountNumber}}\",\"iban\":null,\"cardNumber\":null}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/account/owner/get"
+            "url": "{{gatewayBaseUrl}}/api/v1/account/owner/get"
           }
         }
       ]
@@ -586,7 +604,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"type\":\"BUSINESS\",\"displayName\":\"Business {{runSuffix}}\",\"image\":null}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/profile/create",
+            "url": "{{gatewayBaseUrl}}/api/v1/profile/create",
             "description": "Creates an additional profile. The service currently limits users to five profiles."
           }
         },
@@ -612,7 +630,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"profileId\":\"{{profileId}}\",\"displayName\":\"Personal {{runSuffix}}\",\"image\":null}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/profile/edit",
+            "url": "{{gatewayBaseUrl}}/api/v1/profile/edit",
             "description": "Edits profile display name and image. Send image:null to clear the current profile image."
           }
         },
@@ -638,7 +656,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"includeInactive\":false}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/profile/list"
+            "url": "{{gatewayBaseUrl}}/api/v1/profile/list"
           }
         },
         {
@@ -663,7 +681,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"profileId\":\"{{profileId}}\"}}"
             },
-            "url": "{{accountBaseUrl}}/api/v1/profile/active/set"
+            "url": "{{gatewayBaseUrl}}/api/v1/profile/active/set"
           }
         }
       ]
@@ -693,7 +711,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"statuses\":[\"ACTIVE\"],\"accountNumber\":\"{{accountNumber}}\"}}"
             },
-            "url": "{{cardBaseUrl}}/api/v1/card/list",
+            "url": "{{gatewayBaseUrl}}/api/v1/card/list",
             "description": "Lists cards owned by the authenticated user and selected profile, with optional status and account-number filters."
           }
         },
@@ -719,7 +737,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"accountNumber\":\"{{accountNumber}}\",\"deliveryLocation\":{\"countryCode\":\"IR\",\"province\":\"Tehran\",\"city\":\"Tehran\",\"address\":\"Main street\",\"postalCode\":\"1234567890\"},\"reason\":\"Physical card requested from Postman\"}}"
             },
-            "url": "{{cardBaseUrl}}/api/v1/card/order"
+            "url": "{{gatewayBaseUrl}}/api/v1/card/order"
           }
         },
         {
@@ -744,7 +762,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\",\"reason\":\"Temporarily frozen from Postman\"}}"
             },
-            "url": "{{cardBaseUrl}}/api/v1/card/freeze"
+            "url": "{{gatewayBaseUrl}}/api/v1/card/freeze"
           }
         },
         {
@@ -769,7 +787,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\"}}"
             },
-            "url": "{{cardBaseUrl}}/api/v1/card/unfreeze"
+            "url": "{{gatewayBaseUrl}}/api/v1/card/unfreeze"
           }
         },
         {
@@ -794,7 +812,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\",\"reason\":\"Card blocked from Postman\",\"reorderRequested\":false}}"
             },
-            "url": "{{cardBaseUrl}}/api/v1/card/block"
+            "url": "{{gatewayBaseUrl}}/api/v1/card/block"
           }
         },
         {
@@ -819,7 +837,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\",\"reason\":\"Administrative unblock from Postman\"}}"
             },
-            "url": "{{cardBaseUrl}}/api/v1/card/unblock"
+            "url": "{{gatewayBaseUrl}}/api/v1/card/unblock"
           }
         },
         {
@@ -844,7 +862,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"cardId\":\"{{cardId}}\",\"reason\":\"Card expired from Postman\"}}"
             },
-            "url": "{{cardBaseUrl}}/api/v1/card/expire"
+            "url": "{{gatewayBaseUrl}}/api/v1/card/expire"
           }
         }
       ]
@@ -870,7 +888,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"language\":\"en-US\"}}"
             },
-            "url": "{{kycBaseUrl}}/api/v1/kyc/jobs/list",
+            "url": "{{gatewayBaseUrl}}/api/v1/kyc/jobs/list",
             "description": "Lists active KYC jobs. This endpoint is public."
           }
         },
@@ -907,7 +925,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"referralCode\":\"{{referralCode}}\"}}"
             },
-            "url": "{{kycBaseUrl}}/api/v1/kyc/referral/set",
+            "url": "{{gatewayBaseUrl}}/api/v1/kyc/referral/set",
             "description": "Sets an immutable referral during onboarding."
           }
         },
@@ -933,7 +951,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"userId\":null}}"
             },
-            "url": "{{kycBaseUrl}}/api/v1/kyc/status/get",
+            "url": "{{gatewayBaseUrl}}/api/v1/kyc/status/get",
             "description": "Gets the authenticated user KYC and account-completion status."
           }
         },
@@ -970,7 +988,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"userId\":\"{{userId}}\",\"status\":\"APPROVED\",\"reason\":\"Documents verified\"}}"
             },
-            "url": "{{kycBaseUrl}}/api/v1/kyc/complete",
+            "url": "{{gatewayBaseUrl}}/api/v1/kyc/complete",
             "description": "Completes a KYC case using an admin or system token."
           }
         }
@@ -1001,7 +1019,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"keys\":null,\"includeDisabled\":true}}"
             },
-            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/list",
+            "url": "{{gatewayBaseUrl}}/api/v1/feature-flags/list",
             "description": "Lists runtime feature flags using an admin token."
           }
         },
@@ -1027,7 +1045,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"keys\":[\"card.order.enabled\",\"transfer.account-to-account.enabled\"],\"subjectUserId\":null,\"profileId\":null,\"accountNumber\":null}}"
             },
-            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/evaluate",
+            "url": "{{gatewayBaseUrl}}/api/v1/feature-flags/evaluate",
             "description": "Evaluates client-visible flags for the authenticated user. Subject fields must remain null for user calls."
           }
         },
@@ -1053,7 +1071,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"key\":\"card.order.enabled\",\"enabled\":true,\"description\":null,\"clientVisible\":true,\"reason\":\"Postman operational update\"}}"
             },
-            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/update",
+            "url": "{{gatewayBaseUrl}}/api/v1/feature-flags/update",
             "description": "Updates one feature flag and creates an audit record."
           }
         },
@@ -1079,7 +1097,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"key\":\"card.order.enabled\"}}"
             },
-            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/targeting/get",
+            "url": "{{gatewayBaseUrl}}/api/v1/feature-flags/targeting/get",
             "description": "Reads the user overrides and ordered targeting rules for one flag."
           }
         },
@@ -1105,7 +1123,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"key\":\"card.order.enabled\",\"userOverrides\":[{\"userId\":\"{{userId}}\",\"enabled\":true}],\"rules\":[{\"name\":\"Business rollout\",\"priority\":10,\"enabled\":true,\"matchType\":\"ALL\",\"active\":true,\"conditions\":[{\"attribute\":\"PROFILE_TYPE\",\"operator\":\"EQUALS\",\"values\":[\"BUSINESS\"]}]}],\"reason\":\"Postman targeting update\"}}"
             },
-            "url": "{{featureFlagBaseUrl}}/api/v1/feature-flags/targeting/update",
+            "url": "{{gatewayBaseUrl}}/api/v1/feature-flags/targeting/update",
             "description": "Replaces and audits one flag's complete targeting configuration."
           }
         }
@@ -1136,7 +1154,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"sourceType\":null,\"destinationType\":null}}"
             },
-            "url": "{{transferBaseUrl}}/api/v1/transfers/methods/list",
+            "url": "{{gatewayBaseUrl}}/api/v1/transfers/methods/list",
             "description": "Lists transfer methods after applying runtime feature flags."
           }
         },
@@ -1166,7 +1184,7 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"idempotencyKey\":\"{{transferIdempotencyKey}}\",\"method\":\"ACCOUNT_TO_ACCOUNT\",\"sourceType\":\"ACCOUNT\",\"sourceAccountNumber\":\"{{accountNumber}}\",\"sourceCardNumber\":null,\"destinationType\":\"ACCOUNT\",\"destinationAccountNumber\":\"{{destinationAccountNumber}}\",\"destinationIban\":null,\"destinationCardNumber\":null,\"amount\":{\"amount\":1000,\"currency\":\"IRR\"},\"description\":\"Postman transfer\"}}"
             },
-            "url": "{{transferBaseUrl}}/api/v1/transfers/create",
+            "url": "{{gatewayBaseUrl}}/api/v1/transfers/create",
             "description": "Creates one idempotent internal transfer. Change transferIdempotencyKey for a new transfer."
           }
         },
@@ -1192,8 +1210,143 @@
               "mode": "raw",
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"limit\":10}}"
             },
-            "url": "{{transferBaseUrl}}/api/v1/transfers/recent/list",
+            "url": "{{gatewayBaseUrl}}/api/v1/transfers/recent/list",
             "description": "Lists unique successful recent transfer destinations."
+          }
+        }
+      ]
+    },
+    {
+      "name": "PFM",
+      "item": [
+        {
+          "name": "List Box Presets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":null,\"network\":null},\"data\":{\"language\":\"en-US\"}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/pfm/box-presets/list",
+            "description": "Lists active PFM box presets through the API gateway."
+          }
+        },
+        {
+          "name": "Create Box",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"title\":\"Emergency Fund\",\"presetId\":\"{{boxPresetId}}\",\"image\":null,\"currency\":\"IRR\"}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/pfm/boxes/create",
+            "description": "Creates a vault-backed PFM box through the API gateway."
+          }
+        },
+        {
+          "name": "List Boxes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"statuses\":[\"ACTIVE\"],\"includeBalance\":true}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/pfm/boxes/list",
+            "description": "Lists the authenticated user's PFM boxes through the API gateway."
+          }
+        },
+        {
+          "name": "Edit Box",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"boxId\":\"{{boxId}}\",\"title\":\"Updated Emergency Fund\",\"presetId\":\"{{boxPresetId}}\",\"image\":null}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/pfm/boxes/edit",
+            "description": "Updates owned PFM box display metadata through the API gateway."
+          }
+        },
+        {
+          "name": "List PFM Transactions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":{\"accountNumber\":\"{{accountNumber}}\",\"profileId\":\"{{profileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"accountNumber\":null,\"boxId\":\"{{boxId}}\",\"fromDate\":null,\"toDate\":null,\"page\":{\"page\":0,\"size\":20}}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/pfm/transactions/list",
+            "description": "Lists ledger-backed transactions for an owned PFM box through the API gateway."
           }
         }
       ]
@@ -1795,6 +1948,32 @@
               }
             ],
             "url": "{{transferBaseUrl}}/actuator/info"
+          }
+        },
+        {
+          "name": "PFM Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pfmBaseUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "PFM Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{pfmBaseUrl}}/actuator/info"
           }
         }
       ]

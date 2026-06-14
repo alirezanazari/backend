@@ -168,6 +168,12 @@ Important rules:
 - HTTPS/TLS is still required; app-level encryption does not replace TLS.
 - Session must expire quickly.
 - Simple random string concatenation must not be used as cryptography.
+- X25519 client public keys use Base64 X.509 encoding.
+- Encrypted requests use the `X-Key-Exchange-Id` and
+  `X-Encryption-Nonce` headers and a Base64 AES-256-GCM body.
+- The AES-GCM plaintext is the complete normal JSON request envelope.
+- Detailed key derivation and transport rules are defined in
+  [Security Design](./security.md#gateway-encryption-and-key-exchange).
 
 ## IAM Requests
 
