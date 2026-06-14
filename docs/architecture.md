@@ -207,6 +207,12 @@ dead-letter queue later
 
 This keeps service communication reliable without pretending distributed systems are simple.
 
+Before a message broker is introduced, scheduled outbox publishers may deliver
+through internal REST or an in-process application event. REST-backed event
+delivery carries stable `X-Event-Id` and `X-Event-Type` headers. Consumers must
+claim the event ID in an inbox row in the same transaction as their business
+change and return the stored prior result for duplicate delivery.
+
 ## Registration Flow
 
 ```mermaid

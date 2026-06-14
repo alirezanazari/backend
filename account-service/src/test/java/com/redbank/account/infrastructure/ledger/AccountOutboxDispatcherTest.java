@@ -41,8 +41,8 @@ class AccountOutboxDispatcherTest {
         when(repository.findPendingByEventTypes(anySet(), anyInt(), anyInt()))
                 .thenReturn(List.of(close, reopen))
                 .thenReturn(List.of(reopen));
-        when(ledgerClient.close(accountNumber)).thenReturn(true);
-        when(ledgerClient.reopen(accountNumber)).thenReturn(true);
+        when(ledgerClient.close(close.id(), accountNumber)).thenReturn(true);
+        when(ledgerClient.reopen(reopen.id(), accountNumber)).thenReturn(true);
 
         AccountOutboxDispatcher dispatcher = new AccountOutboxDispatcher(
                 repository,
@@ -53,13 +53,13 @@ class AccountOutboxDispatcherTest {
 
         dispatcher.dispatchPending();
 
-        verify(ledgerClient).close(accountNumber);
-        verify(ledgerClient, never()).reopen(any());
+        verify(ledgerClient).close(close.id(), accountNumber);
+        verify(ledgerClient, never()).reopen(any(), any());
         verify(repository).markPublished(close.id(), NOW);
 
         dispatcher.dispatchPending();
 
-        verify(ledgerClient).reopen(accountNumber);
+        verify(ledgerClient).reopen(reopen.id(), accountNumber);
         verify(repository).markPublished(reopen.id(), NOW);
     }
 

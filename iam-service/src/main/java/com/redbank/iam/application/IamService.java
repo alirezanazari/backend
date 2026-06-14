@@ -45,6 +45,7 @@ public class IamService {
     private final RegistrationValidator registrationValidator;
     private final DeviceContextValidator deviceContextValidator;
     private final AccountCompletionClient accountCompletionClient;
+    private final IamOutboxService iamOutboxService;
     private final Clock clock;
 
     public IamService(
@@ -58,6 +59,7 @@ public class IamService {
             RegistrationValidator registrationValidator,
             DeviceContextValidator deviceContextValidator,
             AccountCompletionClient accountCompletionClient,
+            IamOutboxService iamOutboxService,
             Clock clock
     ) {
         this.userRepository = userRepository;
@@ -70,6 +72,7 @@ public class IamService {
         this.registrationValidator = registrationValidator;
         this.deviceContextValidator = deviceContextValidator;
         this.accountCompletionClient = accountCompletionClient;
+        this.iamOutboxService = iamOutboxService;
         this.clock = clock;
     }
 
@@ -114,6 +117,7 @@ public class IamService {
         } catch (DataIntegrityViolationException exception) {
             throw new IamConflictException("Username, phone number, or national ID already exists");
         }
+        iamOutboxService.enqueueUserRegistered(user);
 
         TokenResult token = jwtTokenService.createAccountRequiredToken(user.id());
         return new RegisterResponse(
@@ -199,6 +203,7 @@ public class IamService {
         TokenResult userToken = jwtTokenService.createUserToken(challenge.userId(), challenge.deviceId(), completion.activeProfileId());
         DeviceRecord device = deviceRepository.findById(challenge.deviceId())
                 .orElseThrow(() -> new IamBusinessRuleException("Device was not found"));
+        iamOutboxService.enqueueDeviceVerified(device);
 
         return new DeviceVerifyResponse(
                 device.id().toString(),

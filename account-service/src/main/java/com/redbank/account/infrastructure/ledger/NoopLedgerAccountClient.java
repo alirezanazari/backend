@@ -9,17 +9,17 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "redbank.ledger", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class NoopLedgerAccountClient implements LedgerAccountClient {
     @Override
-    public boolean createAccount(String accountNumber, UUID ownerUserId, String currency) {
+    public boolean createAccount(UUID eventId, String accountNumber, UUID ownerUserId, String currency) {
         return false;
     }
 
     @Override
-    public boolean close(String accountNumber) {
+    public boolean close(UUID eventId, String accountNumber) {
         return false;
     }
 
     @Override
-    public boolean reopen(String accountNumber) {
+    public boolean reopen(UUID eventId, String accountNumber) {
         return false;
     }
 }

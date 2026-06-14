@@ -59,6 +59,7 @@ public class LedgerService {
     private final LedgerTransactionRepository ledgerTransactionRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final LedgerPostingValidator ledgerPostingValidator;
+    private final LedgerOutboxService ledgerOutboxService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -67,6 +68,7 @@ public class LedgerService {
             LedgerBalanceRepository ledgerBalanceRepository,
             LedgerTransactionRepository ledgerTransactionRepository,
             LedgerEntryRepository ledgerEntryRepository,
+            LedgerOutboxService ledgerOutboxService,
             TransactionTemplate transactionTemplate,
             Clock clock
     ) {
@@ -74,6 +76,7 @@ public class LedgerService {
         this.ledgerBalanceRepository = ledgerBalanceRepository;
         this.ledgerTransactionRepository = ledgerTransactionRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
+        this.ledgerOutboxService = ledgerOutboxService;
         this.ledgerPostingValidator = new LedgerPostingValidator();
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
@@ -114,6 +117,7 @@ public class LedgerService {
             }
             return toCloseAccountResponse(current);
         }
+        ledgerOutboxService.enqueueAccountClosed(updatedAccount(account, LedgerAccountStatus.CLOSED));
         return new CloseLedgerAccountResponse(account.id().toString(), LedgerAccountStatus.CLOSED.name());
     }
 
@@ -137,6 +141,7 @@ public class LedgerService {
             }
             return toReopenAccountResponse(current);
         }
+        ledgerOutboxService.enqueueAccountReopened(updatedAccount(account, LedgerAccountStatus.ACTIVE));
         return new ReopenLedgerAccountResponse(account.id().toString(), LedgerAccountStatus.ACTIVE.name());
     }
 
@@ -274,12 +279,13 @@ public class LedgerService {
         try {
             ledgerAccountRepository.save(account);
             ledgerBalanceRepository.saveInitialBalance(account.id(), account.currency(), now);
-            return toCreateAccountResponse(account);
         } catch (DataIntegrityViolationException exception) {
             LedgerAccountRecord existing = ledgerAccountRepository.findByExternalAccountNumber(externalAccountNumber)
                     .orElseThrow(() -> new LedgerConflictException("Ledger account already exists"));
             return existingAccountResponse(existing, ownerUserId, currency);
         }
+        ledgerOutboxService.enqueueAccountCreated(account);
+        return toCreateAccountResponse(account);
     }
 
     private CreateLedgerAccountResponse existingAccountResponse(
@@ -325,6 +331,7 @@ public class LedgerService {
             applyEntry(entry);
         }
         ledgerEntryRepository.saveAll(entries);
+        ledgerOutboxService.enqueueTransactionPosted(transaction);
         return toTransactionResponse(transaction);
     }
 
@@ -513,6 +520,19 @@ public class LedgerService {
 
     private CreateLedgerAccountResponse toCreateAccountResponse(LedgerAccountRecord account) {
         return new CreateLedgerAccountResponse(account.id().toString(), account.status().name());
+    }
+
+    private LedgerAccountRecord updatedAccount(LedgerAccountRecord account, LedgerAccountStatus status) {
+        return new LedgerAccountRecord(
+                account.id(),
+                account.externalAccountNumber(),
+                account.ownerUserId(),
+                account.currency(),
+                status,
+                account.allowNegativeBalance(),
+                account.createdAt(),
+                clock.instant()
+        );
     }
 
     private LedgerTransactionResponse toTransactionResponse(LedgerTransactionRecord transaction) {

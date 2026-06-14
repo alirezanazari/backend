@@ -32,6 +32,10 @@ springdoc:
     path: /swagger-ui.html
 
 redbank:
+  events:
+    publisher:
+      enabled: ${REDBANK_LOCAL_EVENT_PUBLISHER_ENABLED:true}
+      delay-ms: ${REDBANK_LOCAL_EVENT_PUBLISHER_DELAY_MS:5000}
   debug:
     enabled: ${REDBANK_DEBUG_ENABLED:false}
     mock-otp:

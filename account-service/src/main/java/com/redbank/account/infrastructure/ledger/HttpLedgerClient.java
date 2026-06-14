@@ -6,6 +6,7 @@ import com.redbank.account.application.LedgerBalanceClient;
 import com.redbank.account.config.LedgerClientProperties;
 import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.envelope.ApiResponse;
+import com.redbank.contracts.event.EventHeaders;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
@@ -28,14 +29,16 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     }
 
     @Override
-    public boolean createAccount(String accountNumber, UUID ownerUserId, String currency) {
+    public boolean createAccount(UUID eventId, String accountNumber, UUID ownerUserId, String currency) {
         CreateLedgerAccountRequest request = new CreateLedgerAccountRequest(
                 accountNumber,
                 ownerUserId.toString(),
                 currency
         );
-        ApiResponse<CreateLedgerAccountResponse> response = post(
+        ApiResponse<CreateLedgerAccountResponse> response = postEvent(
                 "/internal/v1/ledger/account/create",
+                eventId,
+                "LEDGER_ACCOUNT_CREATE_REQUESTED",
                 request,
                 new ParameterizedTypeReference<>() {
                 }
@@ -44,10 +47,12 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     }
 
     @Override
-    public boolean close(String accountNumber) {
+    public boolean close(UUID eventId, String accountNumber) {
         CloseLedgerAccountRequest request = new CloseLedgerAccountRequest(accountNumber);
-        ApiResponse<CloseLedgerAccountResponse> response = post(
+        ApiResponse<CloseLedgerAccountResponse> response = postEvent(
                 "/internal/v1/ledger/account/close",
+                eventId,
+                "LEDGER_ACCOUNT_CLOSE_REQUESTED",
                 request,
                 new ParameterizedTypeReference<>() {
                 }
@@ -56,10 +61,12 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
     }
 
     @Override
-    public boolean reopen(String accountNumber) {
+    public boolean reopen(UUID eventId, String accountNumber) {
         ReopenLedgerAccountRequest request = new ReopenLedgerAccountRequest(accountNumber);
-        ApiResponse<ReopenLedgerAccountResponse> response = post(
+        ApiResponse<ReopenLedgerAccountResponse> response = postEvent(
                 "/internal/v1/ledger/account/reopen",
+                eventId,
+                "LEDGER_ACCOUNT_REOPEN_REQUESTED",
                 request,
                 new ParameterizedTypeReference<>() {
                 }
@@ -89,6 +96,26 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
         try {
             return restClient.post()
                     .uri(path)
+                    .body(request)
+                    .retrieve()
+                    .body(responseType);
+        } catch (RestClientException exception) {
+            throw new AccountExternalServiceException("Ledger service call failed", exception);
+        }
+    }
+
+    private <T> ApiResponse<T> postEvent(
+            String path,
+            UUID eventId,
+            String eventType,
+            Object request,
+            ParameterizedTypeReference<ApiResponse<T>> responseType
+    ) {
+        try {
+            return restClient.post()
+                    .uri(path)
+                    .header(EventHeaders.EVENT_ID, eventId.toString())
+                    .header(EventHeaders.EVENT_TYPE, eventType)
                     .body(request)
                     .retrieve()
                     .body(responseType);

@@ -81,7 +81,7 @@ public class OutboxEventRepository {
                         OUTBOX_EVENTS.STATUS,
                         DSL.when(
                                 OUTBOX_EVENTS.RETRY_COUNT.add(1).ge(maxRetryCount),
-                                OutboxEventStatus.FAILED.name()
+                                OutboxEventStatus.DEAD_LETTER.name()
                         ).otherwise(OutboxEventStatus.PENDING.name())
                 )
                 .set(OUTBOX_EVENTS.UPDATED_AT, toOffsetDateTime(updatedAt))

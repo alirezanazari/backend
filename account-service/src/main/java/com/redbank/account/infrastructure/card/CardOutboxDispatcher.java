@@ -78,6 +78,7 @@ public class CardOutboxDispatcher {
                         CardAccountCreationPayload.class
                 );
                 yield cardAccountClient.createDefaultCard(
+                        event.id(),
                         payload.accountNumber(),
                         UUID.fromString(payload.userId()),
                         UUID.fromString(payload.profileId()),
@@ -89,14 +90,14 @@ public class CardOutboxDispatcher {
                         event.payload(),
                         CardAccountLifecyclePayload.class
                 );
-                yield cardAccountClient.close(payload.accountNumber());
+                yield cardAccountClient.close(event.id(), payload.accountNumber());
             }
             case AccountOutboxService.EVENT_TYPE_CARD_ACCOUNT_REOPEN_REQUESTED -> {
                 CardAccountLifecyclePayload payload = objectMapper.readValue(
                         event.payload(),
                         CardAccountLifecyclePayload.class
                 );
-                yield cardAccountClient.reopen(payload.accountNumber());
+                yield cardAccountClient.reopen(event.id(), payload.accountNumber());
             }
             default -> throw new IllegalArgumentException("Unsupported outbox event type: " + event.eventType());
         };

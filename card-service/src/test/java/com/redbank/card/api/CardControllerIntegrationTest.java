@@ -16,6 +16,7 @@ import com.redbank.card.application.FeatureFlagSubject;
 import com.redbank.card.domain.CardOrderRecord;
 import com.redbank.card.domain.CardOrderStatus;
 import com.redbank.card.infrastructure.CardOrderRepository;
+import com.redbank.contracts.event.EventHeaders;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
@@ -34,6 +35,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static com.redbank.card.jooq.tables.CardOrders.CARD_ORDERS;
 import static com.redbank.card.jooq.tables.CardStatusHistory.CARD_STATUS_HISTORY;
 import static com.redbank.card.jooq.tables.Cards.CARDS;
+import static com.redbank.card.jooq.tables.InboxEvents.INBOX_EVENTS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -110,6 +112,37 @@ class CardControllerIntegrationTest {
                 CARD_ORDERS.CARD_ID.eq(cardId).and(CARD_ORDERS.STATUS.eq("PENDING"))
         );
         assertThat(orders).isEqualTo(1);
+    }
+
+    @Test
+    void duplicateDefaultCardEventReturnsStoredResultAndSingleInboxRecord() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        String accountNumber = "113456789012345678";
+
+        JsonNode first = objectMapper.readTree(createDefaultCardEvent(
+                userId,
+                profileId,
+                accountNumber,
+                eventId
+        )
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        createDefaultCardEvent(userId, profileId, accountNumber, eventId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cardId").value(first.path("data").path("cardId").asText()));
+
+        assertThat(dsl.fetchCount(
+                INBOX_EVENTS,
+                INBOX_EVENTS.EVENT_ID.eq(eventId)
+                        .and(INBOX_EVENTS.CONSUMER_NAME.eq("card-default-create"))
+                        .and(INBOX_EVENTS.STATUS.eq("PROCESSED"))
+        )).isEqualTo(1);
+        assertThat(dsl.fetchCount(CARDS, CARDS.ACCOUNT_NUMBER.eq(accountNumber))).isEqualTo(1);
     }
 
     @Test
@@ -421,6 +454,27 @@ class CardControllerIntegrationTest {
             String accountNumber
     ) throws Exception {
         return createDefaultCard(userId, profileId, accountNumber, "PHYSICAL");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions createDefaultCardEvent(
+            UUID userId,
+            UUID profileId,
+            String accountNumber,
+            UUID eventId
+    ) throws Exception {
+        return mockMvc.perform(post("/internal/v1/card/default/create")
+                .header(InternalCardController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
+                .header(EventHeaders.EVENT_ID, eventId.toString())
+                .header(EventHeaders.EVENT_TYPE, "DEFAULT_CARD_CREATE_REQUESTED")
+                .contentType("application/json")
+                .content("""
+                        {
+                          "accountNumber": "%s",
+                          "userId": "%s",
+                          "profileId": "%s",
+                          "form": "DIGITAL"
+                        }
+                        """.formatted(accountNumber, userId, profileId)));
     }
 
     private org.springframework.test.web.servlet.ResultActions createDefaultCard(

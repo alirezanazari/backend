@@ -1,6 +1,7 @@
 package com.redbank.ledger.api.internal;
 
 import com.redbank.contracts.envelope.ApiResponse;
+import com.redbank.contracts.event.EventHeaders;
 import com.redbank.ledger.api.internal.dto.CloseLedgerAccountRequest;
 import com.redbank.ledger.api.internal.dto.CloseLedgerAccountResponse;
 import com.redbank.ledger.api.internal.dto.CreateLedgerAccountRequest;
@@ -15,9 +16,12 @@ import com.redbank.ledger.api.internal.dto.ReferralRewardRequest;
 import com.redbank.ledger.api.internal.dto.ReopenLedgerAccountRequest;
 import com.redbank.ledger.api.internal.dto.ReopenLedgerAccountResponse;
 import com.redbank.ledger.application.LedgerService;
+import com.redbank.ledger.application.InboxEventProcessor;
+import com.redbank.ledger.application.LedgerBusinessRuleException;
 import com.redbank.ledger.application.LedgerUnauthorizedException;
 import com.redbank.ledger.config.InternalAccessProperties;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,40 +35,73 @@ public class InternalLedgerController {
     public static final String INTERNAL_SERVICE_TOKEN_HEADER = "X-Internal-Service-Token";
 
     private final LedgerService ledgerService;
+    private final InboxEventProcessor inboxEventProcessor;
     private final InternalAccessProperties internalAccessProperties;
 
-    public InternalLedgerController(LedgerService ledgerService, InternalAccessProperties internalAccessProperties) {
+    public InternalLedgerController(
+            LedgerService ledgerService,
+            InboxEventProcessor inboxEventProcessor,
+            InternalAccessProperties internalAccessProperties
+    ) {
         this.ledgerService = ledgerService;
+        this.inboxEventProcessor = inboxEventProcessor;
         this.internalAccessProperties = internalAccessProperties;
     }
 
     @PostMapping("/account/create")
     public ResponseEntity<ApiResponse<CreateLedgerAccountResponse>> createAccount(
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @RequestHeader(name = EventHeaders.EVENT_ID, required = false) String eventId,
+            @RequestHeader(name = EventHeaders.EVENT_TYPE, required = false) String eventType,
             @Valid @RequestBody CreateLedgerAccountRequest request
     ) {
         authorize(serviceToken);
-        CreateLedgerAccountResponse response = ledgerService.createAccount(request);
+        CreateLedgerAccountResponse response = processEvent(
+                eventId,
+                eventType,
+                "LEDGER_ACCOUNT_CREATE_REQUESTED",
+                "ledger-account-create",
+                CreateLedgerAccountResponse.class,
+                () -> ledgerService.createAccount(request)
+        );
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
     @PostMapping("/account/close")
     public ResponseEntity<ApiResponse<CloseLedgerAccountResponse>> closeAccount(
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @RequestHeader(name = EventHeaders.EVENT_ID, required = false) String eventId,
+            @RequestHeader(name = EventHeaders.EVENT_TYPE, required = false) String eventType,
             @Valid @RequestBody CloseLedgerAccountRequest request
     ) {
         authorize(serviceToken);
-        CloseLedgerAccountResponse response = ledgerService.closeAccount(request);
+        CloseLedgerAccountResponse response = processEvent(
+                eventId,
+                eventType,
+                "LEDGER_ACCOUNT_CLOSE_REQUESTED",
+                "ledger-account-close",
+                CloseLedgerAccountResponse.class,
+                () -> ledgerService.closeAccount(request)
+        );
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
     @PostMapping("/account/reopen")
     public ResponseEntity<ApiResponse<ReopenLedgerAccountResponse>> reopenAccount(
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @RequestHeader(name = EventHeaders.EVENT_ID, required = false) String eventId,
+            @RequestHeader(name = EventHeaders.EVENT_TYPE, required = false) String eventType,
             @Valid @RequestBody ReopenLedgerAccountRequest request
     ) {
         authorize(serviceToken);
-        ReopenLedgerAccountResponse response = ledgerService.reopenAccount(request);
+        ReopenLedgerAccountResponse response = processEvent(
+                eventId,
+                eventType,
+                "LEDGER_ACCOUNT_REOPEN_REQUESTED",
+                "ledger-account-reopen",
+                ReopenLedgerAccountResponse.class,
+                () -> ledgerService.reopenAccount(request)
+        );
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
 
@@ -111,6 +148,33 @@ public class InternalLedgerController {
     private void authorize(String serviceToken) {
         if (!internalAccessProperties.serviceTokenSecret().equals(serviceToken)) {
             throw new LedgerUnauthorizedException("Unauthorized");
+        }
+    }
+
+    private <T> T processEvent(
+            String eventId,
+            String eventType,
+            String expectedEventType,
+            String consumerName,
+            Class<T> responseType,
+            java.util.function.Supplier<T> handler
+    ) {
+        if (eventId == null && eventType == null) {
+            return handler.get();
+        }
+        if (eventId == null || !expectedEventType.equals(eventType)) {
+            throw new LedgerBusinessRuleException("Invalid event delivery headers");
+        }
+        try {
+            return inboxEventProcessor.process(
+                    UUID.fromString(eventId),
+                    eventType,
+                    consumerName,
+                    responseType,
+                    handler
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new LedgerBusinessRuleException("Invalid event delivery headers");
         }
     }
 }

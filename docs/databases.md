@@ -803,8 +803,10 @@ event_type
 payload
 status
 created_at
+updated_at
 published_at
 retry_count
+sequence_number
 ```
 
 Why:
@@ -830,6 +832,8 @@ id
 event_id
 event_type
 consumer_name
+result_payload
+received_at
 processed_at
 status
 ```
@@ -839,4 +843,17 @@ Why:
 ```text
 event consumers become idempotent
 duplicate messages do not duplicate business actions
+stored successful results let duplicate synchronous deliveries return the same acknowledgement
 ```
+
+For the broker-free implementation, producers send:
+
+```text
+X-Event-Id
+X-Event-Type
+```
+
+The consumer claims `(event_id, consumer_name)` in the same transaction as the
+business mutation. A successful result is stored before commit. When the same
+event is delivered again, the consumer returns the stored result and does not
+run the mutation again.

@@ -84,6 +84,7 @@ public class AccountOutboxDispatcher {
                         LedgerAccountCreationPayload.class
                 );
                 yield ledgerAccountClient.createAccount(
+                        event.id(),
                         payload.accountNumber(),
                         UUID.fromString(payload.ownerUserId()),
                         payload.currency()
@@ -94,14 +95,14 @@ public class AccountOutboxDispatcher {
                         event.payload(),
                         LedgerAccountLifecyclePayload.class
                 );
-                yield ledgerAccountClient.close(payload.accountNumber());
+                yield ledgerAccountClient.close(event.id(), payload.accountNumber());
             }
             case AccountOutboxService.EVENT_TYPE_LEDGER_ACCOUNT_REOPEN_REQUESTED -> {
                 LedgerAccountLifecyclePayload payload = objectMapper.readValue(
                         event.payload(),
                         LedgerAccountLifecyclePayload.class
                 );
-                yield ledgerAccountClient.reopen(payload.accountNumber());
+                yield ledgerAccountClient.reopen(event.id(), payload.accountNumber());
             }
             default -> throw new IllegalArgumentException("Unsupported outbox event type: " + event.eventType());
         };

@@ -2,6 +2,7 @@ package com.redbank.ledger.api.internal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.redbank.contracts.event.EventHeaders;
 import java.math.BigDecimal;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -21,6 +22,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.redbank.ledger.jooq.tables.LedgerAccounts.LEDGER_ACCOUNTS;
 import static com.redbank.ledger.jooq.tables.LedgerBalances.LEDGER_BALANCES;
+import static com.redbank.ledger.jooq.tables.InboxEvents.INBOX_EVENTS;
+import static com.redbank.ledger.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -29,7 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:h2:mem:ledgertest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
-        "spring.datasource.password="
+        "spring.datasource.password=",
+        "redbank.events.publisher.enabled=false"
 })
 @ActiveProfiles("develop")
 @AutoConfigureMockMvc
@@ -63,6 +68,36 @@ class InternalLedgerControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.ledgerAccountId").value(first.path("data").path("ledgerAccountId").asText()))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void duplicateAccountEventReturnsStoredResultWithoutRepeatingProcessing() throws Exception {
+        String accountNumber = nextAccountNumber();
+        UUID ownerUserId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+
+        JsonNode first = objectMapper.readTree(createAccountEvent(accountNumber, ownerUserId, eventId)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        createAccountEvent(accountNumber, ownerUserId, eventId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ledgerAccountId")
+                        .value(first.path("data").path("ledgerAccountId").asText()));
+
+        assertThat(dsl.fetchCount(
+                INBOX_EVENTS,
+                INBOX_EVENTS.EVENT_ID.eq(eventId)
+                        .and(INBOX_EVENTS.CONSUMER_NAME.eq("ledger-account-create"))
+                        .and(INBOX_EVENTS.STATUS.eq("PROCESSED"))
+        )).isEqualTo(1);
+        assertThat(dsl.fetchCount(
+                OUTBOX_EVENTS,
+                OUTBOX_EVENTS.AGGREGATE_ID.eq(first.path("data").path("ledgerAccountId").asText())
+                        .and(OUTBOX_EVENTS.EVENT_TYPE.eq("LEDGER_ACCOUNT_CREATED"))
+        )).isEqualTo(1);
     }
 
     @Test
@@ -246,6 +281,25 @@ class InternalLedgerControllerIntegrationTest {
     private org.springframework.test.web.servlet.ResultActions createAccount(String accountNumber, UUID ownerUserId) throws Exception {
         return mockMvc.perform(post("/internal/v1/ledger/account/create")
                 .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "externalAccountNumber": "%s",
+                          "ownerUserId": "%s",
+                          "currency": "IRR"
+                        }
+                        """.formatted(accountNumber, ownerUserId)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions createAccountEvent(
+            String accountNumber,
+            UUID ownerUserId,
+            UUID eventId
+    ) throws Exception {
+        return mockMvc.perform(post("/internal/v1/ledger/account/create")
+                .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
+                .header(EventHeaders.EVENT_ID, eventId.toString())
+                .header(EventHeaders.EVENT_TYPE, "LEDGER_ACCOUNT_CREATE_REQUESTED")
                 .contentType("application/json")
                 .content("""
                         {

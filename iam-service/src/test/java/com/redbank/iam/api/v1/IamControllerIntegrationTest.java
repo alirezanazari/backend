@@ -7,6 +7,10 @@ import com.redbank.contracts.account.ProfileType;
 import com.redbank.contracts.identity.AccountCompletionStatus;
 import com.redbank.iam.application.AccountCompletionClient;
 import com.redbank.iam.application.AccountCompletionResult;
+import com.redbank.iam.domain.OutboxEventRecord;
+import com.redbank.iam.domain.OutboxEventStatus;
+import com.redbank.iam.infrastructure.OutboxEventRepository;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static com.redbank.iam.jooq.tables.Credentials.CREDENTIALS;
 import static com.redbank.iam.jooq.tables.OtpChallenges.OTP_CHALLENGES;
+import static com.redbank.iam.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -36,7 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
         "redbank.debug.mock-otp.enabled=true",
         "redbank.otp.ttl-seconds=300",
-        "redbank.otp.max-attempts=5"
+        "redbank.otp.max-attempts=5",
+        "redbank.events.publisher.enabled=false"
 })
 @ActiveProfiles("develop")
 @AutoConfigureMockMvc
@@ -54,6 +60,9 @@ class IamControllerIntegrationTest {
 
     @Autowired
     private MutableAccountCompletionClient accountCompletionClient;
+
+    @Autowired
+    private OutboxEventRepository outboxEventRepository;
 
     @BeforeEach
     void resetAccountCompletion() {
@@ -83,6 +92,12 @@ class IamControllerIntegrationTest {
         assertThat(storedPassword).isNotBlank();
         assertThat(storedPassword).isNotEqualTo(data.password());
         assertThat(storedPassword).startsWith("$2");
+        assertThat(dsl.fetchCount(
+                OUTBOX_EVENTS,
+                OUTBOX_EVENTS.AGGREGATE_ID.eq(userId)
+                        .and(OUTBOX_EVENTS.EVENT_TYPE.eq("USER_REGISTERED"))
+                        .and(OUTBOX_EVENTS.STATUS.eq("PENDING"))
+        )).isEqualTo(1);
     }
 
     @Test
@@ -125,12 +140,23 @@ class IamControllerIntegrationTest {
         String limitedToken = login.path("data").path("accessToken").asText();
         String challengeId = login.path("data").path("challengeId").asText();
 
-        verifyDevice(limitedToken, challengeId)
+        String verificationResponse = verifyDevice(limitedToken, challengeId)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.deviceStatus").value("VERIFIED"))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ACCOUNT_REQUIRED"));
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ACCOUNT_REQUIRED"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String deviceId = objectMapper.readTree(verificationResponse).path("data").path("deviceId").asText();
+        assertThat(dsl.fetchCount(
+                OUTBOX_EVENTS,
+                OUTBOX_EVENTS.AGGREGATE_ID.eq(deviceId)
+                        .and(OUTBOX_EVENTS.EVENT_TYPE.eq("DEVICE_VERIFIED"))
+                        .and(OUTBOX_EVENTS.STATUS.eq("PENDING"))
+        )).isEqualTo(1);
 
         login(data, fingerprint)
                 .andExpect(status().isOk())
@@ -172,6 +198,37 @@ class IamControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.activeProfile.profileId").value(profileId))
                 .andExpect(jsonPath("$.data.deviceVerificationRequired").value(false))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
+    }
+
+    @Test
+    void outboxRetriesMoveEventToDeadLetter() {
+        UUID eventId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-06-14T12:00:00Z");
+        outboxEventRepository.save(new OutboxEventRecord(
+                eventId,
+                "USER",
+                UUID.randomUUID().toString(),
+                "TEST_EVENT",
+                "{}",
+                OutboxEventStatus.PENDING,
+                now,
+                now,
+                null,
+                0
+        ));
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            outboxEventRepository.markAttemptFailed(eventId, now.plusSeconds(attempt + 1L), 5);
+        }
+
+        assertThat(dsl.select(OUTBOX_EVENTS.STATUS, OUTBOX_EVENTS.RETRY_COUNT)
+                .from(OUTBOX_EVENTS)
+                .where(OUTBOX_EVENTS.ID.eq(eventId))
+                .fetchOne())
+                .satisfies(record -> {
+                    assertThat(record.get(OUTBOX_EVENTS.STATUS)).isEqualTo("DEAD_LETTER");
+                    assertThat(record.get(OUTBOX_EVENTS.RETRY_COUNT)).isEqualTo(5);
+                });
     }
 
     private org.springframework.test.web.servlet.ResultActions register(RegistrationData data) throws Exception {

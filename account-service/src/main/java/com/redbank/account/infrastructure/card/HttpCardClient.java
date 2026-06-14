@@ -6,6 +6,7 @@ import com.redbank.account.config.CardClientProperties;
 import com.redbank.contracts.card.CardSummary;
 import com.redbank.contracts.card.CardForm;
 import com.redbank.contracts.envelope.ApiResponse;
+import com.redbank.contracts.event.EventHeaders;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
@@ -28,10 +29,18 @@ public class HttpCardClient implements CardAccountClient {
     }
 
     @Override
-    public CardSummary createDefaultCard(String accountNumber, UUID userId, UUID profileId, CardForm form) {
+    public CardSummary createDefaultCard(
+            UUID eventId,
+            String accountNumber,
+            UUID userId,
+            UUID profileId,
+            CardForm form
+    ) {
         try {
             ApiResponse<CardSummary> response = restClient.post()
                     .uri("/internal/v1/card/default/create")
+                    .header(EventHeaders.EVENT_ID, eventId.toString())
+                    .header(EventHeaders.EVENT_TYPE, "DEFAULT_CARD_CREATE_REQUESTED")
                     .body(new CreateDefaultCardRequest(
                             accountNumber,
                             userId.toString(),
@@ -51,19 +60,39 @@ public class HttpCardClient implements CardAccountClient {
     }
 
     @Override
-    public boolean close(String accountNumber) {
-        return changeAccountStatus("/internal/v1/card/account/close", accountNumber, "INACTIVE");
+    public boolean close(UUID eventId, String accountNumber) {
+        return changeAccountStatus(
+                "/internal/v1/card/account/close",
+                eventId,
+                "CARD_ACCOUNT_CLOSE_REQUESTED",
+                accountNumber,
+                "INACTIVE"
+        );
     }
 
     @Override
-    public boolean reopen(String accountNumber) {
-        return changeAccountStatus("/internal/v1/card/account/reopen", accountNumber, "ACTIVE");
+    public boolean reopen(UUID eventId, String accountNumber) {
+        return changeAccountStatus(
+                "/internal/v1/card/account/reopen",
+                eventId,
+                "CARD_ACCOUNT_REOPEN_REQUESTED",
+                accountNumber,
+                "ACTIVE"
+        );
     }
 
-    private boolean changeAccountStatus(String path, String accountNumber, String expectedStatus) {
+    private boolean changeAccountStatus(
+            String path,
+            UUID eventId,
+            String eventType,
+            String accountNumber,
+            String expectedStatus
+    ) {
         try {
             ApiResponse<CardAccountLifecycleResponse> response = restClient.post()
                     .uri(path)
+                    .header(EventHeaders.EVENT_ID, eventId.toString())
+                    .header(EventHeaders.EVENT_TYPE, eventType)
                     .body(new CardAccountLifecycleRequest(accountNumber))
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {

@@ -549,6 +549,33 @@ Small steps:
 9. Add dead-letter status.
 10. Later replace simple publisher with Kafka or RabbitMQ.
 
+Implemented baseline:
+
+- IAM writes `USER_REGISTERED` and `DEVICE_VERIFIED` facts to its transactional
+  outbox.
+- Account writes ledger/card delivery requests to its transactional outbox and
+  dispatches them in sequence with bounded retries.
+- Ledger writes account lifecycle and posted-transaction facts to its
+  transactional outbox.
+- IAM and ledger use a scheduled in-process publisher. This preserves the
+  polling, retry, and dead-letter boundary while no broker is configured.
+- Account deliveries include stable `X-Event-Id` and `X-Event-Type` headers.
+- Ledger and card claim delivered event IDs in transactional inbox tables,
+  store the successful response, and return that response for duplicate
+  deliveries without repeating the business mutation.
+- Outbox delivery moves from `PENDING` to `PUBLISHED`, or to `DEAD_LETTER`
+  after the retry limit.
+
+Exit criteria:
+
+- Business state and its outbox event commit or roll back together.
+- A repeated account lifecycle/default-card delivery creates one inbox record
+  and one business result.
+- Failed publication increments `retry_count` and eventually becomes
+  `DEAD_LETTER`.
+- Replacing the in-process publisher with Kafka or RabbitMQ does not require
+  changing producer transaction boundaries or consumer idempotency rules.
+
 Engineering focus:
 
 - Why events get lost

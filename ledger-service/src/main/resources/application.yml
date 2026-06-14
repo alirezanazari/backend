@@ -32,5 +32,9 @@ springdoc:
     path: /swagger-ui.html
 
 redbank:
+  events:
+    publisher:
+      enabled: ${REDBANK_LOCAL_EVENT_PUBLISHER_ENABLED:true}
+      delay-ms: ${REDBANK_LOCAL_EVENT_PUBLISHER_DELAY_MS:5000}
   internal:
     service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
