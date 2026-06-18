@@ -1,0 +1,672 @@
+{
+  "schemaVersion": 1,
+  "environment": "develop",
+  "owner": "redbank",
+  "description": "Declarative source of truth for Phase 13.4 develop observability dashboards. The OpenSearch Dashboards saved-object export in redbank-develop-dashboards.ndjson is the importable UI representation; this catalog records the queries and probes each panel is expected to run.",
+  "dataViews": {
+    "logs": {
+      "id": "redbank-logs-develop",
+      "title": "logs-redbank.*-develop-*",
+      "timeField": "@timestamp"
+    },
+    "deadletter": {
+      "id": "redbank-deadletter-develop",
+      "title": "deadletter-redbank.*",
+      "timeField": "@timestamp"
+    },
+    "metrics": {
+      "id": "redbank-metrics-develop",
+      "title": "metrics-redbank.develop-*",
+      "timeField": "@timestamp"
+    },
+    "traces": {
+      "id": "redbank-traces-develop",
+      "title": "otel-v1-apm-span-*",
+      "timeField": "startTime"
+    },
+    "serviceMap": {
+      "id": "redbank-service-map-develop",
+      "title": "otel-v1-apm-service-map-*",
+      "timeField": "startTime"
+    }
+  },
+  "dashboards": [
+    {
+      "id": "redbank-service-slos-develop",
+      "title": "Redbank Service SLOs - Develop",
+      "purpose": "Request rate, error rate, and route latency across every production service.",
+      "panels": [
+        {
+          "id": "request-rate-by-service-route",
+          "title": "Request rate by service and route",
+          "dataView": "logs",
+          "visualization": "date_histogram",
+          "unit": "requests/minute",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-15m"
+                      }
+                    }
+                  },
+                  {
+                    "exists": {
+                      "field": "http.response.status_code"
+                    }
+                  }
+                ]
+              }
+            },
+            "aggs": {
+              "services": {
+                "terms": {
+                  "field": "service.name",
+                  "size": 20
+                },
+                "aggs": {
+                  "routes": {
+                    "terms": {
+                      "field": "http.route",
+                      "missing": "unknown",
+                      "size": 25
+                    },
+                    "aggs": {
+                      "per_minute": {
+                        "date_histogram": {
+                          "field": "@timestamp",
+                          "fixed_interval": "1m"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "http-error-rate-by-service-route",
+          "title": "HTTP error rate by service and route",
+          "dataView": "logs",
+          "visualization": "terms_table",
+          "unit": "ratio",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-15m"
+                      }
+                    }
+                  },
+                  {
+                    "exists": {
+                      "field": "http.response.status_code"
+                    }
+                  }
+                ]
+              }
+            },
+            "aggs": {
+              "services": {
+                "terms": {
+                  "field": "service.name",
+                  "size": 20
+                },
+                "aggs": {
+                  "routes": {
+                    "terms": {
+                      "field": "http.route",
+                      "missing": "unknown",
+                      "size": 25
+                    },
+                    "aggs": {
+                      "total": {
+                        "value_count": {
+                          "field": "http.response.status_code"
+                        }
+                      },
+                      "errors": {
+                        "filter": {
+                          "range": {
+                            "http.response.status_code": {
+                              "gte": 500
+                            }
+                          }
+                        }
+                      },
+                      "error_rate": {
+                        "bucket_script": {
+                          "buckets_path": {
+                            "errors": "errors._count",
+                            "total": "total"
+                          },
+                          "script": "params.total == 0 ? 0 : params.errors / params.total"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "route-latency-p95",
+          "title": "Route latency p95 by service",
+          "dataView": "logs",
+          "visualization": "percentiles",
+          "unit": "nanoseconds",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-15m"
+                      }
+                    }
+                  },
+                  {
+                    "exists": {
+                      "field": "event.duration"
+                    }
+                  }
+                ]
+              }
+            },
+            "aggs": {
+              "services": {
+                "terms": {
+                  "field": "service.name",
+                  "size": 20
+                },
+                "aggs": {
+                  "routes": {
+                    "terms": {
+                      "field": "http.route",
+                      "missing": "unknown",
+                      "size": 25
+                    },
+                    "aggs": {
+                      "latency": {
+                        "percentiles": {
+                          "field": "event.duration",
+                          "percents": [
+                            50,
+                            95,
+                            99
+                          ],
+                          "keyed": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "redbank-runtime-dependencies-develop",
+      "title": "Redbank Runtime and Dependencies - Develop",
+      "purpose": "JVM, database pool, and outbound dependency health.",
+      "panels": [
+        {
+          "id": "jvm-memory-by-service",
+          "title": "JVM memory by service",
+          "dataView": "metrics",
+          "visualization": "time_series",
+          "unit": "bytes",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-30m"
+                      }
+                    }
+                  },
+                  {
+                    "terms": {
+                      "name": [
+                        "jvm.memory.used",
+                        "jvm.memory.max",
+                        "jvm.memory.committed"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "aggs": {
+              "services": {
+                "terms": {
+                  "field": "service.name",
+                  "size": 20
+                },
+                "aggs": {
+                  "metrics": {
+                    "terms": {
+                      "field": "name",
+                      "size": 10
+                    },
+                    "aggs": {
+                      "per_minute": {
+                        "date_histogram": {
+                          "field": "@timestamp",
+                          "fixed_interval": "1m"
+                        },
+                        "aggs": {
+                          "max_value": {
+                            "max": {
+                              "field": "value"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "database-pool-health",
+          "title": "Database pool active, max, and pending connections",
+          "dataView": "metrics",
+          "visualization": "time_series",
+          "unit": "connections",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-30m"
+                      }
+                    }
+                  },
+                  {
+                    "terms": {
+                      "name": [
+                        "hikaricp.connections.active",
+                        "hikaricp.connections.max",
+                        "hikaricp.connections.pending",
+                        "hikaricp.connections.timeout"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "aggs": {
+              "services": {
+                "terms": {
+                  "field": "service.name",
+                  "size": 20
+                },
+                "aggs": {
+                  "pool_metrics": {
+                    "terms": {
+                      "field": "name",
+                      "size": 10
+                    },
+                    "aggs": {
+                      "max_value": {
+                        "max": {
+                          "field": "value"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "outbound-dependency-latency-failures",
+          "title": "Outbound dependency latency and failures",
+          "dataView": "metrics",
+          "visualization": "terms_table",
+          "unit": "mixed",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-30m"
+                      }
+                    }
+                  },
+                  {
+                    "terms": {
+                      "name": [
+                        "http.client.requests",
+                        "http.client.request.duration",
+                        "resilience4j.circuitbreaker.calls"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "aggs": {
+              "services": {
+                "terms": {
+                  "field": "service.name",
+                  "size": 20
+                },
+                "aggs": {
+                  "metric_names": {
+                    "terms": {
+                      "field": "name",
+                      "size": 20
+                    },
+                    "aggs": {
+                      "max_value": {
+                        "max": {
+                          "field": "value"
+                        }
+                      },
+                      "sum_value": {
+                        "sum": {
+                          "field": "value"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "redbank-business-operations-develop",
+      "title": "Redbank Business Operations - Develop",
+      "purpose": "Authentication, outbox, ledger, and transfer health.",
+      "panels": [
+        {
+          "id": "authentication-failures",
+          "title": "Authentication failures, OTP throttles, and lockouts",
+          "dataView": "logs",
+          "visualization": "terms_table",
+          "unit": "events",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-30m"
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "service.name": "iam-service"
+                    }
+                  }
+                ],
+                "should": [
+                  {
+                    "terms": {
+                      "event.action": [
+                        "auth.login.failed",
+                        "otp.validate.failed",
+                        "otp.throttled",
+                        "account.locked"
+                      ]
+                    }
+                  },
+                  {
+                    "exists": {
+                      "field": "error.code"
+                    }
+                  }
+                ],
+                "minimum_should_match": 1
+              }
+            },
+            "aggs": {
+              "actions": {
+                "terms": {
+                  "field": "event.action",
+                  "missing": "unknown",
+                  "size": 20
+                },
+                "aggs": {
+                  "error_codes": {
+                    "terms": {
+                      "field": "error.code",
+                      "missing": "none",
+                      "size": 20
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "outbox-backlog-retries-oldest",
+          "title": "Outbox backlog, retries, oldest pending, and dead letters",
+          "dataView": "metrics",
+          "visualization": "metric_table",
+          "unit": "events/seconds",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-15m"
+                      }
+                    }
+                  },
+                  {
+                    "terms": {
+                      "name": [
+                        "redbank.outbox.backlog",
+                        "redbank.outbox.retry.count",
+                        "redbank.outbox.oldest.pending.seconds",
+                        "redbank.outbox.deadletter.count"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "aggs": {
+              "services": {
+                "terms": {
+                  "field": "service.name",
+                  "size": 20
+                },
+                "aggs": {
+                  "outbox_metric": {
+                    "terms": {
+                      "field": "name",
+                      "size": 10
+                    },
+                    "aggs": {
+                      "max_value": {
+                        "max": {
+                          "field": "value"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "ledger-transfer-safe-failures",
+          "title": "Ledger and transfer failures by safe reason",
+          "dataView": "logs",
+          "visualization": "terms_table",
+          "unit": "events",
+          "query": {
+            "size": 0,
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "range": {
+                      "@timestamp": {
+                        "gte": "now-30m"
+                      }
+                    }
+                  },
+                  {
+                    "terms": {
+                      "service.name": [
+                        "ledger-service",
+                        "transfer-service"
+                      ]
+                    }
+                  }
+                ],
+                "should": [
+                  {
+                    "exists": {
+                      "field": "error.code"
+                    }
+                  },
+                  {
+                    "range": {
+                      "http.response.status_code": {
+                        "gte": 400
+                      }
+                    }
+                  }
+                ],
+                "minimum_should_match": 1
+              }
+            },
+            "aggs": {
+              "services": {
+                "terms": {
+                  "field": "service.name",
+                  "size": 10
+                },
+                "aggs": {
+                  "safe_reasons": {
+                    "terms": {
+                      "field": "error.code",
+                      "missing": "http_failure",
+                      "size": 30
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "redbank-observability-platform-develop",
+      "title": "Redbank Observability Platform - Develop",
+      "purpose": "OpenSearch, Data Prepper, collector, Fluent Bit, and ingestion health.",
+      "panels": [
+        {
+          "id": "deadletter-ingestion-failures",
+          "title": "Dead-letter ingestion failures",
+          "dataView": "deadletter",
+          "visualization": "date_histogram",
+          "unit": "events",
+          "query": {
+            "size": 0,
+            "query": {
+              "range": {
+                "@timestamp": {
+                  "gte": "now-30m"
+                }
+              }
+            },
+            "aggs": {
+              "pipeline": {
+                "terms": {
+                  "field": "redbank.ingestion_pipeline",
+                  "missing": "unknown",
+                  "size": 10
+                },
+                "aggs": {
+                  "per_minute": {
+                    "date_histogram": {
+                      "field": "@timestamp",
+                      "fixed_interval": "1m"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "opensearch-cluster-health",
+          "title": "OpenSearch cluster health",
+          "visualization": "api_probe",
+          "probe": {
+            "method": "GET",
+            "url": "https://opensearch:9200/_cluster/health",
+            "warning": "status == yellow",
+            "critical": "status == red"
+          }
+        },
+        {
+          "id": "opensearch-disk-watermarks",
+          "title": "OpenSearch disk watermarks",
+          "visualization": "api_probe",
+          "probe": {
+            "method": "GET",
+            "url": "https://opensearch:9200/_cat/allocation?format=json&bytes=b",
+            "warning": "disk.percent >= 85",
+            "critical": "disk.percent >= 90"
+          }
+        },
+        {
+          "id": "data-prepper-and-collector-health",
+          "title": "Data Prepper and collector health",
+          "visualization": "api_probe",
+          "probe": {
+            "dataPrepperPrometheus": "http://data-prepper:4900/metrics/prometheus",
+            "otelCollectorHealth": "http://otel-collector:13133/",
+            "critical": "non-200 response, rejected records, exporter send failures, or retry queue growth"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -305,7 +305,11 @@ Local/develop assets are version-controlled under:
 ```text
 docker/observability/opensearch/index-templates
 docker/observability/opensearch/ism-policies
+docker/observability/opensearch/dashboards
+docker/observability/opensearch/alerting
 docker/observability/opensearch/scripts/bootstrap-develop.sh
+docker/observability/opensearch/scripts/bootstrap-alerting-develop.sh
+docker/observability/opensearch/scripts/bootstrap-dashboards-develop.sh
 docker/observability/data-prepper
 docker/observability/fluent-bit
 ```
@@ -333,6 +337,16 @@ docker/observability/fluent-bit
 - Production service emits DEBUG unexpectedly.
 - OpenSearch cluster becomes yellow/red or reaches disk watermark.
 - Snapshot or restore verification fails.
+
+Develop dashboard and alert definitions are recreated from version control by
+the observability Compose profile. Local alert syntax and trigger behavior can
+be checked with:
+
+```sh
+docker compose --env-file .env.develop -f docker-compose.develop.yml --profile observability run --rm --entrypoint sh opensearch-bootstrap /observability/opensearch/scripts/verify-alerts-develop.sh
+```
+
+Runbooks are stored in [Observability Alert Runbook](./runbooks/observability-alerts.md).
 
 ## Access Controls
 

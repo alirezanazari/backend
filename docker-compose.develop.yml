@@ -82,6 +82,43 @@ services:
       opensearch:
         condition: service_healthy
 
+  opensearch-alerting-bootstrap:
+    image: curlimages/curl:${CURL_IMAGE_VERSION:-8.11.1}
+    container_name: redbank-opensearch-alerting-bootstrap
+    profiles:
+      - observability
+    environment:
+      OPENSEARCH_URL: https://opensearch:9200
+      OPENSEARCH_USERNAME: admin
+      OPENSEARCH_PASSWORD: ${REDBANK_OPENSEARCH_PASSWORD:-RedbankDevelopAdmin123!}
+    volumes:
+      - ./docker/observability/opensearch:/observability/opensearch:ro
+    entrypoint: ["/bin/sh", "/observability/opensearch/scripts/bootstrap-alerting-develop.sh"]
+    depends_on:
+      opensearch-bootstrap:
+        condition: service_completed_successfully
+
+  opensearch-dashboards-bootstrap:
+    image: curlimages/curl:${CURL_IMAGE_VERSION:-8.11.1}
+    container_name: redbank-opensearch-dashboards-bootstrap
+    profiles:
+      - observability
+    environment:
+      OPENSEARCH_URL: https://opensearch:9200
+      OPENSEARCH_USERNAME: admin
+      OPENSEARCH_PASSWORD: ${REDBANK_OPENSEARCH_PASSWORD:-RedbankDevelopAdmin123!}
+      OPENSEARCH_DASHBOARDS_URL: http://opensearch-dashboards:5601
+      OPENSEARCH_DASHBOARDS_USERNAME: admin
+      OPENSEARCH_DASHBOARDS_PASSWORD: ${REDBANK_OPENSEARCH_PASSWORD:-RedbankDevelopAdmin123!}
+    volumes:
+      - ./docker/observability/opensearch:/observability/opensearch:ro
+    entrypoint: ["/bin/sh", "/observability/opensearch/scripts/bootstrap-dashboards-develop.sh"]
+    depends_on:
+      opensearch-bootstrap:
+        condition: service_completed_successfully
+      opensearch-dashboards:
+        condition: service_started
+
   data-prepper-init:
     image: opensearchproject/data-prepper:${DATA_PREPPER_VERSION:-2.11.0}
     container_name: redbank-data-prepper-init

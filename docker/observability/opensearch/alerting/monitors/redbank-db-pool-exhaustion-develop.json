@@ -1,0 +1,70 @@
+{
+  "type": "monitor",
+  "name": "redbank-db-pool-exhaustion-develop",
+  "monitor_type": "query_level_monitor",
+  "enabled": true,
+  "schedule": {
+    "period": {
+      "interval": 1,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [
+    {
+      "search": {
+        "indices": [
+          "metrics-redbank.develop-*"
+        ],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "range": {
+                    "@timestamp": {
+                      "gte": "{{period_end}}||-5m",
+                      "lte": "{{period_end}}",
+                      "format": "epoch_millis"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "name": "hikaricp.connections.pending"
+                  }
+                }
+              ]
+            }
+          },
+          "aggregations": {
+            "max_pending": {
+              "max": {
+                "field": "value"
+              }
+            },
+            "services": {
+              "terms": {
+                "field": "service.name",
+                "size": 10
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Database connection pool has pending requests",
+      "severity": "1",
+      "condition": {
+        "script": {
+          "source": "def pending = ctx.results[0].aggregations.max_pending.value; return pending != null && pending > 0;",
+          "lang": "painless"
+        }
+      },
+      "actions": []
+    }
+  ]
+}

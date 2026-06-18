@@ -1,0 +1,74 @@
+{
+  "type": "monitor",
+  "name": "redbank-route-latency-develop",
+  "monitor_type": "query_level_monitor",
+  "enabled": true,
+  "schedule": {
+    "period": {
+      "interval": 1,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [
+    {
+      "search": {
+        "indices": [
+          "logs-redbank.*-develop-*"
+        ],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "range": {
+                    "@timestamp": {
+                      "gte": "{{period_end}}||-5m",
+                      "lte": "{{period_end}}",
+                      "format": "epoch_millis"
+                    }
+                  }
+                },
+                {
+                  "exists": {
+                    "field": "event.duration"
+                  }
+                }
+              ]
+            }
+          },
+          "aggregations": {
+            "latency": {
+              "percentiles": {
+                "field": "event.duration",
+                "percents": [
+                  95
+                ],
+                "keyed": true
+              }
+            },
+            "services": {
+              "terms": {
+                "field": "service.name",
+                "size": 10
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Route p95 latency over 1s",
+      "severity": "2",
+      "condition": {
+        "script": {
+          "source": "def p95 = ctx.results[0].aggregations.latency.values['95.0']; return p95 != null && p95 > 1000000000;",
+          "lang": "painless"
+        }
+      },
+      "actions": []
+    }
+  ]
+}

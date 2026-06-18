@@ -1,0 +1,84 @@
+{
+  "type": "monitor",
+  "name": "redbank-auth-anomaly-develop",
+  "monitor_type": "query_level_monitor",
+  "enabled": true,
+  "schedule": {
+    "period": {
+      "interval": 1,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [
+    {
+      "search": {
+        "indices": [
+          "logs-redbank.*-develop-*"
+        ],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "range": {
+                    "@timestamp": {
+                      "gte": "{{period_end}}||-5m",
+                      "lte": "{{period_end}}",
+                      "format": "epoch_millis"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "service.name": "iam-service"
+                  }
+                }
+              ],
+              "should": [
+                {
+                  "terms": {
+                    "event.action": [
+                      "auth.login.failed",
+                      "otp.validate.failed",
+                      "otp.throttled",
+                      "account.locked"
+                    ]
+                  }
+                },
+                {
+                  "exists": {
+                    "field": "error.code"
+                  }
+                }
+              ],
+              "minimum_should_match": 1
+            }
+          },
+          "aggregations": {
+            "actions": {
+              "terms": {
+                "field": "event.action",
+                "missing": "unknown",
+                "size": 10
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Authentication failure anomaly",
+      "severity": "2",
+      "condition": {
+        "script": {
+          "source": "ctx.results[0].hits.total.value >= 10",
+          "lang": "painless"
+        }
+      },
+      "actions": []
+    }
+  ]
+}

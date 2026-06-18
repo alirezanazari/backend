@@ -1,0 +1,84 @@
+{
+  "type": "monitor",
+  "name": "redbank-ledger-transfer-failure-develop",
+  "monitor_type": "query_level_monitor",
+  "enabled": true,
+  "schedule": {
+    "period": {
+      "interval": 1,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [
+    {
+      "search": {
+        "indices": [
+          "logs-redbank.*-develop-*"
+        ],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "range": {
+                    "@timestamp": {
+                      "gte": "{{period_end}}||-5m",
+                      "lte": "{{period_end}}",
+                      "format": "epoch_millis"
+                    }
+                  }
+                },
+                {
+                  "terms": {
+                    "service.name": [
+                      "ledger-service",
+                      "transfer-service"
+                    ]
+                  }
+                }
+              ],
+              "should": [
+                {
+                  "exists": {
+                    "field": "error.code"
+                  }
+                },
+                {
+                  "range": {
+                    "http.response.status_code": {
+                      "gte": 400
+                    }
+                  }
+                }
+              ],
+              "minimum_should_match": 1
+            }
+          },
+          "aggregations": {
+            "safe_reasons": {
+              "terms": {
+                "field": "error.code",
+                "missing": "http_failure",
+                "size": 20
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Ledger or transfer failure spike",
+      "severity": "2",
+      "condition": {
+        "script": {
+          "source": "ctx.results[0].hits.total.value >= 5",
+          "lang": "painless"
+        }
+      },
+      "actions": []
+    }
+  ]
+}

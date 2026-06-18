@@ -195,6 +195,8 @@ The profile starts:
 | `otel-collector` | `http://localhost:4318` | OTLP HTTP receiver for service traces and metrics. |
 | `fluent-bit` | n/a | Docker container stdout collection. |
 | `opensearch-bootstrap` | n/a | Applies templates, policies, and write aliases. |
+| `opensearch-alerting-bootstrap` | n/a | Upserts develop OpenSearch Alerting monitors. |
+| `opensearch-dashboards-bootstrap` | n/a | Imports develop Dashboards saved objects and indexes dashboard catalogs. |
 
 Local develop credentials are intentionally disposable. The Dashboards username
 is `admin`; the password comes from `REDBANK_OPENSEARCH_PASSWORD`.
@@ -442,6 +444,23 @@ only on the affected OpenSearch cluster.
 
 Store exported dashboard, visualization, monitor, and index-template definitions
 in version control.
+
+Develop assets are stored under:
+
+```text
+docker/observability/opensearch/dashboards
+docker/observability/opensearch/alerting/monitors
+docker/observability/opensearch/alerting/platform-probes
+```
+
+The local Compose profile imports `redbank-develop-dashboards.ndjson`, indexes
+`redbank-develop-dashboard-catalog.json`, and upserts every monitor JSON file.
+Run the verifier after bootstrapping to inject controlled failures and dry-run
+the monitors:
+
+```sh
+docker compose --env-file .env.develop -f docker-compose.develop.yml --profile observability run --rm --entrypoint sh opensearch-bootstrap /observability/opensearch/scripts/verify-alerts-develop.sh
+```
 
 Promotion flow:
 

@@ -1,0 +1,105 @@
+{
+  "type": "monitor",
+  "name": "redbank-outbox-backlog-develop",
+  "monitor_type": "query_level_monitor",
+  "enabled": true,
+  "schedule": {
+    "period": {
+      "interval": 1,
+      "unit": "MINUTES"
+    }
+  },
+  "inputs": [
+    {
+      "search": {
+        "indices": [
+          "metrics-redbank.develop-*"
+        ],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "range": {
+                    "@timestamp": {
+                      "gte": "{{period_end}}||-5m",
+                      "lte": "{{period_end}}",
+                      "format": "epoch_millis"
+                    }
+                  }
+                },
+                {
+                  "terms": {
+                    "name": [
+                      "redbank.outbox.backlog",
+                      "redbank.outbox.oldest.pending.seconds",
+                      "redbank.outbox.deadletter.count"
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "aggregations": {
+            "backlog": {
+              "filter": {
+                "term": {
+                  "name": "redbank.outbox.backlog"
+                }
+              },
+              "aggregations": {
+                "max_value": {
+                  "max": {
+                    "field": "value"
+                  }
+                }
+              }
+            },
+            "oldest_pending": {
+              "filter": {
+                "term": {
+                  "name": "redbank.outbox.oldest.pending.seconds"
+                }
+              },
+              "aggregations": {
+                "max_value": {
+                  "max": {
+                    "field": "value"
+                  }
+                }
+              }
+            },
+            "deadletter": {
+              "filter": {
+                "term": {
+                  "name": "redbank.outbox.deadletter.count"
+                }
+              },
+              "aggregations": {
+                "max_value": {
+                  "max": {
+                    "field": "value"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "name": "Outbox backlog, age, or dead letters exceeded",
+      "severity": "1",
+      "condition": {
+        "script": {
+          "source": "def backlog = ctx.results[0].aggregations.backlog.max_value.value; def oldest = ctx.results[0].aggregations.oldest_pending.max_value.value; def dead = ctx.results[0].aggregations.deadletter.max_value.value; return (backlog != null && backlog > 100) || (oldest != null && oldest > 300) || (dead != null && dead > 0);",
+          "lang": "painless"
+        }
+      },
+      "actions": []
+    }
+  ]
+}

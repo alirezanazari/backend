@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "environment": "develop",
+  "owner": "redbank",
+  "description": "Out-of-band platform alert probes. These alerts intentionally do not depend only on the affected OpenSearch cluster, matching the platform operations guidance.",
+  "probes": [
+    {
+      "id": "redbank-opensearch-cluster-health-develop",
+      "title": "OpenSearch cluster health",
+      "method": "GET",
+      "url": "https://opensearch:9200/_cluster/health",
+      "interval": "1m",
+      "warning": {
+        "jsonPath": "$.status",
+        "operator": "equals",
+        "value": "yellow"
+      },
+      "critical": {
+        "jsonPath": "$.status",
+        "operator": "equals",
+        "value": "red"
+      },
+      "runbook": "docs/runbooks/observability-alerts.md#opensearch-cluster-health"
+    },
+    {
+      "id": "redbank-opensearch-disk-watermark-develop",
+      "title": "OpenSearch disk watermark",
+      "method": "GET",
+      "url": "https://opensearch:9200/_cat/allocation?format=json&bytes=b",
+      "interval": "1m",
+      "warning": {
+        "field": "disk.percent",
+        "operator": ">=",
+        "value": 85
+      },
+      "critical": {
+        "field": "disk.percent",
+        "operator": ">=",
+        "value": 90
+      },
+      "runbook": "docs/runbooks/observability-alerts.md#opensearch-disk-watermark"
+    },
+    {
+      "id": "redbank-snapshot-status-develop",
+      "title": "Failed or stale snapshots",
+      "method": "GET",
+      "url": "https://opensearch:9200/_snapshot/_all/*?ignore_unavailable=true",
+      "interval": "15m",
+      "warning": {
+        "condition": "latest_successful_snapshot_age > 24h"
+      },
+      "critical": {
+        "condition": "any snapshot state in [FAILED, PARTIAL] or no successful snapshot in required window"
+      },
+      "developDefault": "definition-only until a develop snapshot repository is configured",
+      "runbook": "docs/runbooks/observability-alerts.md#failed-or-stale-snapshots"
+    },
+    {
+      "id": "redbank-data-prepper-rejections-develop",
+      "title": "Data Prepper rejected or dropped records",
+      "method": "GET",
+      "url": "http://data-prepper:4900/metrics/prometheus",
+      "interval": "1m",
+      "critical": {
+        "condition": "rejected_records, dropped_records, dlq_write_failures, or bulk_request_failures increased over two checks"
+      },
+      "runbook": "docs/runbooks/observability-alerts.md#ingestion-failure"
+    },
+    {
+      "id": "redbank-otel-collector-health-develop",
+      "title": "OpenTelemetry Collector health",
+      "method": "GET",
+      "url": "http://otel-collector:13133/",
+      "interval": "1m",
+      "critical": {
+        "condition": "non-200 response or exporter send failures increased"
+      },
+      "runbook": "docs/runbooks/observability-alerts.md#collector-or-data-prepper-delivery-failure"
+    }
+  ]
+}
