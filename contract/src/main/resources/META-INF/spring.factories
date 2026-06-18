@@ -1,2 +1,3 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
-com.redbank.contracts.telemetry.LogFormatEnvironmentPostProcessor
+com.redbank.contracts.telemetry.LogFormatEnvironmentPostProcessor,\
+com.redbank.contracts.telemetry.ObservabilityEnvironmentPostProcessor

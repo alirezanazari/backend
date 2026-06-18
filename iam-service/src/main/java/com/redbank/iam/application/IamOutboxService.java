@@ -10,6 +10,7 @@ import com.redbank.iam.infrastructure.OutboxEventRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,15 +21,18 @@ public class IamOutboxService {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     public IamOutboxService(
             OutboxEventRepository outboxEventRepository,
             ObjectMapper objectMapper,
-            Clock clock
+            Clock clock,
+            MeterRegistry meterRegistry
     ) {
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
     }
 
     public void enqueueUserRegistered(UserRecord user) {
@@ -63,6 +67,17 @@ public class IamOutboxService {
                 null,
                 0
         ));
+        recordEnqueued(eventType);
+    }
+
+    private void recordEnqueued(String eventType) {
+        meterRegistry.counter(
+                "redbank.outbox.enqueued",
+                "producer",
+                "iam",
+                "event.type",
+                eventType
+        ).increment();
     }
 
     private String serialize(Object payload) {

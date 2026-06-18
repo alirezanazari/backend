@@ -12,6 +12,8 @@ public final class TelemetryFields {
     public static final String CLIENT_ADDRESS = "client.address";
     public static final String CORRELATION_ID = "correlation.id";
     public static final String REQUEST_ID = "request.id";
+    public static final String TRACE_ID = "trace.id";
+    public static final String SPAN_ID = "span.id";
     public static final String USER_ID = "user.id";
     public static final String PROFILE_ID = "profile.id";
     public static final String DEVICE_ID = "device.id";
@@ -27,6 +29,8 @@ public final class TelemetryFields {
             CLIENT_ADDRESS,
             CORRELATION_ID,
             REQUEST_ID,
+            TRACE_ID,
+            SPAN_ID,
             USER_ID,
             PROFILE_ID,
             DEVICE_ID

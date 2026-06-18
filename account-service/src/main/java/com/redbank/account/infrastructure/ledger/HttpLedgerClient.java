@@ -21,8 +21,8 @@ public class HttpLedgerClient implements LedgerAccountClient, LedgerBalanceClien
 
     private final RestClient restClient;
 
-    public HttpLedgerClient(LedgerClientProperties properties) {
-        this.restClient = RestClient.builder()
+    public HttpLedgerClient(RestClient.Builder restClientBuilder, LedgerClientProperties properties) {
+        this.restClient = restClientBuilder
                 .baseUrl(properties.baseUrl())
                 .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.serviceToken())
                 .build();

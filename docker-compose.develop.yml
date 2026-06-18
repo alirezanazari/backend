@@ -129,6 +129,8 @@ services:
     ports:
       - "${REDBANK_DATA_PREPPER_INGEST_PORT:-2021}:2021"
       - "${REDBANK_DATA_PREPPER_API_PORT:-4900}:4900"
+      - "${REDBANK_DATA_PREPPER_OTLP_TRACES_PORT:-21890}:21890"
+      - "${REDBANK_DATA_PREPPER_OTLP_METRICS_PORT:-21891}:21891"
     volumes:
       - ./docker/observability/data-prepper/data-prepper-config.yaml:/usr/share/data-prepper/config/data-prepper-config.yaml:ro
       - redbank-data-prepper-pipelines:/usr/share/data-prepper/pipelines:ro
@@ -138,6 +140,24 @@ services:
         condition: service_completed_successfully
       data-prepper-init:
         condition: service_completed_successfully
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_VERSION:-0.136.0}
+    container_name: redbank-otel-collector
+    profiles:
+      - observability
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    environment:
+      REDBANK_OBSERVABILITY_ENVIRONMENT: ${REDBANK_OBSERVABILITY_ENVIRONMENT:-develop}
+    ports:
+      - "${REDBANK_OTEL_COLLECTOR_GRPC_PORT:-4317}:4317"
+      - "${REDBANK_OTEL_COLLECTOR_HTTP_PORT:-4318}:4318"
+      - "${REDBANK_OTEL_COLLECTOR_HEALTH_PORT:-13133}:13133"
+    volumes:
+      - ./docker/observability/otel-collector/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      data-prepper:
+        condition: service_started
 
   fluent-bit:
     image: fluent/fluent-bit:${FLUENT_BIT_VERSION:-3.2.10}

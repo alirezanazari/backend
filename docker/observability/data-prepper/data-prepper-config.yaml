@@ -4,3 +4,6 @@ metricRegistries:
   - Prometheus
 metricTags:
   environment: develop
+peer_forwarder:
+  discovery_mode: local_node
+  ssl: false

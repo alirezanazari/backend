@@ -120,3 +120,95 @@ redbank-log-ingest:
         dlq_file: /usr/share/data-prepper/dlq/redbank-deadletter-failed-events.log
         routes:
           - invalid_redbank_log
+
+redbank-trace-entry:
+  workers: 2
+  delay: 1000
+  source:
+    otel_trace_source:
+      port: 21890
+      ssl: false
+      health_check_service: true
+      unauthenticated_health_check: true
+      max_request_length: 10mb
+  buffer:
+    bounded_blocking:
+      buffer_size: 4096
+      batch_size: 256
+  sink:
+    - pipeline:
+        name: redbank-raw-traces
+    - pipeline:
+        name: redbank-service-map
+
+redbank-raw-traces:
+  workers: 2
+  delay: 1000
+  source:
+    pipeline:
+      name: redbank-trace-entry
+  buffer:
+    bounded_blocking:
+      buffer_size: 4096
+      batch_size: 256
+  processor:
+    - otel_traces:
+  sink:
+    - opensearch:
+        hosts:
+          - "__REDBANK_OPENSEARCH_URL__"
+        username: "__REDBANK_OPENSEARCH_USERNAME__"
+        password: "__REDBANK_OPENSEARCH_PASSWORD__"
+        insecure: true
+        index_type: trace-analytics-raw
+        dlq_file: /usr/share/data-prepper/dlq/redbank-traces-failed-events.log
+
+redbank-service-map:
+  workers: 2
+  delay: 1000
+  source:
+    pipeline:
+      name: redbank-trace-entry
+  buffer:
+    bounded_blocking:
+      buffer_size: 4096
+      batch_size: 256
+  processor:
+    - service_map:
+  sink:
+    - opensearch:
+        hosts:
+          - "__REDBANK_OPENSEARCH_URL__"
+        username: "__REDBANK_OPENSEARCH_USERNAME__"
+        password: "__REDBANK_OPENSEARCH_PASSWORD__"
+        insecure: true
+        index_type: trace-analytics-service-map
+        dlq_file: /usr/share/data-prepper/dlq/redbank-service-map-failed-events.log
+
+redbank-metrics:
+  workers: 2
+  delay: 1000
+  source:
+    otel_metrics_source:
+      port: 21891
+      ssl: false
+      output_format: otel
+      max_request_length: 10mb
+  buffer:
+    bounded_blocking:
+      buffer_size: 4096
+      batch_size: 256
+  processor:
+    - otel_metrics:
+        flatten_attributes: true
+  sink:
+    - opensearch:
+        hosts:
+          - "__REDBANK_OPENSEARCH_URL__"
+        username: "__REDBANK_OPENSEARCH_USERNAME__"
+        password: "__REDBANK_OPENSEARCH_PASSWORD__"
+        insecure: true
+        index_type: custom
+        index: metrics-redbank.develop
+        normalize_index: true
+        dlq_file: /usr/share/data-prepper/dlq/redbank-metrics-failed-events.log

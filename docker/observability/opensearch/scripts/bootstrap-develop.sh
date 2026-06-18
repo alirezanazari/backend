@@ -71,11 +71,21 @@ put_assets() {
     "$ROOT/ism-policies/redbank-develop-logs-policy.json"
   curl_os_allow_conflict PUT "/_plugins/_ism/policies/redbank-develop-deadletter-policy" \
     "$ROOT/ism-policies/redbank-develop-deadletter-policy.json"
+  curl_os_allow_conflict PUT "/_plugins/_ism/policies/redbank-develop-traces-policy" \
+    "$ROOT/ism-policies/redbank-develop-traces-policy.json"
+  curl_os_allow_conflict PUT "/_plugins/_ism/policies/redbank-develop-metrics-policy" \
+    "$ROOT/ism-policies/redbank-develop-metrics-policy.json"
 
   curl_os_allow_conflict PUT "/_index_template/logs-redbank-template" \
     "$ROOT/index-templates/logs-redbank-template.json"
   curl_os_allow_conflict PUT "/_index_template/deadletter-redbank-template" \
     "$ROOT/index-templates/deadletter-redbank-template.json"
+  curl_os_allow_conflict PUT "/_index_template/otel-traces-redbank-template" \
+    "$ROOT/index-templates/otel-traces-redbank-template.json"
+  curl_os_allow_conflict PUT "/_index_template/otel-service-map-redbank-template" \
+    "$ROOT/index-templates/otel-service-map-redbank-template.json"
+  curl_os_allow_conflict PUT "/_index_template/metrics-redbank-template" \
+    "$ROOT/index-templates/metrics-redbank-template.json"
 }
 
 index_exists() {
@@ -127,5 +137,6 @@ do
 done
 
 create_write_alias "deadletter-redbank.develop"
+create_write_alias "metrics-redbank.develop"
 
 echo "Develop OpenSearch observability assets are ready."

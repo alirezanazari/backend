@@ -192,6 +192,7 @@ The profile starts:
 | `opensearch-dashboards` | `http://localhost:5601` | Search and dashboard UI. |
 | `data-prepper` | `http://localhost:2021/health` | HTTP log ingestion and validation. |
 | `data-prepper-init` | n/a | Renders the Data Prepper pipeline from env and prepares DLQ volume permissions. |
+| `otel-collector` | `http://localhost:4318` | OTLP HTTP receiver for service traces and metrics. |
 | `fluent-bit` | n/a | Docker container stdout collection. |
 | `opensearch-bootstrap` | n/a | Applies templates, policies, and write aliases. |
 
@@ -261,6 +262,19 @@ Services export OTLP to OpenTelemetry Collector. Collector processors should:
 Collector exports to Data Prepper OTLP endpoints. Data Prepper creates trace
 indexes and service-map data in OpenSearch.
 
+Local develop ports:
+
+```text
+service -> otel-collector:4318/v1/traces
+service -> otel-collector:4318/v1/metrics
+otel-collector -> data-prepper:21890
+otel-collector -> data-prepper:21891
+```
+
+Trace analytics uses Data Prepper `otel_traces` and `service_map` processors.
+Metrics use `otel_metrics` with flattened attributes and write through the
+`metrics-redbank.develop` alias.
+
 Metrics labels must remain low-cardinality. User IDs, profile IDs, transaction
 IDs, account numbers, URLs with IDs, and exception messages are not metric
 labels.
@@ -273,6 +287,7 @@ Create version-controlled templates for:
 logs-redbank.*
 otel-v1-apm-span-*
 otel-v1-apm-service-map-*
+metrics-redbank.*
 deadletter-redbank.*
 ```
 
@@ -476,7 +491,10 @@ Suggested variables for deployment automation:
 
 ```text
 REDBANK_OTEL_EXPORTER_OTLP_ENDPOINT
-REDBANK_OTEL_EXPORTER_OTLP_PROTOCOL
+REDBANK_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+REDBANK_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+REDBANK_TRACING_SAMPLING_PROBABILITY
+REDBANK_OTEL_METRICS_EXPORT_STEP
 REDBANK_OBSERVABILITY_ENVIRONMENT
 REDBANK_OPENSEARCH_ENDPOINT
 REDBANK_OPENSEARCH_USERNAME

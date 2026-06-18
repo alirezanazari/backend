@@ -41,6 +41,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +63,7 @@ public class LedgerService {
     private final LedgerOutboxService ledgerOutboxService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     public LedgerService(
             LedgerAccountRepository ledgerAccountRepository,
@@ -70,7 +72,8 @@ public class LedgerService {
             LedgerEntryRepository ledgerEntryRepository,
             LedgerOutboxService ledgerOutboxService,
             TransactionTemplate transactionTemplate,
-            Clock clock
+            Clock clock,
+            MeterRegistry meterRegistry
     ) {
         this.ledgerAccountRepository = ledgerAccountRepository;
         this.ledgerBalanceRepository = ledgerBalanceRepository;
@@ -80,6 +83,7 @@ public class LedgerService {
         this.ledgerPostingValidator = new LedgerPostingValidator();
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
     }
 
     @Transactional
@@ -96,6 +100,7 @@ public class LedgerService {
     public CloseLedgerAccountResponse closeAccount(CloseLedgerAccountRequest request) {
         LedgerAccountRecord account = ledgerAccount(request.externalAccountNumber());
         if (account.status() == LedgerAccountStatus.CLOSED) {
+            recordLedgerAccount("close", "already_closed");
             return toCloseAccountResponse(account);
         }
 
@@ -118,6 +123,7 @@ public class LedgerService {
             return toCloseAccountResponse(current);
         }
         ledgerOutboxService.enqueueAccountClosed(updatedAccount(account, LedgerAccountStatus.CLOSED));
+        recordLedgerAccount("close", "closed");
         return new CloseLedgerAccountResponse(account.id().toString(), LedgerAccountStatus.CLOSED.name());
     }
 
@@ -125,6 +131,7 @@ public class LedgerService {
     public ReopenLedgerAccountResponse reopenAccount(ReopenLedgerAccountRequest request) {
         LedgerAccountRecord account = ledgerAccount(request.externalAccountNumber());
         if (account.status() == LedgerAccountStatus.ACTIVE) {
+            recordLedgerAccount("reopen", "already_active");
             return toReopenAccountResponse(account);
         }
 
@@ -142,6 +149,7 @@ public class LedgerService {
             return toReopenAccountResponse(current);
         }
         ledgerOutboxService.enqueueAccountReopened(updatedAccount(account, LedgerAccountStatus.ACTIVE));
+        recordLedgerAccount("reopen", "active");
         return new ReopenLedgerAccountResponse(account.id().toString(), LedgerAccountStatus.ACTIVE.name());
     }
 
@@ -285,6 +293,7 @@ public class LedgerService {
             return existingAccountResponse(existing, ownerUserId, currency);
         }
         ledgerOutboxService.enqueueAccountCreated(account);
+        recordLedgerAccount("create", "created");
         return toCreateAccountResponse(account);
     }
 
@@ -332,6 +341,7 @@ public class LedgerService {
         }
         ledgerEntryRepository.saveAll(entries);
         ledgerOutboxService.enqueueTransactionPosted(transaction);
+        recordLedgerTransaction(transaction.referenceType(), transaction.transactionType(), "posted");
         return toTransactionResponse(transaction);
     }
 
@@ -373,10 +383,12 @@ public class LedgerService {
             try {
                 return transactionTemplate.execute(status -> operation.post());
             } catch (LedgerOptimisticLockException exception) {
+                recordLedgerPostingRetry(referenceType, "optimistic_lock");
                 if (attempt == MAX_OPTIMISTIC_LOCK_ATTEMPTS) {
                     throw new LedgerBusinessRuleException("Ledger balance changed while posting transaction; retry limit reached");
                 }
             } catch (DataIntegrityViolationException exception) {
+                recordLedgerPostingRetry(referenceType, "integrity_violation");
                 return transactionTemplate.execute(status -> duplicateResponseAfterIntegrityViolation(
                         referenceType,
                         referenceId,
@@ -385,6 +397,42 @@ public class LedgerService {
             }
         }
         throw new LedgerBusinessRuleException("Ledger transaction could not be posted");
+    }
+
+    private void recordLedgerAccount(String operation, String outcome) {
+        meterRegistry.counter(
+                "redbank.ledger.accounts",
+                "operation",
+                operation,
+                "outcome",
+                outcome
+        ).increment();
+    }
+
+    private void recordLedgerTransaction(
+            LedgerReferenceType referenceType,
+            LedgerTransactionType transactionType,
+            String outcome
+    ) {
+        meterRegistry.counter(
+                "redbank.ledger.transactions",
+                "reference.type",
+                referenceType.name().toLowerCase(Locale.ROOT),
+                "transaction.type",
+                transactionType.name().toLowerCase(Locale.ROOT),
+                "outcome",
+                outcome
+        ).increment();
+    }
+
+    private void recordLedgerPostingRetry(LedgerReferenceType referenceType, String reason) {
+        meterRegistry.counter(
+                "redbank.ledger.posting.retries",
+                "reference.type",
+                referenceType.name().toLowerCase(Locale.ROOT),
+                "reason",
+                reason
+        ).increment();
     }
 
     private LedgerTransactionResponse duplicateResponseAfterIntegrityViolation(

@@ -11,6 +11,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -48,7 +50,9 @@ class AccountOutboxDispatcherTest {
                 repository,
                 ledgerClient,
                 new ObjectMapper(),
-                Clock.fixed(NOW, ZoneOffset.UTC)
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                new SimpleMeterRegistry(),
+                ObservationRegistry.create()
         );
 
         dispatcher.dispatchPending();

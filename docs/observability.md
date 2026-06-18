@@ -179,6 +179,20 @@ Implementation requirements:
 - Include request ID, trace ID, span ID, and correlation ID in unexpected error
   logs.
 
+Current implementation:
+
+- Services use Micrometer Tracing with the OpenTelemetry bridge and OTLP
+  exporters.
+- Shared defaults set W3C propagation, OTLP HTTP endpoints, resource attributes,
+  metric tags, and Reactor context propagation.
+- `RestClient` integrations use the Spring-managed `RestClient.Builder` so
+  trace context is propagated on outbound HTTP.
+- Scheduled outbox dispatchers create Micrometer observations for polling and
+  event dispatch. Add executor task decoration when a service introduces custom
+  `@Async` or `TaskExecutor` beans.
+- Plain-text logs include `correlation.id`, `traceId`, and `spanId`; ECS JSON
+  output carries MDC and structured key/value fields.
+
 ## Metrics
 
 Every service exposes Spring Boot Actuator metrics to the collector.
@@ -194,6 +208,24 @@ Required service metrics:
 - Transfer and ledger success/failure counters using controlled reason codes.
 
 Do not use customer identifiers as metric labels.
+
+Project business metrics:
+
+```text
+redbank.auth.requests
+redbank.outbox.backlog
+redbank.outbox.enqueued
+redbank.outbox.events
+redbank.outbox.oldest.pending.age
+redbank.outbox.retry.count
+redbank.transfer.requests
+redbank.ledger.accounts
+redbank.ledger.transactions
+redbank.ledger.posting.retries
+```
+
+Labels are limited to operation names, outcomes, reasons, producer/dispatcher
+names, event types, transfer methods, and ledger enum values.
 
 ## Logging Is Not Audit
 

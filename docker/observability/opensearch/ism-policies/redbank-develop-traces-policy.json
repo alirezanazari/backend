@@ -1,0 +1,43 @@
+{
+  "policy": {
+    "description": "Develop trace analytics rollover and 7 day retention.",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          {
+            "rollover": {
+              "min_index_age": "1d",
+              "min_size": "1gb"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "7d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": {
+      "index_patterns": [
+        "otel-v1-apm-span-*",
+        "otel-v1-apm-service-map-*"
+      ],
+      "priority": 100
+    }
+  }
+}

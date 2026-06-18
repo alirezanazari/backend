@@ -10,6 +10,7 @@ import com.redbank.ledger.infrastructure.OutboxEventRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,15 +23,18 @@ public class LedgerOutboxService {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     public LedgerOutboxService(
             OutboxEventRepository outboxEventRepository,
             ObjectMapper objectMapper,
-            Clock clock
+            Clock clock,
+            MeterRegistry meterRegistry
     ) {
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
     }
 
     public void enqueueAccountCreated(LedgerAccountRecord account) {
@@ -91,6 +95,17 @@ public class LedgerOutboxService {
                 null,
                 0
         ));
+        recordEnqueued(eventType);
+    }
+
+    private void recordEnqueued(String eventType) {
+        meterRegistry.counter(
+                "redbank.outbox.enqueued",
+                "producer",
+                "ledger",
+                "event.type",
+                eventType
+        ).increment();
     }
 
     private String serialize(Object payload) {

@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,7 @@ public class IamService {
     private final AccountCompletionClient accountCompletionClient;
     private final IamOutboxService iamOutboxService;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     public IamService(
             UserRepository userRepository,
@@ -60,7 +62,8 @@ public class IamService {
             DeviceContextValidator deviceContextValidator,
             AccountCompletionClient accountCompletionClient,
             IamOutboxService iamOutboxService,
-            Clock clock
+            Clock clock,
+            MeterRegistry meterRegistry
     ) {
         this.userRepository = userRepository;
         this.credentialRepository = credentialRepository;
@@ -74,6 +77,7 @@ public class IamService {
         this.accountCompletionClient = accountCompletionClient;
         this.iamOutboxService = iamOutboxService;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
     }
 
     @Transactional
@@ -118,6 +122,7 @@ public class IamService {
             throw new IamConflictException("Username, phone number, or national ID already exists");
         }
         iamOutboxService.enqueueUserRegistered(user);
+        recordAuth("register", "success");
 
         TokenResult token = jwtTokenService.createAccountRequiredToken(user.id());
         return new RegisterResponse(
@@ -139,16 +144,19 @@ public class IamService {
                 .orElseThrow(() -> new IamUnauthorizedException("Unauthorized"));
 
         if (!passwordEncoder.matches(request.password(), credential.passwordHash())) {
+            recordAuth("login", "rejected");
             throw new IamUnauthorizedException("Unauthorized");
         }
 
         DeviceRecord device = findOrCreateDevice(context, user.id(), fingerprint);
         if (device.status() == DeviceStatus.BLOCKED || device.status() == DeviceStatus.REMOVED) {
+            recordAuth("login", "blocked");
             throw new IamBusinessRuleException("Device is not allowed");
         }
         if (device.status() == DeviceStatus.VERIFIED) {
             AccountCompletionResult completion = accountCompletionClient.getCompletion(user.id());
             TokenResult token = jwtTokenService.createUserToken(user.id(), device.id(), completion.activeProfileId());
+            recordAuth("login", "authenticated");
             return new LoginResponse(
                     token.accessToken(),
                     token.tokenType(),
@@ -162,6 +170,7 @@ public class IamService {
 
         OtpChallengeRecord challenge = createOtpChallenge(user.id(), device.id());
         TokenResult token = jwtTokenService.createDeviceVerifyToken(user.id(), device.id());
+        recordAuth("login", "challenge_required");
         return new LoginResponse(
                 token.accessToken(),
                 token.tokenType(),
@@ -194,6 +203,7 @@ public class IamService {
             if (challenge.attemptCount() + 1 >= challenge.maxAttempts()) {
                 otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.FAILED, now);
             }
+            recordAuth("verify_device", "rejected");
             throw new IamUnauthorizedException("Unauthorized");
         }
 
@@ -204,6 +214,7 @@ public class IamService {
         DeviceRecord device = deviceRepository.findById(challenge.deviceId())
                 .orElseThrow(() -> new IamBusinessRuleException("Device was not found"));
         iamOutboxService.enqueueDeviceVerified(device);
+        recordAuth("verify_device", "success");
 
         return new DeviceVerifyResponse(
                 device.id().toString(),
@@ -270,16 +281,29 @@ public class IamService {
     private void validateChallengeCanBeUsed(OtpChallengeRecord challenge) {
         Instant now = clock.instant();
         if (challenge.status() != OtpChallengeStatus.PENDING) {
+            recordAuth("verify_device", "invalid_status");
             throw new IamBusinessRuleException("OTP challenge is not pending");
         }
         if (!challenge.expiresAt().isAfter(now)) {
             otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.EXPIRED, now);
+            recordAuth("verify_device", "expired");
             throw new IamUnauthorizedException("Unauthorized");
         }
         if (challenge.attemptCount() >= challenge.maxAttempts()) {
             otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.FAILED, now);
+            recordAuth("verify_device", "max_attempts");
             throw new IamUnauthorizedException("Unauthorized");
         }
+    }
+
+    private void recordAuth(String operation, String outcome) {
+        meterRegistry.counter(
+                "redbank.auth.requests",
+                "operation",
+                operation,
+                "outcome",
+                outcome
+        ).increment();
     }
 
     private UUID parseChallengeId(String challengeId) {

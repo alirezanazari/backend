@@ -16,7 +16,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       probes:
@@ -26,7 +26,7 @@ logging:
   level:
     root: ${REDBANK_LOG_LEVEL:INFO}
   pattern:
-    level: "%5p [${spring.application.name:},%X{correlation.id:-}]"
+    level: "%5p [${spring.application.name:},%X{correlation.id:-},%X{traceId:-},%X{spanId:-}]"
   structured:
     ecs:
       service:

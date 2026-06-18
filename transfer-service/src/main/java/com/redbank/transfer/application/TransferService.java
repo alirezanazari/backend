@@ -36,6 +36,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,7 @@ public class TransferService {
     private final LedgerTransferClient ledgerTransferClient;
     private final TransferProperties transferProperties;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     public TransferService(
             TransferMethodRepository transferMethodRepository,
@@ -63,7 +65,8 @@ public class TransferService {
             TransferPartyClient transferPartyClient,
             LedgerTransferClient ledgerTransferClient,
             TransferProperties transferProperties,
-            Clock clock
+            Clock clock,
+            MeterRegistry meterRegistry
     ) {
         this.transferMethodRepository = transferMethodRepository;
         this.transferRepository = transferRepository;
@@ -74,6 +77,7 @@ public class TransferService {
         this.ledgerTransferClient = ledgerTransferClient;
         this.transferProperties = transferProperties;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
     }
 
     @Transactional(readOnly = true)
@@ -144,7 +148,9 @@ public class TransferService {
             );
         }
         if (idempotency.transferId() != null) {
-            return replay(token.userId(), idempotency.transferId());
+            CreateTransferResponse response = replay(token.userId(), idempotency.transferId());
+            recordTransfer(normalized.method(), "replayed", "none");
+            return response;
         }
 
         TransferMethodRecord method = transferMethodRepository.findByMethod(normalized.method())
@@ -158,6 +164,7 @@ public class TransferService {
                 new FeatureFlagSubject(token.userId(), profileId, evaluationAccountNumber)
         ).get(methodFlagKey));
         if (!method.enabled() || !enabledForSubject) {
+            recordTransfer(normalized.method(), "failed", "feature_disabled");
             throw new TransferFeatureDisabledException("Transfer method is disabled");
         }
 
@@ -230,17 +237,33 @@ public class TransferService {
                     responseSnapshot(succeeded),
                     succeededAt
             );
+            recordTransfer(normalized.method(), "success", "none");
             return toResponse(succeeded);
         } catch (TransferInsufficientFundsException exception) {
             fail(transfer, idempotency.id(), "INSUFFICIENT_FUNDS");
+            recordTransfer(normalized.method(), "failed", "insufficient_funds");
             throw exception;
         } catch (TransferExternalServiceException exception) {
             fail(transfer, idempotency.id(), "EXTERNAL_SERVICE_ERROR");
+            recordTransfer(normalized.method(), "failed", "external_service_error");
             throw exception;
         } catch (RuntimeException exception) {
             fail(transfer, idempotency.id(), "EXTERNAL_SERVICE_ERROR");
+            recordTransfer(normalized.method(), "failed", "external_service_error");
             throw new TransferExternalServiceException("Ledger transfer failed", exception);
         }
+    }
+
+    private void recordTransfer(TransferMethod method, String outcome, String reason) {
+        meterRegistry.counter(
+                "redbank.transfer.requests",
+                "method",
+                method == null ? "unknown" : method.name().toLowerCase(Locale.ROOT),
+                "outcome",
+                outcome,
+                "reason",
+                reason
+        ).increment();
     }
 
     @Transactional(readOnly = true)

@@ -4,6 +4,13 @@ import java.util.List;
 import java.util.Locale;
 
 public final class TelemetrySensitiveFields {
+    private static final List<String> ALLOWED_FIELD_NAMES = List.of(
+            "trace_id",
+            "traceid",
+            "span_id",
+            "spanid"
+    );
+
     public static final List<String> BLOCKED_FIELD_TOKENS = List.of(
             "password",
             "otp",
@@ -44,6 +51,9 @@ public final class TelemetrySensitiveFields {
             return false;
         }
         String normalized = normalize(fieldName);
+        if (ALLOWED_FIELD_NAMES.contains(normalized)) {
+            return false;
+        }
         return BLOCKED_FIELD_TOKENS.stream().anyMatch(normalized::contains);
     }
 

@@ -12,6 +12,9 @@ import java.time.Clock;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -22,6 +25,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "redbank.ledger", name = "enabled", havingValue = "true")
 public class AccountOutboxDispatcher {
     private static final Logger LOGGER = LoggerFactory.getLogger(AccountOutboxDispatcher.class);
+    private static final String DISPATCHER = "account-ledger";
     private static final int BATCH_SIZE = 20;
     private static final int MAX_RETRY_COUNT = 5;
     private static final Set<String> EVENT_TYPES = Set.of(
@@ -34,21 +38,33 @@ public class AccountOutboxDispatcher {
     private final LedgerAccountClient ledgerAccountClient;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
+    private final ObservationRegistry observationRegistry;
 
     public AccountOutboxDispatcher(
             OutboxEventRepository outboxEventRepository,
             LedgerAccountClient ledgerAccountClient,
             ObjectMapper objectMapper,
-            Clock clock
+            Clock clock,
+            MeterRegistry meterRegistry,
+            ObservationRegistry observationRegistry
     ) {
         this.outboxEventRepository = outboxEventRepository;
         this.ledgerAccountClient = ledgerAccountClient;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
+        this.observationRegistry = observationRegistry;
     }
 
     @Scheduled(fixedDelayString = "${redbank.account.outbox.dispatch-delay-ms:5000}")
     public void dispatchPending() {
+        Observation.createNotStarted("redbank.outbox.dispatch", observationRegistry)
+                .lowCardinalityKeyValue("dispatcher", DISPATCHER)
+                .observe(this::dispatchPendingObserved);
+    }
+
+    private void dispatchPendingObserved() {
         Set<String> attemptedAggregates = new HashSet<>();
         for (OutboxEventRecord event : outboxEventRepository.findPendingByEventTypes(
                 EVENT_TYPES,
@@ -59,8 +75,15 @@ public class AccountOutboxDispatcher {
             if (!attemptedAggregates.add(aggregateKey)) {
                 continue;
             }
-            dispatch(event);
+            dispatchObserved(event);
         }
+    }
+
+    private void dispatchObserved(OutboxEventRecord event) {
+        Observation.createNotStarted("redbank.outbox.event", observationRegistry)
+                .lowCardinalityKeyValue("dispatcher", DISPATCHER)
+                .lowCardinalityKeyValue("event.type", event.eventType())
+                .observe(() -> dispatch(event));
     }
 
     private void dispatch(OutboxEventRecord event) {
@@ -70,10 +93,24 @@ public class AccountOutboxDispatcher {
                 throw new IllegalStateException("Ledger account lifecycle event was not acknowledged");
             }
             outboxEventRepository.markPublished(event.id(), clock.instant());
+            recordOutboxEvent(event.eventType(), "published");
         } catch (JsonProcessingException | RuntimeException exception) {
             LOGGER.warn("Account outbox event dispatch failed: {}", event.id(), exception);
             outboxEventRepository.markAttemptFailed(event.id(), clock.instant(), MAX_RETRY_COUNT);
+            recordOutboxEvent(event.eventType(), "failed");
         }
+    }
+
+    private void recordOutboxEvent(String eventType, String outcome) {
+        meterRegistry.counter(
+                "redbank.outbox.events",
+                "dispatcher",
+                DISPATCHER,
+                "event.type",
+                eventType,
+                "outcome",
+                outcome
+        ).increment();
     }
 
     private boolean dispatchToLedger(OutboxEventRecord event) throws JsonProcessingException {

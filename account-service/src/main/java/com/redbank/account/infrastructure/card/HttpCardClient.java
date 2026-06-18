@@ -21,8 +21,8 @@ public class HttpCardClient implements CardAccountClient {
 
     private final RestClient restClient;
 
-    public HttpCardClient(CardClientProperties properties) {
-        this.restClient = RestClient.builder()
+    public HttpCardClient(RestClient.Builder restClientBuilder, CardClientProperties properties) {
+        this.restClient = restClientBuilder
                 .baseUrl(properties.baseUrl())
                 .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.serviceToken())
                 .build();

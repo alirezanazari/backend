@@ -22,8 +22,8 @@ public class HttpAccountEligibilityClient implements AccountEligibilityClient {
 
     private final RestClient restClient;
 
-    public HttpAccountEligibilityClient(AccountClientProperties properties) {
-        this.restClient = RestClient.builder()
+    public HttpAccountEligibilityClient(RestClient.Builder restClientBuilder, AccountClientProperties properties) {
+        this.restClient = restClientBuilder
                 .baseUrl(properties.baseUrl())
                 .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.serviceToken())
                 .build();

@@ -2,6 +2,7 @@ package com.redbank.iam.infrastructure;
 
 import com.redbank.iam.domain.OutboxEventRecord;
 import com.redbank.iam.domain.OutboxEventStatus;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -68,6 +69,29 @@ public class OutboxEventRepository {
                 .set(OUTBOX_EVENTS.UPDATED_AT, toOffsetDateTime(updatedAt))
                 .where(OUTBOX_EVENTS.ID.eq(id))
                 .execute();
+    }
+
+    public long countByStatus(OutboxEventStatus status) {
+        return dsl.fetchCount(OUTBOX_EVENTS, OUTBOX_EVENTS.STATUS.eq(status.name()));
+    }
+
+    public long totalRetryCountByStatus(OutboxEventStatus status) {
+        Number total = dsl.select(DSL.coalesce(DSL.sum(OUTBOX_EVENTS.RETRY_COUNT), 0))
+                .from(OUTBOX_EVENTS)
+                .where(OUTBOX_EVENTS.STATUS.eq(status.name()))
+                .fetchOne(0, Number.class);
+        return total == null ? 0 : total.longValue();
+    }
+
+    public long oldestPendingAgeSeconds(Instant now) {
+        OffsetDateTime oldest = dsl.select(DSL.min(OUTBOX_EVENTS.CREATED_AT))
+                .from(OUTBOX_EVENTS)
+                .where(OUTBOX_EVENTS.STATUS.eq(OutboxEventStatus.PENDING.name()))
+                .fetchOne(0, OffsetDateTime.class);
+        if (oldest == null) {
+            return 0;
+        }
+        return Math.max(0, Duration.between(oldest.toInstant(), now).toSeconds());
     }
 
     private OutboxEventRecord map(Record record) {

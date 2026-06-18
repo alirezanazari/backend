@@ -7,6 +7,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -29,7 +31,9 @@ class LocalOutboxPublisherTest {
         new LocalOutboxPublisher(
                 repository,
                 eventPublisher,
-                Clock.fixed(NOW, ZoneOffset.UTC)
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                new SimpleMeterRegistry(),
+                ObservationRegistry.create()
         ).publishPending();
 
         verify(eventPublisher).publishEvent(any(LocalDomainEvent.class));
@@ -49,7 +53,9 @@ class LocalOutboxPublisherTest {
         new LocalOutboxPublisher(
                 repository,
                 eventPublisher,
-                Clock.fixed(NOW, ZoneOffset.UTC)
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                new SimpleMeterRegistry(),
+                ObservationRegistry.create()
         ).publishPending();
 
         verify(repository).markAttemptFailed(event.id(), NOW, 5);
