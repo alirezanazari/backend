@@ -141,6 +141,9 @@ key/value logging for operational identifiers.
 Developer machines use human-readable logs by default. Set
 `REDBANK_LOG_FORMAT=ecs` when testing ingestion locally.
 
+Production profile defaults to ECS JSON. `REDBANK_LOG_FORMAT=text` is reserved
+for local troubleshooting and must not be used for deployed production.
+
 ## Correlation and Tracing
 
 W3C Trace Context is the cross-service tracing contract:

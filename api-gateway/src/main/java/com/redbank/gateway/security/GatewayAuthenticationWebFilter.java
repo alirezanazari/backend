@@ -2,6 +2,7 @@ package com.redbank.gateway.security;
 
 import com.redbank.contracts.envelope.Status;
 import com.redbank.contracts.envelope.StatusCode;
+import com.redbank.contracts.telemetry.TelemetryHeaders;
 import com.redbank.gateway.web.GatewayResponseWriter;
 import java.util.List;
 import org.springframework.core.Ordered;
@@ -17,9 +18,9 @@ import reactor.core.publisher.Mono;
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class GatewayAuthenticationWebFilter implements WebFilter {
-    public static final String USER_ID_HEADER = "X-Authenticated-User-Id";
-    public static final String PROFILE_ID_HEADER = "X-Authenticated-Profile-Id";
-    public static final String DEVICE_ID_HEADER = "X-Authenticated-Device-Id";
+    public static final String USER_ID_HEADER = TelemetryHeaders.AUTHENTICATED_USER_ID;
+    public static final String PROFILE_ID_HEADER = TelemetryHeaders.AUTHENTICATED_PROFILE_ID;
+    public static final String DEVICE_ID_HEADER = TelemetryHeaders.AUTHENTICATED_DEVICE_ID;
     public static final String TOKEN_ID_HEADER = "X-Authenticated-Token-Id";
     public static final String ROLES_HEADER = "X-Authenticated-Roles";
     public static final String SCOPES_HEADER = "X-Authenticated-Scopes";

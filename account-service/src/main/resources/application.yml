@@ -1,6 +1,7 @@
 spring:
   application:
     name: account-service
+    version: ${REDBANK_SERVICE_VERSION:0.1.0-SNAPSHOT}
   datasource:
     url: jdbc:postgresql://${ACCOUNT_DB_HOST:localhost}:${ACCOUNT_DB_PORT:5432}/${ACCOUNT_DB_NAME:account_db}
     username: ${ACCOUNT_DB_USERNAME:${POSTGRES_USER:redbank}}
@@ -25,7 +26,12 @@ logging:
   level:
     root: ${REDBANK_LOG_LEVEL:INFO}
   pattern:
-    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+    level: "%5p [${spring.application.name:},%X{correlation.id:-}]"
+  structured:
+    ecs:
+      service:
+        environment: ${REDBANK_OBSERVABILITY_ENVIRONMENT:${SPRING_PROFILES_ACTIVE:local}}
+        node-name: ${REDBANK_SERVICE_NODE_NAME:${HOSTNAME:local}}
 
 springdoc:
   swagger-ui:

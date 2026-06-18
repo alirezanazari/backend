@@ -1,6 +1,7 @@
 spring:
   application:
     name: api-gateway
+    version: ${REDBANK_SERVICE_VERSION:0.1.0-SNAPSHOT}
   cloud:
     gateway:
       server:
@@ -59,7 +60,12 @@ logging:
   level:
     root: ${REDBANK_LOG_LEVEL:INFO}
   pattern:
-    level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+    level: "%5p [${spring.application.name:},%X{correlation.id:-}]"
+  structured:
+    ecs:
+      service:
+        environment: ${REDBANK_OBSERVABILITY_ENVIRONMENT:${SPRING_PROFILES_ACTIVE:local}}
+        node-name: ${REDBANK_SERVICE_NODE_NAME:${HOSTNAME:local}}
 
 springdoc:
   swagger-ui:

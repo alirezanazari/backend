@@ -211,8 +211,9 @@ Common examples:
 | `REDBANK_DB_PASSWORD` | develop secret | prod secret | Database password. |
 | `REDBANK_FLYWAY_ENABLED` | `true` | deployment-controlled | Database migration toggle. |
 | `REDBANK_LOG_LEVEL` | `DEBUG` or `INFO` | `INFO` | Application log level. |
-| `REDBANK_LOG_FORMAT` | `text` or `ecs` | `ecs` | Console log format. |
+| `REDBANK_LOG_FORMAT` | `text` or `ecs` | `text` on developer machines, `ecs` in prod | Console log format. |
 | `REDBANK_OBSERVABILITY_ENVIRONMENT` | `develop` | `prod` | Telemetry environment attribute. |
+| `REDBANK_SERVICE_VERSION` | built artifact version | promoted image version | Telemetry service version. |
 | `REDBANK_OTEL_EXPORTER_OTLP_ENDPOINT` | develop collector URL | production collector URL | OTLP metrics and traces endpoint. |
 | `REDBANK_OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `grpc` | OTLP export protocol. |
 | `REDBANK_EXTERNAL_TRANSFER_BASE_URL` | mock URL | real URL | Third-party transfer provider URL. |
@@ -513,6 +514,8 @@ ECS JSON available for ingestion testing
 debug logs can be enabled temporarily
 ```
 
+Set `REDBANK_LOG_FORMAT=ecs` locally only when testing structured log ingestion.
+
 Shared develop:
 
 ```text
@@ -534,6 +537,9 @@ no full tokens
 no full card numbers
 no raw request body for sensitive APIs
 ```
+
+Production profile defaults to ECS JSON logs. Set `REDBANK_LOG_FORMAT=text`
+only for controlled local production-profile simulation.
 
 Use separate self-hosted OpenSearch Observability stacks for shared `develop`
 and `prod`. Use Data Prepper plus OpenTelemetry Collector or Fluent Bit for

@@ -24,4 +24,16 @@ public record ApiResponse<T>(
                 null
         );
     }
+
+    public static <T> ApiResponse<T> failure(
+            String requestId,
+            String correlationId,
+            String profileId,
+            Status status
+    ) {
+        return new ApiResponse<>(
+                new ResponseContext(requestId, correlationId, profileId, status),
+                null
+        );
+    }
 }

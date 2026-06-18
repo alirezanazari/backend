@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.envelope.Status;
+import com.redbank.contracts.telemetry.TelemetryHeaders;
+import com.redbank.contracts.telemetry.TelemetryMdc;
 import java.nio.charset.StandardCharsets;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.MediaType;
@@ -24,7 +26,7 @@ public class GatewayResponseWriter {
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
         try {
             byte[] body = objectMapper.writeValueAsBytes(
-                    ApiResponse.failure(requestId(exchange), null, status)
+                    ApiResponse.failure(requestId(exchange), correlationId(exchange), null, status)
             );
             DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(body);
             return exchange.getResponse().writeWith(Mono.just(buffer));
@@ -41,7 +43,18 @@ public class GatewayResponseWriter {
     }
 
     private String requestId(ServerWebExchange exchange) {
-        String requestId = exchange.getRequest().getHeaders().getFirst(CorrelationWebFilter.HEADER_NAME);
+        String requestId = exchange.getAttribute(TelemetryMdc.REQUEST_ID);
+        if (requestId == null || requestId.isBlank()) {
+            requestId = exchange.getRequest().getHeaders().getFirst(TelemetryHeaders.REQUEST_ID);
+        }
         return requestId == null || requestId.isBlank() ? "unknown" : requestId;
+    }
+
+    private String correlationId(ServerWebExchange exchange) {
+        String correlationId = exchange.getAttribute(TelemetryMdc.CORRELATION_ID);
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = exchange.getRequest().getHeaders().getFirst(TelemetryHeaders.CORRELATION_ID);
+        }
+        return correlationId == null || correlationId.isBlank() ? "unknown" : correlationId;
     }
 }

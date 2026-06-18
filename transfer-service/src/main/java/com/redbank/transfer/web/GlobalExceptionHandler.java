@@ -4,6 +4,8 @@ import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.envelope.Status;
 import com.redbank.contracts.envelope.StatusCode;
 import com.redbank.contracts.envelope.StatusDetail;
+import com.redbank.contracts.telemetry.TelemetryHeaders;
+import com.redbank.contracts.telemetry.TelemetryMdc;
 import com.redbank.transfer.application.TransferBusinessRuleException;
 import com.redbank.transfer.application.TransferConflictException;
 import com.redbank.transfer.application.TransferDuplicateRequestException;
@@ -16,6 +18,8 @@ import com.redbank.transfer.application.TransferValidationException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -25,6 +29,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(TransferValidationException.class)
     ResponseEntity<ApiResponse<Void>> transferValidation(
             TransferValidationException exception,
@@ -148,12 +154,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiResponse<Void>> unexpected(Exception exception, HttpServletRequest request) {
+        LOGGER.error("Unexpected transfer request failure", exception);
         return response(Status.internalError(), request);
     }
 
     private ResponseEntity<ApiResponse<Void>> response(Status status, HttpServletRequest request) {
         return ResponseEntity.status(status.httpStatus())
-                .body(ApiResponse.failure(requestId(request), null, status));
+                .body(ApiResponse.failure(requestId(request), correlationId(request), null, status));
     }
 
     private StatusDetail toDetail(FieldError error) {
@@ -161,7 +168,20 @@ public class GlobalExceptionHandler {
     }
 
     private String requestId(HttpServletRequest request) {
-        String requestId = request.getHeader(CorrelationIdFilter.HEADER_NAME);
-        return requestId == null || requestId.isBlank() ? "unknown" : requestId;
+        Object requestId = request.getAttribute(TelemetryMdc.REQUEST_ID);
+        if (requestId instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        String requestIdHeader = request.getHeader(TelemetryHeaders.REQUEST_ID);
+        return requestIdHeader == null || requestIdHeader.isBlank() ? correlationId(request) : requestIdHeader;
+    }
+
+    private String correlationId(HttpServletRequest request) {
+        Object correlationId = request.getAttribute(TelemetryMdc.CORRELATION_ID);
+        if (correlationId instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        String correlationIdHeader = request.getHeader(TelemetryHeaders.CORRELATION_ID);
+        return correlationIdHeader == null || correlationIdHeader.isBlank() ? "unknown" : correlationIdHeader;
     }
 }

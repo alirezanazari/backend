@@ -141,6 +141,7 @@ These classes belong in `contract`.
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `requestId` | `String` | Yes | Same request ID from request/gateway. |
+| `correlationId` | `String` | No | Gateway-normalized support correlation ID, present in controlled error responses. |
 | `profileId` | `String` | No | Active profile used for response. |
 | `status` | `Status` | Yes | Response status. |
 
