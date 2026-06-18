@@ -17,5 +17,143 @@ services:
       timeout: 5s
       retries: 10
 
+  opensearch:
+    image: opensearchproject/opensearch:${OPENSEARCH_VERSION:-2.19.5}
+    container_name: redbank-opensearch
+    profiles:
+      - observability
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${REDBANK_OPENSEARCH_PASSWORD:-RedbankDevelopAdmin123!}
+      OPENSEARCH_JAVA_OPTS: ${REDBANK_OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+      plugins.security.ssl.http.enabled: "true"
+    ports:
+      - "${REDBANK_OPENSEARCH_PORT:-9200}:9200"
+      - "${REDBANK_OPENSEARCH_PERFORMANCE_ANALYZER_PORT:-9600}:9600"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - redbank-opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsSk -u admin:$${OPENSEARCH_INITIAL_ADMIN_PASSWORD} https://localhost:9200/_cluster/health >/dev/null"
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:${OPENSEARCH_DASHBOARDS_VERSION:-2.19.5}
+    container_name: redbank-opensearch-dashboards
+    profiles:
+      - observability
+    environment:
+      OPENSEARCH_HOSTS: '["https://opensearch:9200"]'
+      OPENSEARCH_USERNAME: admin
+      OPENSEARCH_PASSWORD: ${REDBANK_OPENSEARCH_PASSWORD:-RedbankDevelopAdmin123!}
+      OPENSEARCH_SSL_VERIFICATIONMODE: none
+      SERVER_HOST: 0.0.0.0
+    ports:
+      - "${REDBANK_OPENSEARCH_DASHBOARDS_PORT:-5601}:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  opensearch-bootstrap:
+    image: curlimages/curl:${CURL_IMAGE_VERSION:-8.11.1}
+    container_name: redbank-opensearch-bootstrap
+    profiles:
+      - observability
+    environment:
+      OPENSEARCH_URL: https://opensearch:9200
+      OPENSEARCH_USERNAME: admin
+      OPENSEARCH_PASSWORD: ${REDBANK_OPENSEARCH_PASSWORD:-RedbankDevelopAdmin123!}
+    volumes:
+      - ./docker/observability/opensearch:/observability/opensearch:ro
+    entrypoint: ["/bin/sh", "/observability/opensearch/scripts/bootstrap-develop.sh"]
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  data-prepper-init:
+    image: opensearchproject/data-prepper:${DATA_PREPPER_VERSION:-2.11.0}
+    container_name: redbank-data-prepper-init
+    platform: ${DATA_PREPPER_PLATFORM:-linux/amd64}
+    user: root
+    profiles:
+      - observability
+    environment:
+      REDBANK_OPENSEARCH_URL: https://opensearch:9200
+      REDBANK_OPENSEARCH_USERNAME: admin
+      REDBANK_OPENSEARCH_PASSWORD: ${REDBANK_OPENSEARCH_PASSWORD:-RedbankDevelopAdmin123!}
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - |
+        set -eu
+
+        escape_sed() {
+          printf '%s' "$1" | sed 's/[&|\\]/\\&/g'
+        }
+
+        mkdir -p /usr/share/data-prepper/pipelines /usr/share/data-prepper/dlq
+        sed \
+          -e "s|__REDBANK_OPENSEARCH_URL__|$$(escape_sed "$${REDBANK_OPENSEARCH_URL}")|g" \
+          -e "s|__REDBANK_OPENSEARCH_USERNAME__|$$(escape_sed "$${REDBANK_OPENSEARCH_USERNAME}")|g" \
+          -e "s|__REDBANK_OPENSEARCH_PASSWORD__|$$(escape_sed "$${REDBANK_OPENSEARCH_PASSWORD}")|g" \
+          /observability/data-prepper/pipelines.yaml \
+          > /usr/share/data-prepper/pipelines/pipelines.yaml
+        chown -R 1000:1000 /usr/share/data-prepper/pipelines /usr/share/data-prepper/dlq
+    volumes:
+      - ./docker/observability/data-prepper/pipelines.yaml:/observability/data-prepper/pipelines.yaml:ro
+      - redbank-data-prepper-pipelines:/usr/share/data-prepper/pipelines
+      - redbank-data-prepper-dlq:/usr/share/data-prepper/dlq
+
+  data-prepper:
+    image: opensearchproject/data-prepper:${DATA_PREPPER_VERSION:-2.11.0}
+    container_name: redbank-data-prepper
+    platform: ${DATA_PREPPER_PLATFORM:-linux/amd64}
+    profiles:
+      - observability
+    environment:
+      REDBANK_OPENSEARCH_URL: https://opensearch:9200
+      REDBANK_OPENSEARCH_USERNAME: admin
+      REDBANK_OPENSEARCH_PASSWORD: ${REDBANK_OPENSEARCH_PASSWORD:-RedbankDevelopAdmin123!}
+    ports:
+      - "${REDBANK_DATA_PREPPER_INGEST_PORT:-2021}:2021"
+      - "${REDBANK_DATA_PREPPER_API_PORT:-4900}:4900"
+    volumes:
+      - ./docker/observability/data-prepper/data-prepper-config.yaml:/usr/share/data-prepper/config/data-prepper-config.yaml:ro
+      - redbank-data-prepper-pipelines:/usr/share/data-prepper/pipelines:ro
+      - redbank-data-prepper-dlq:/usr/share/data-prepper/dlq
+    depends_on:
+      opensearch-bootstrap:
+        condition: service_completed_successfully
+      data-prepper-init:
+        condition: service_completed_successfully
+
+  fluent-bit:
+    image: fluent/fluent-bit:${FLUENT_BIT_VERSION:-3.2.10}
+    container_name: redbank-fluent-bit
+    profiles:
+      - observability
+    volumes:
+      - ./docker/observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./docker/observability/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - data-prepper
+
 volumes:
   redbank-postgres-data:
+  redbank-opensearch-data:
+  redbank-data-prepper-pipelines:
+  redbank-data-prepper-dlq:

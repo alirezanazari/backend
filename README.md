@@ -44,6 +44,8 @@ red-bank
 | Transfer OpenAPI UI | `http://localhost:8087/swagger-ui.html` |
 | PFM health | `http://localhost:8088/actuator/health` |
 | PFM OpenAPI UI | `http://localhost:8088/swagger-ui.html` |
+| OpenSearch Dashboards | `http://localhost:5601` |
+| Data Prepper health | `http://localhost:2021/health` |
 
 ## Documentation
 
@@ -75,4 +77,10 @@ flow with:
 
 ```bash
 scripts/run-onboarding-transfer-e2e.sh
+```
+
+For the optional local observability stack:
+
+```bash
+docker compose --env-file .env.develop -f docker-compose.develop.yml --profile observability up -d
 ```

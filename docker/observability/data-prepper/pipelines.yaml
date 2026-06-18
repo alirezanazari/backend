@@ -1,0 +1,122 @@
+redbank-log-ingest:
+  workers: 2
+  delay: 1000
+  source:
+    http:
+      port: 2021
+      path: /logs/ingest
+      health_check_service: true
+      unauthenticated_health_check: true
+      ssl: false
+      max_request_length: 10mb
+  buffer:
+    bounded_blocking:
+      buffer_size: 4096
+      batch_size: 256
+  processor:
+    - parse_json:
+        source: log
+        delete_source: true
+        overwrite_if_destination_exists: true
+        tags_on_failure:
+          - redbank_json_parse_failed
+        handle_failed_events: skip_silently
+    - copy_values:
+        entries:
+          - from_key: service.name
+            to_key: redbank/service_name
+            overwrite_if_to_key_exists: true
+          - from_key: service.environment
+            to_key: redbank/service_environment
+            overwrite_if_to_key_exists: true
+          - from_key: time
+            to_key: event.ingested
+            overwrite_if_to_key_exists: false
+    - delete_entries:
+        with_keys:
+          - stream
+          - time
+          - attrs
+          - container_id
+          - container_name
+          - source
+          - Authorization
+          - authorization
+          - Cookie
+          - cookie
+          - Set-Cookie
+          - set-cookie
+          - password
+          - Password
+          - PASSWORD
+          - otp
+          - OTP
+          - token
+          - Token
+          - access_token
+          - accessToken
+          - refresh_token
+          - refreshToken
+          - private_key
+          - privateKey
+          - public_key
+          - publicKey
+          - service_token
+          - serviceToken
+          - secret
+          - cvv
+          - CVV
+          - pan
+          - PAN
+          - account_number
+          - accountNumber
+          - card_number
+          - cardNumber
+          - national_id
+          - nationalId
+          - phone_number
+          - phoneNumber
+          - request_body
+          - requestBody
+          - response_body
+          - responseBody
+          - kyc_evidence
+          - kycEvidence
+    - add_entries:
+        entries:
+          - key: observer.type
+            value: data-prepper
+          - key: observer.version
+            value: 2.11.0
+          - key: redbank/ingestion_pipeline
+            value: develop-logs-v1
+          - key: redbank/ingestion_source
+            value: container-stdout
+  route:
+    - valid_redbank_develop_log: '/redbank/service_name in {"api-gateway","iam-service","account-service","ledger-service","card-service","kyc-service","feature-flag-service","transfer-service","pfm-service"} and /redbank/service_environment == "develop" and /@timestamp != null'
+    - invalid_redbank_log: 'not (/redbank/service_name in {"api-gateway","iam-service","account-service","ledger-service","card-service","kyc-service","feature-flag-service","transfer-service","pfm-service"} and /redbank/service_environment == "develop" and /@timestamp != null)'
+  sink:
+    - opensearch:
+        hosts:
+          - "__REDBANK_OPENSEARCH_URL__"
+        username: "__REDBANK_OPENSEARCH_USERNAME__"
+        password: "__REDBANK_OPENSEARCH_PASSWORD__"
+        insecure: true
+        index_type: custom
+        index: "logs-redbank.${/redbank/service_name}-${/redbank/service_environment}"
+        normalize_index: true
+        dlq_file: /usr/share/data-prepper/dlq/redbank-log-ingest-failed-events.log
+        routes:
+          - valid_redbank_develop_log
+    - opensearch:
+        hosts:
+          - "__REDBANK_OPENSEARCH_URL__"
+        username: "__REDBANK_OPENSEARCH_USERNAME__"
+        password: "__REDBANK_OPENSEARCH_PASSWORD__"
+        insecure: true
+        index_type: custom
+        index: deadletter-redbank.develop
+        normalize_index: true
+        dlq_file: /usr/share/data-prepper/dlq/redbank-deadletter-failed-events.log
+        routes:
+          - invalid_redbank_log

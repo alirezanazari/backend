@@ -1,0 +1,6 @@
+ssl: false
+serverPort: 4900
+metricRegistries:
+  - Prometheus
+metricTags:
+  environment: develop

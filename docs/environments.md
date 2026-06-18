@@ -151,6 +151,16 @@ Example:
 docker compose --env-file .env.develop -f docker-compose.develop.yml up
 ```
 
+Start the optional local observability stack with:
+
+```bash
+docker compose --env-file .env.develop -f docker-compose.develop.yml --profile observability up -d
+```
+
+OpenSearch Dashboards is exposed on `http://localhost:5601`. The local
+develop username is `admin`, and the password comes from
+`REDBANK_OPENSEARCH_PASSWORD`.
+
 Production should not depend on local Docker Compose as the deployment strategy. Production should run images with environment variables/secrets supplied by the deployment platform.
 
 ## Configuration Rule
@@ -214,6 +224,13 @@ Common examples:
 | `REDBANK_LOG_FORMAT` | `text` or `ecs` | `text` on developer machines, `ecs` in prod | Console log format. |
 | `REDBANK_OBSERVABILITY_ENVIRONMENT` | `develop` | `prod` | Telemetry environment attribute. |
 | `REDBANK_SERVICE_VERSION` | built artifact version | promoted image version | Telemetry service version. |
+| `OPENSEARCH_VERSION` | pinned local stack version | mirrored production image tag | OpenSearch container version. |
+| `OPENSEARCH_DASHBOARDS_VERSION` | pinned local stack version | mirrored production image tag | OpenSearch Dashboards container version. |
+| `DATA_PREPPER_VERSION` | pinned local stack version | mirrored production image tag | OpenSearch Data Prepper container version. |
+| `FLUENT_BIT_VERSION` | pinned local stack version | mirrored production image tag | Fluent Bit container version. |
+| `REDBANK_OPENSEARCH_PASSWORD` | develop-only secret | secret-manager value | OpenSearch admin password for local/bootstrap automation. |
+| `REDBANK_DATA_PREPPER_INGEST_PORT` | `2021` | internal only | Data Prepper HTTP log ingestion port. |
+| `REDBANK_DATA_PREPPER_API_PORT` | `4900` | internal only | Data Prepper metrics/API port. |
 | `REDBANK_OTEL_EXPORTER_OTLP_ENDPOINT` | develop collector URL | production collector URL | OTLP metrics and traces endpoint. |
 | `REDBANK_OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `grpc` | OTLP export protocol. |
 | `REDBANK_EXTERNAL_TRANSFER_BASE_URL` | mock URL | real URL | Third-party transfer provider URL. |
@@ -524,6 +541,19 @@ separate credentials and indexes from prod
 short retention
 ```
 
+The local/develop observability Compose profile starts OpenSearch, OpenSearch
+Dashboards, Data Prepper, and Fluent Bit. Fluent Bit reads container stdout and
+forwards only Redbank ECS JSON records. Data Prepper parses, redacts, validates,
+routes valid develop service logs to `logs-redbank.<service>-develop`, and
+routes invalid records to `deadletter-redbank.develop`.
+
+When testing ingestion locally, run containerized services with
+`REDBANK_LOG_FORMAT=ecs`. Services started directly from IntelliJ or Maven are
+not collected by Fluent Bit because they do not write to Docker container
+stdout; use the Data Prepper smoke test in
+[OpenSearch Observability Platform](./opensearch-platform.md) for direct
+pipeline validation.
+
 Prod:
 
 ```text
@@ -601,6 +631,12 @@ Then start dependencies:
 
 ```bash
 docker compose --env-file .env.develop -f docker-compose.develop.yml up
+```
+
+Optional observability stack:
+
+```bash
+docker compose --env-file .env.develop -f docker-compose.develop.yml --profile observability up -d
 ```
 
 Then start service from IntelliJ with:

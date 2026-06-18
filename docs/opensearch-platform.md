@@ -175,6 +175,78 @@ event.dataset
 Events without a valid environment or service name are rejected rather than
 routed to a shared fallback index.
 
+### Local Develop Compose Profile
+
+The repository includes an optional `observability` profile in
+`docker-compose.develop.yml`:
+
+```bash
+docker compose --env-file .env.develop -f docker-compose.develop.yml --profile observability up -d
+```
+
+The profile starts:
+
+| Service | Local URL | Purpose |
+| --- | --- | --- |
+| `opensearch` | `https://localhost:9200` | Single-node develop store. |
+| `opensearch-dashboards` | `http://localhost:5601` | Search and dashboard UI. |
+| `data-prepper` | `http://localhost:2021/health` | HTTP log ingestion and validation. |
+| `data-prepper-init` | n/a | Renders the Data Prepper pipeline from env and prepares DLQ volume permissions. |
+| `fluent-bit` | n/a | Docker container stdout collection. |
+| `opensearch-bootstrap` | n/a | Applies templates, policies, and write aliases. |
+
+Local develop credentials are intentionally disposable. The Dashboards username
+is `admin`; the password comes from `REDBANK_OPENSEARCH_PASSWORD`.
+
+Fluent Bit forwards only container log lines that already look like Redbank ECS
+JSON. This keeps platform logs, database logs, and human-readable local service
+logs out of the application log indexes. To ingest service logs through Fluent
+Bit, run the service in a container with `REDBANK_LOG_FORMAT=ecs` and
+`REDBANK_OBSERVABILITY_ENVIRONMENT=develop`.
+
+### Local Ingestion Smoke Test
+
+The Data Prepper pipeline can be tested directly, even before services are
+containerized. Start the observability profile, then send one valid ECS log
+wrapper:
+
+```bash
+curl -sS "http://localhost:2021/logs/ingest" \
+  -H "Content-Type: application/json" \
+  --data '[{"time":"2026-06-18T00:00:00.000000000Z","log":"{\"@timestamp\":\"2026-06-18T00:00:00.000Z\",\"log.level\":\"INFO\",\"message\":\"phase 13.2 smoke\",\"service.name\":\"api-gateway\",\"service.version\":\"0.1.0-SNAPSHOT\",\"service.environment\":\"develop\",\"event.dataset\":\"api-gateway\",\"correlation.id\":\"phase-13-2-smoke\",\"request.id\":\"phase-13-2-request\"}"}]'
+```
+
+Verify it is searchable:
+
+The examples below assume `REDBANK_OPENSEARCH_PASSWORD` is exported in your
+shell. The default in `.env.develop.example` is `RedbankDevelopAdmin123!`.
+
+```bash
+curl -sk -u "admin:${REDBANK_OPENSEARCH_PASSWORD}" \
+  "https://localhost:9200/logs-redbank.api-gateway-develop/_search?q=correlation.id:phase-13-2-smoke"
+```
+
+Verify redaction by sending a blocked field:
+
+```bash
+curl -sS "http://localhost:2021/logs/ingest" \
+  -H "Content-Type: application/json" \
+  --data '[{"time":"2026-06-18T00:00:00.000000000Z","log":"{\"@timestamp\":\"2026-06-18T00:00:00.000Z\",\"log.level\":\"INFO\",\"message\":\"redaction smoke\",\"service.name\":\"api-gateway\",\"service.environment\":\"develop\",\"event.dataset\":\"api-gateway\",\"correlation.id\":\"phase-13-2-redaction\",\"password\":\"must-not-index\"}"}]'
+```
+
+The stored document must not contain `password` or `must-not-index`.
+
+Verify dead-letter routing by omitting service metadata:
+
+```bash
+curl -sS "http://localhost:2021/logs/ingest" \
+  -H "Content-Type: application/json" \
+  --data '[{"time":"2026-06-18T00:00:00.000000000Z","log":"{\"@timestamp\":\"2026-06-18T00:00:00.000Z\",\"message\":\"missing service metadata\",\"correlation.id\":\"phase-13-2-deadletter\"}"}]'
+
+curl -sk -u "admin:${REDBANK_OPENSEARCH_PASSWORD}" \
+  "https://localhost:9200/deadletter-redbank.develop/_search?q=correlation.id:phase-13-2-deadletter"
+```
+
 ## Trace and Metrics Ingestion
 
 Services export OTLP to OpenTelemetry Collector. Collector processors should:
@@ -216,6 +288,32 @@ Templates define:
 Do not rely on unrestricted dynamic mappings. Unexpected nested payloads or
 high-cardinality fields can exhaust cluster mappings and memory.
 
+Develop templates are stored in:
+
+```text
+docker/observability/opensearch/index-templates
+```
+
+Application logs use per-service write aliases:
+
+```text
+logs-redbank.api-gateway-develop
+logs-redbank.iam-service-develop
+logs-redbank.account-service-develop
+logs-redbank.ledger-service-develop
+logs-redbank.card-service-develop
+logs-redbank.kyc-service-develop
+logs-redbank.feature-flag-service-develop
+logs-redbank.transfer-service-develop
+logs-redbank.pfm-service-develop
+```
+
+Invalid records use:
+
+```text
+deadletter-redbank.develop
+```
+
 ## Lifecycle Policies
 
 Initial retention targets:
@@ -242,6 +340,19 @@ Lifecycle policies should:
 
 Financial and regulatory audit records do not use these deletion policies as
 their source of truth.
+
+Develop lifecycle policies are stored in:
+
+```text
+docker/observability/opensearch/ism-policies
+```
+
+Current develop defaults:
+
+| Alias pattern | Rollover | Retention |
+| --- | --- | --- |
+| `logs-redbank.*-develop` | 1 day or 1 GB | 7 days |
+| `deadletter-redbank.develop` | 1 day or 256 MB | 3 days |
 
 ## Snapshots and Restore
 
@@ -338,6 +449,16 @@ control.
 - Retain manifests and installation artifacts for disaster recovery.
 - Scan images before promotion.
 - Review release notes and breaking changes before upgrades.
+
+The local develop defaults are:
+
+```text
+OPENSEARCH_VERSION=2.19.5
+OPENSEARCH_DASHBOARDS_VERSION=2.19.5
+DATA_PREPPER_VERSION=2.11.0
+DATA_PREPPER_PLATFORM=linux/amd64
+FLUENT_BIT_VERSION=3.2.10
+```
 
 ## Upgrade Procedure
 

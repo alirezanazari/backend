@@ -144,6 +144,11 @@ Developer machines use human-readable logs by default. Set
 Production profile defaults to ECS JSON. `REDBANK_LOG_FORMAT=text` is reserved
 for local troubleshooting and must not be used for deployed production.
 
+The local/develop OpenSearch profile ingests only ECS JSON container stdout.
+Data Prepper routes valid develop logs into per-service write aliases named
+`logs-redbank.<service>-develop` and routes invalid or malformed records into
+`deadletter-redbank.develop`.
+
 ## Correlation and Tracing
 
 W3C Trace Context is the cross-service tracing contract:
@@ -262,6 +267,16 @@ otel-v1-apm-service-map-prod
 
 Templates, aliases, and lifecycle policies must be created by infrastructure
 automation rather than manually in OpenSearch Dashboards.
+
+Local/develop assets are version-controlled under:
+
+```text
+docker/observability/opensearch/index-templates
+docker/observability/opensearch/ism-policies
+docker/observability/opensearch/scripts/bootstrap-develop.sh
+docker/observability/data-prepper
+docker/observability/fluent-bit
+```
 
 ## Minimum Dashboards
 

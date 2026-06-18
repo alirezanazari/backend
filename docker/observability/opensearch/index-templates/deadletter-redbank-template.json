@@ -1,0 +1,82 @@
+{
+  "index_patterns": [
+    "deadletter-redbank.*"
+  ],
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index.number_of_shards": "1",
+      "index.number_of_replicas": "0",
+      "index.refresh_interval": "10s",
+      "index.mapping.total_fields.limit": "500",
+      "plugins.index_state_management.policy_id": "redbank-develop-deadletter-policy"
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "dynamic_templates": [
+        {
+          "strings_as_keywords": {
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 2048
+            }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "message": {
+          "type": "match_only_text"
+        },
+        "event": {
+          "properties": {
+            "dataset": {
+              "type": "keyword"
+            },
+            "ingested": {
+              "type": "date"
+            }
+          }
+        },
+        "service": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "environment": {
+              "type": "keyword"
+            }
+          }
+        },
+        "redbank": {
+          "properties": {
+            "service_name": {
+              "type": "keyword"
+            },
+            "service_environment": {
+              "type": "keyword"
+            },
+            "ingestion_pipeline": {
+              "type": "keyword"
+            },
+            "ingestion_source": {
+              "type": "keyword"
+            }
+          }
+        },
+        "tags": {
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "_meta": {
+    "owner": "redbank",
+    "environment": "develop",
+    "data_class": "deadletter_logs"
+  }
+}
