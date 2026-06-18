@@ -28,9 +28,13 @@ import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static com.redbank.card.jooq.tables.CardOrders.CARD_ORDERS;
 import static com.redbank.card.jooq.tables.CardStatusHistory.CARD_STATUS_HISTORY;
@@ -45,18 +49,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:cardtest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
         "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
         "redbank.account-client.enabled=true"
 })
 @ActiveProfiles("develop")
 @AutoConfigureMockMvc
+@Testcontainers
 class CardControllerIntegrationTest {
     private static final String JWT_SECRET = "test-jwt-signing-secret-change-me-32bytes";
     private static final String INTERNAL_TOKEN = "local-develop-internal-service-token-change-me";
+
+    @Container
+    @ServiceConnection
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired
     private MockMvc mockMvc;

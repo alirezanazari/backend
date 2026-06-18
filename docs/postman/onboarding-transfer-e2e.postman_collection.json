@@ -1,0 +1,503 @@
+{
+  "info": {
+    "_postman_id": "3f26abdc-b6ff-4db0-b147-8fcb6f605f58",
+    "name": "red-bank Onboarding and Transfer E2E",
+    "description": "Deterministic local flow: register two users, create their accounts, verify the source device, wait for outbox provisioning, fund the source through the ledger referral-reward path, transfer money, and replay the same idempotent request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('runSuffix')) {",
+          "  const suffix = Date.now().toString().slice(-10);",
+          "  pm.collectionVariables.set('runSuffix', suffix);",
+          "  pm.collectionVariables.set('sourceUsername', `e2esrc${suffix}`);",
+          "  pm.collectionVariables.set('destinationUsername', `e2edst${suffix}`);",
+          "  pm.collectionVariables.set('sourceNationalId', `1${suffix.slice(-9)}`);",
+          "  pm.collectionVariables.set('destinationNationalId', `2${suffix.slice(-9)}`);",
+          "  pm.collectionVariables.set('sourcePhoneNumber', `091${suffix}`);",
+          "  pm.collectionVariables.set('destinationPhoneNumber', `092${suffix}`);",
+          "  pm.collectionVariables.set('sourceFingerprint', `e2e-source-${suffix}`);",
+          "  pm.collectionVariables.set('transferIdempotencyKey', `e2e-transfer-${suffix}`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "gatewayBaseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "ledgerBaseUrl",
+      "value": "http://localhost:8083"
+    },
+    {
+      "key": "internalServiceToken",
+      "value": "local-develop-internal-service-token-change-me"
+    },
+    {
+      "key": "password",
+      "value": "E2eTransferPassword1!"
+    },
+    {
+      "key": "otpCode",
+      "value": "111111"
+    },
+    {
+      "key": "jobId",
+      "value": "job-engineer"
+    },
+    {
+      "key": "runSuffix",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Register Source User",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('source user is created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 201) {",
+              "  pm.expect(body.context.status.code).to.eql('CREATED');",
+              "  pm.expect(body.data.userId).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.data.accessToken).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('sourceUserId', body.data.userId);",
+              "  pm.collectionVariables.set('sourceOnboardingToken', body.data.accessToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-source-register-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"nationalId\":\"{{sourceNationalId}}\",\"phoneNumber\":\"{{sourcePhoneNumber}}\",\"username\":\"{{sourceUsername}}\",\"password\":\"{{password}}\",\"firstName\":\"E2E\",\"lastName\":\"Source\",\"location\":{\"countryCode\":\"IR\",\"province\":\"Tehran\",\"city\":\"Tehran\",\"address\":\"E2E source address\",\"postalCode\":\"1234567890\"},\"jobId\":\"{{jobId}}\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/iam/register"
+      }
+    },
+    {
+      "name": "2. Register Source Account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('source account is created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 201) {",
+              "  pm.expect(body.data.profile.profileId).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.data.account.accountNumber).to.match(/^\\d{18}$/);",
+              "  pm.collectionVariables.set('sourceProfileId', body.data.profile.profileId);",
+              "  pm.collectionVariables.set('sourceAccountNumber', body.data.account.accountNumber);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{sourceOnboardingToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-source-account-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"jobId\":\"{{jobId}}\",\"profileDisplayName\":\"Source Personal\",\"profileImage\":null,\"currency\":\"IRR\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/account/register"
+      }
+    },
+    {
+      "name": "3. Login Source User",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('new source device requires verification', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 200) {",
+              "  pm.expect(body.data.deviceVerificationRequired).to.eql(true);",
+              "  pm.expect(body.data.challengeId).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('sourceDeviceChallengeId', body.data.challengeId);",
+              "  pm.collectionVariables.set('sourceDeviceVerifyToken', body.data.accessToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-source-login-{{runSuffix}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"1\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"e2e-source-device-{{runSuffix}}\",\"model\":\"E2E\",\"fingerprint\":\"{{sourceFingerprint}}\"},\"network\":null},\"data\":{\"username\":\"{{sourceUsername}}\",\"password\":\"{{password}}\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/iam/login"
+      }
+    },
+    {
+      "name": "4. Verify Source Device",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('source device is verified', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 200) {",
+              "  pm.expect(body.data.deviceStatus).to.eql('VERIFIED');",
+              "  pm.expect(body.data.accountCompletionStatus).to.eql('KYC_REQUIRED');",
+              "  pm.collectionVariables.set('sourceAccessToken', body.data.accessToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{sourceDeviceVerifyToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-source-verify-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"challengeId\":\"{{sourceDeviceChallengeId}}\",\"otpCode\":\"{{otpCode}}\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/iam/device-verify"
+      }
+    },
+    {
+      "name": "5. Register Destination User",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('destination user is created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 201) {",
+              "  pm.collectionVariables.set('destinationOnboardingToken', body.data.accessToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-destination-register-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"nationalId\":\"{{destinationNationalId}}\",\"phoneNumber\":\"{{destinationPhoneNumber}}\",\"username\":\"{{destinationUsername}}\",\"password\":\"{{password}}\",\"firstName\":\"E2E\",\"lastName\":\"Destination\",\"location\":{\"countryCode\":\"IR\",\"province\":\"Tehran\",\"city\":\"Tehran\",\"address\":\"E2E destination address\",\"postalCode\":\"1234567890\"},\"jobId\":\"{{jobId}}\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/iam/register"
+      }
+    },
+    {
+      "name": "6. Register Destination Account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('destination account is created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 201) {",
+              "  pm.expect(body.data.account.accountNumber).to.match(/^\\d{18}$/);",
+              "  pm.collectionVariables.set('destinationAccountNumber', body.data.account.accountNumber);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{destinationOnboardingToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-destination-account-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"jobId\":\"{{jobId}}\",\"profileDisplayName\":\"Destination Personal\",\"profileImage\":null,\"currency\":\"IRR\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/account/register"
+      }
+    },
+    {
+      "name": "7. Wait for Account Outbox Provisioning",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "setTimeout(() => {}, 6500);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('ledger remains healthy after provisioning', () => pm.response.to.have.status(200));",
+              "pm.expect(pm.response.json().status).to.eql('UP');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{ledgerBaseUrl}}/actuator/health",
+        "description": "Allows the account outbox dispatcher to create both ledger accounts before funding."
+      }
+    },
+    {
+      "name": "8. Fund Source Account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('source funding is posted', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 200) {",
+              "  pm.expect(body.data.status).to.eql('POSTED');",
+              "  pm.expect(body.data.ledgerTransactionId).to.be.a('string').and.not.empty;",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Internal-Service-Token",
+            "value": "{{internalServiceToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"referralRewardId\":\"e2e-seed-{{runSuffix}}\",\"referrerExternalAccountNumber\":\"{{sourceAccountNumber}}\",\"amount\":{\"amount\":100000,\"currency\":\"IRR\"}}"
+        },
+        "url": "{{ledgerBaseUrl}}/internal/v1/ledger/transactions/referral-reward"
+      }
+    },
+    {
+      "name": "9. Create Transfer",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('transfer succeeds', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 200) {",
+              "  pm.expect(body.data.status).to.eql('SUCCESS');",
+              "  pm.expect(body.data.transferId).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.data.ledgerTransactionId).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('firstTransferId', body.data.transferId);",
+              "  pm.collectionVariables.set('firstLedgerTransactionId', body.data.ledgerTransactionId);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{sourceAccessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{transferIdempotencyKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-transfer-{{runSuffix}}\",\"account\":{\"accountNumber\":\"{{sourceAccountNumber}}\",\"profileId\":\"{{sourceProfileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"idempotencyKey\":\"{{transferIdempotencyKey}}\",\"method\":\"ACCOUNT_TO_ACCOUNT\",\"sourceType\":\"ACCOUNT\",\"sourceAccountNumber\":\"{{sourceAccountNumber}}\",\"sourceCardNumber\":null,\"destinationType\":\"ACCOUNT\",\"destinationAccountNumber\":\"{{destinationAccountNumber}}\",\"destinationIban\":null,\"destinationCardNumber\":null,\"amount\":{\"amount\":1000,\"currency\":\"IRR\"},\"description\":\"Onboarding transfer E2E\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/transfers/create"
+      }
+    },
+    {
+      "name": "10. Replay Transfer Idempotently",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('idempotent replay succeeds', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 200) {",
+              "  pm.expect(body.data.transferId).to.eql(pm.collectionVariables.get('firstTransferId'));",
+              "  pm.expect(body.data.ledgerTransactionId).to.eql(pm.collectionVariables.get('firstLedgerTransactionId'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{sourceAccessToken}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{transferIdempotencyKey}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-transfer-replay-{{runSuffix}}\",\"account\":{\"accountNumber\":\"{{sourceAccountNumber}}\",\"profileId\":\"{{sourceProfileId}}\"},\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"idempotencyKey\":\"{{transferIdempotencyKey}}\",\"method\":\"ACCOUNT_TO_ACCOUNT\",\"sourceType\":\"ACCOUNT\",\"sourceAccountNumber\":\"{{sourceAccountNumber}}\",\"sourceCardNumber\":null,\"destinationType\":\"ACCOUNT\",\"destinationAccountNumber\":\"{{destinationAccountNumber}}\",\"destinationIban\":null,\"destinationCardNumber\":null,\"amount\":{\"amount\":1000,\"currency\":\"IRR\"},\"description\":\"Onboarding transfer E2E\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/transfers/create"
+      }
+    },
+    {
+      "name": "11. Verify Source Balance",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('source was debited once', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 200) {",
+              "  pm.expect(body.data.balance.currentBalance.amount).to.eql(99000);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Internal-Service-Token",
+            "value": "{{internalServiceToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"externalAccountNumber\":\"{{sourceAccountNumber}}\"}"
+        },
+        "url": "{{ledgerBaseUrl}}/internal/v1/ledger/account/balance/get"
+      }
+    },
+    {
+      "name": "12. Verify Destination Balance",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('destination was credited once', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 200) {",
+              "  pm.expect(body.data.balance.currentBalance.amount).to.eql(1000);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Internal-Service-Token",
+            "value": "{{internalServiceToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"externalAccountNumber\":\"{{destinationAccountNumber}}\"}"
+        },
+        "url": "{{ledgerBaseUrl}}/internal/v1/ledger/account/balance/get"
+      }
+    }
+  ]
+}

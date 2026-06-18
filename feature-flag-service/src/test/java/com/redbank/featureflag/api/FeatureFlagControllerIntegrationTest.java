@@ -25,9 +25,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static com.redbank.featureflag.jooq.tables.FeatureFlagAuditLogs.FEATURE_FLAG_AUDIT_LOGS;
 import static com.redbank.featureflag.jooq.tables.FeatureFlagRuleConditions.FEATURE_FLAG_RULE_CONDITIONS;
@@ -45,18 +49,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:featureflagtest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
         "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
         "redbank.internal.service-token-secret=test-internal-service-token"
 })
 @ActiveProfiles("develop")
 @AutoConfigureMockMvc
+@Testcontainers
 class FeatureFlagControllerIntegrationTest {
     private static final String JWT_SECRET = "test-jwt-signing-secret-change-me-32bytes";
     private static final String INTERNAL_TOKEN = "test-internal-service-token";
+
+    @Container
+    @ServiceConnection
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired
     private MockMvc mockMvc;

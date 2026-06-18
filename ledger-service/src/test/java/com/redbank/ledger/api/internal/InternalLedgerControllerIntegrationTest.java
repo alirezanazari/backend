@@ -17,8 +17,12 @@ import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static com.redbank.ledger.jooq.tables.LedgerAccounts.LEDGER_ACCOUNTS;
 import static com.redbank.ledger.jooq.tables.LedgerBalances.LEDGER_BALANCES;
@@ -30,17 +34,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:ledgertest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
         "redbank.events.publisher.enabled=false"
 })
 @ActiveProfiles("develop")
 @AutoConfigureMockMvc
+@Testcontainers
 class InternalLedgerControllerIntegrationTest {
     private static final String INTERNAL_TOKEN = "local-develop-internal-service-token-change-me";
     private static final AtomicLong ACCOUNT_SEQUENCE = new AtomicLong(100000000000000000L);
+
+    @Container
+    @ServiceConnection
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired
     private MockMvc mockMvc;

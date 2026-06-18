@@ -56,6 +56,23 @@ red-bank
 - [Microservices Design](./docs/microservices.md)
 - [Database Design](./docs/databases.md)
 - [Security Design](./docs/security.md)
+- [Testing Strategy](./docs/testing.md)
 - [Observability and Centralized Logging](./docs/observability.md)
 - [Image and Asset Storage](./docs/image-storage.md)
 - [Implementation Roadmap](./docs/implementation-roadmap.md)
+
+## Tests
+
+Docker is required because persistence integration tests use PostgreSQL 16
+Testcontainers:
+
+```bash
+./mvnw test
+```
+
+With the required develop services running, execute the register-to-transfer
+flow with:
+
+```bash
+scripts/run-onboarding-transfer-e2e.sh
+```

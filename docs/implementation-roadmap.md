@@ -611,6 +611,39 @@ Small steps:
 8. Create Postman collection.
 9. Run full local flow from register to transfer.
 
+Implemented baseline:
+
+- Unit tests cover IAM validation and OTP rules, ledger posting rules, gateway
+  security, event dispatch, and service HTTP clients.
+- Every database-owning service runs controller integration tests against a
+  PostgreSQL 16 Testcontainer with its real Flyway migrations.
+- IAM integration tests cover registration, login, device verification,
+  password hashing, and account-completion token behavior.
+- Account integration tests cover account registration and lifecycle rules.
+- Ledger integration tests cover double-entry transfers, insufficient funds,
+  referral rewards, transfer idempotency, inbox deduplication, and concurrent
+  balance updates.
+- KYC integration tests cover immutable referrals and one-time referral reward.
+- Transfer integration tests cover orchestration idempotency, replayed failures,
+  feature flags, and recent destinations.
+- Service HTTP client tests act as consumer contract tests and are paired with
+  provider controller integration tests.
+- The broad Postman collection documents all implemented APIs.
+- A focused Newman collection runs the full local flow from user
+  registration through an idempotent account-to-account transfer and verifies
+  final ledger balances.
+
+Exit criteria:
+
+- `./mvnw test` passes with Docker available.
+- Flyway migrations and repository queries are exercised on PostgreSQL rather
+  than an emulated database dialect.
+- IAM register/login, account register, ledger transfer, transfer idempotency,
+  and referral reward have automated integration coverage.
+- Changed internal HTTP contracts have both consumer and provider coverage.
+- `scripts/run-onboarding-transfer-e2e.sh` passes against the required local develop
+  services.
+
 Engineering focus:
 
 - Test pyramid
