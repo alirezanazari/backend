@@ -82,6 +82,12 @@ redbank:
       enabled: ${REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED:false}
       key-exchange-ttl-seconds: ${REDBANK_GATEWAY_KEY_EXCHANGE_TTL_SECONDS:300}
       max-encrypted-body-bytes: ${REDBANK_GATEWAY_MAX_ENCRYPTED_BODY_BYTES:1048576}
+    rate-limit:
+      enabled: ${REDBANK_GATEWAY_RATE_LIMIT_ENABLED:true}
+      capacity: ${REDBANK_GATEWAY_RATE_LIMIT_CAPACITY:120}
+      refill-tokens: ${REDBANK_GATEWAY_RATE_LIMIT_REFILL_TOKENS:120}
+      refill-period-seconds: ${REDBANK_GATEWAY_RATE_LIMIT_REFILL_PERIOD_SECONDS:60}
+      max-buckets: ${REDBANK_GATEWAY_RATE_LIMIT_MAX_BUCKETS:50000}
   jwt:
     issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
     audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}

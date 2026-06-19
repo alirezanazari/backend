@@ -802,6 +802,18 @@ Small steps:
 11. Add deployment rollback and database migration runbooks.
 12. Define service SLOs and on-call ownership.
 
+Implemented artifacts:
+
+- [Production Readiness](./production-readiness.md)
+- [Database Backup and Restore Runbook](./runbooks/database-backup-restore.md)
+- [Disaster Recovery Runbook](./runbooks/disaster-recovery.md)
+- [Deployment Rollback and Migration Runbook](./runbooks/deployment-rollback-and-migrations.md)
+- [Production Security Checklist](./runbooks/production-security-checklist.md)
+- [Service SLOs and On-Call Ownership](./runbooks/service-slos-oncall.md)
+- CI and vulnerability scanning workflow in `.github/workflows/ci.yml`
+- Runtime service image build in `docker/app/Dockerfile`
+- API gateway rate limiting through `REDBANK_GATEWAY_RATE_LIMIT_*`
+
 Engineering focus:
 
 - CI/CD

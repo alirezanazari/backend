@@ -211,6 +211,11 @@ Common examples:
 | `REDBANK_GATEWAY_APP_ENCRYPTION_ENABLED` | `false` | deployment-controlled | Enables gateway X25519/AES-GCM request decryption. |
 | `REDBANK_GATEWAY_KEY_EXCHANGE_TTL_SECONDS` | `300` | `300` | Temporary gateway encryption-session lifetime. |
 | `REDBANK_GATEWAY_MAX_ENCRYPTED_BODY_BYTES` | `1048576` | policy-controlled | Maximum encrypted and decrypted request body size. |
+| `REDBANK_GATEWAY_RATE_LIMIT_ENABLED` | `true` | `true` | Enables API gateway rate limiting. |
+| `REDBANK_GATEWAY_RATE_LIMIT_CAPACITY` | `120` | policy-controlled | Maximum burst requests per limiter bucket. |
+| `REDBANK_GATEWAY_RATE_LIMIT_REFILL_TOKENS` | `120` | policy-controlled | Requests restored per refill window. |
+| `REDBANK_GATEWAY_RATE_LIMIT_REFILL_PERIOD_SECONDS` | `60` | policy-controlled | Rate-limit refill window length. |
+| `REDBANK_GATEWAY_RATE_LIMIT_MAX_BUCKETS` | `50000` | policy-controlled | Memory guard for in-gateway rate-limit buckets. |
 | `REDBANK_INTERNAL_SERVICE_TOKEN_SECRET` | develop secret | prod secret | Internal service token secret. |
 | `REDBANK_LEDGER_CLIENT_ENABLED` | `false` or `true` | `true` | Lets account-service call ledger-service for account creation and balances. |
 | `REDBANK_LEDGER_BASE_URL` | `http://localhost:8083` | prod URL | Internal ledger-service base URL. |
@@ -671,5 +676,6 @@ And verify:
 - OTP `111111` does not work.
 - Tokens use prod issuer.
 - Services use prod secrets.
+- Gateway rate limiting is enabled and production thresholds are approved.
 - Health checks pass.
 - Metrics and alerts are active.

@@ -22,6 +22,9 @@ For token access levels, admin/internal APIs, debug token generation, and mock O
 
 For `develop` and `prod` configuration, environment variables, deployment, and profile switching, see [Environments](./environments.md).
 
+For production readiness gates, backup/restore, deployment rollback, SLOs, and
+release security review, see [Production Readiness](./production-readiness.md).
+
 ## Password Handling
 
 Recommended:
@@ -129,6 +132,18 @@ non-sensitive endpoints and controlled migrations can continue to work. HTTPS
 is mandatory in production in both modes.
 
 Do not use simple random string concatenation as a secret key. It may look secure but usually is not.
+
+## Gateway Rate Limiting
+
+`api-gateway` enforces rate limits for gateway API routes before
+authentication. Unauthenticated/public requests are keyed by route and client
+address. Bearer-token requests are keyed by token hash so authenticated users do
+not share a bucket only because they use the same network.
+
+Production rate-limit thresholds are configured through
+`REDBANK_GATEWAY_RATE_LIMIT_*` variables. Multi-instance deployments should add
+a shared ingress or infrastructure limiter when strict global limits are
+required.
 
 ## Login
 
