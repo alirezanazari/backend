@@ -4,6 +4,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COLLECTION="$ROOT_DIR/docs/postman/onboarding-transfer-e2e.postman_collection.json"
+ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env.develop}"
+
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  source "$ENV_FILE"
+  set +a
+fi
+
 GATEWAY_BASE_URL="${GATEWAY_BASE_URL:-http://localhost:8080}"
 IAM_BASE_URL="${IAM_BASE_URL:-http://localhost:8081}"
 ACCOUNT_BASE_URL="${ACCOUNT_BASE_URL:-http://localhost:8082}"
@@ -11,6 +19,12 @@ LEDGER_BASE_URL="${LEDGER_BASE_URL:-http://localhost:8083}"
 FEATURE_FLAG_BASE_URL="${FEATURE_FLAG_BASE_URL:-http://localhost:8086}"
 TRANSFER_BASE_URL="${TRANSFER_BASE_URL:-http://localhost:8087}"
 INTERNAL_SERVICE_TOKEN="${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:-local-develop-internal-service-token-change-me}"
+PROVISIONING_WAIT_MS="${PROVISIONING_WAIT_MS:-6500}"
+
+if [[ "${REDBANK_LEDGER_CLIENT_ENABLED:-false}" != "true" ]]; then
+  printf 'Onboarding transfer E2E requires REDBANK_LEDGER_CLIENT_ENABLED=true. Update %s and restart account-service.\n' "$ENV_FILE" >&2
+  exit 1
+fi
 
 for health_url in \
   "$GATEWAY_BASE_URL/actuator/health" \
@@ -40,4 +54,5 @@ fi
   --env-var "gatewayBaseUrl=$GATEWAY_BASE_URL" \
   --env-var "ledgerBaseUrl=$LEDGER_BASE_URL" \
   --env-var "internalServiceToken=$INTERNAL_SERVICE_TOKEN" \
+  --env-var "provisioningWaitMs=$PROVISIONING_WAIT_MS" \
   "$@"

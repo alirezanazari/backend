@@ -543,16 +543,14 @@ short retention
 
 The local/develop observability Compose profile starts OpenSearch, OpenSearch
 Dashboards, Data Prepper, and Fluent Bit. Fluent Bit reads container stdout and
-forwards only Redbank ECS JSON records. Data Prepper parses, redacts, validates,
-routes valid develop service logs to `logs-redbank.<service>-develop`, and
-routes invalid records to `deadletter-redbank.develop`.
+`logs/develop/*.log`, then forwards only Redbank ECS JSON records. Data Prepper
+parses, redacts, validates, routes valid develop service logs to
+`logs-redbank.<service>-develop`, and routes invalid records to
+`deadletter-redbank.develop`.
 
-When testing ingestion locally, run containerized services with
-`REDBANK_LOG_FORMAT=ecs`. Services started directly from IntelliJ or Maven are
-not collected by Fluent Bit because they do not write to Docker container
-stdout; use the Data Prepper smoke test in
-[OpenSearch Observability Platform](./opensearch-platform.md) for direct
-pipeline validation.
+When testing ingestion from locally started services, run them with
+`REDBANK_LOG_FORMAT=ecs` or `scripts/run-develop-services.sh --ecs-logs`.
+Human-readable text logs are intentionally ignored by Fluent Bit.
 
 Prod:
 

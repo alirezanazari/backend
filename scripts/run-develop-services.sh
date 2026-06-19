@@ -12,6 +12,7 @@ START_OBSERVABILITY=false
 BUILD_SERVICES=true
 CLEAN_BUILD=false
 FRESH_START=false
+ECS_LOGS=false
 HEALTH_TIMEOUT_SECONDS=180
 REUSE_HEALTH_TIMEOUT_SECONDS=30
 
@@ -55,6 +56,7 @@ Logs are written to logs/develop/<service>.log.
 
 Options:
   --observability   Start OpenSearch, Dashboards, Data Prepper, OTEL, Fluent Bit
+  --ecs-logs        Write ECS JSON logs for Fluent Bit/OpenSearch ingestion
   --no-docker       Do not start Docker Compose infrastructure
   --skip-build      Do not run Maven package before starting services
   --clean           Run Maven clean install instead of install
@@ -64,6 +66,7 @@ Options:
 Examples:
   scripts/run-develop-services.sh
   scripts/run-develop-services.sh --observability
+  scripts/run-develop-services.sh --no-docker --skip-build --fresh --ecs-logs
   scripts/run-develop-services.sh --skip-build
   scripts/run-develop-services.sh --no-docker --skip-build --fresh
 USAGE
@@ -73,6 +76,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --observability)
       START_OBSERVABILITY=true
+      ECS_LOGS=true
+      ;;
+    --ecs-logs)
+      ECS_LOGS=true
       ;;
     --no-docker)
       START_DOCKER=false
@@ -497,6 +504,11 @@ set -a
 source "$ENV_FILE"
 set +a
 export SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-develop}"
+export REDBANK_LEDGER_CLIENT_ENABLED="${REDBANK_LEDGER_CLIENT_ENABLED:-true}"
+export REDBANK_ACCOUNT_OUTBOX_DISPATCH_DELAY_MS="${REDBANK_ACCOUNT_OUTBOX_DISPATCH_DELAY_MS:-1000}"
+if [[ "$ECS_LOGS" == true ]]; then
+  export REDBANK_LOG_FORMAT=ecs
+fi
 unset SERVER_PORT
 
 mkdir -p "$LOG_DIR"
@@ -560,6 +572,9 @@ echo "All develop services are healthy."
 echo "Gateway: http://localhost:8080"
 echo "Swagger: http://localhost:8080/swagger-ui.html"
 echo "Logs: $LOG_DIR"
+if [[ "$ECS_LOGS" == true ]]; then
+  echo "Log format: ECS JSON (Fluent Bit/OpenSearch-ready)"
+fi
 if [[ "$START_OBSERVABILITY" == true ]]; then
   echo "OpenSearch Dashboards: http://localhost:${REDBANK_OPENSEARCH_DASHBOARDS_PORT:-5601}"
 fi

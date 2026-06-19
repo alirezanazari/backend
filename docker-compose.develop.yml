@@ -204,6 +204,7 @@ services:
     volumes:
       - ./docker/observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./docker/observability/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ./logs/develop:/redbank/logs/develop:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:

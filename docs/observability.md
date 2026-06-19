@@ -144,10 +144,10 @@ Developer machines use human-readable logs by default. Set
 Production profile defaults to ECS JSON. `REDBANK_LOG_FORMAT=text` is reserved
 for local troubleshooting and must not be used for deployed production.
 
-The local/develop OpenSearch profile ingests only ECS JSON container stdout.
-Data Prepper routes valid develop logs into per-service write aliases named
-`logs-redbank.<service>-develop` and routes invalid or malformed records into
-`deadletter-redbank.develop`.
+The local/develop OpenSearch profile ingests only ECS JSON from container
+stdout and `logs/develop/*.log`. Data Prepper routes valid develop logs into
+per-service write aliases named `logs-redbank.<service>-develop` and routes
+invalid or malformed records into `deadletter-redbank.develop`.
 
 ## Correlation and Tracing
 

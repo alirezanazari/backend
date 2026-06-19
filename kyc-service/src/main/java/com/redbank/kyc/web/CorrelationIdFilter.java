@@ -87,8 +87,6 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
                 .addKeyValue(TelemetryFields.HTTP_RESPONSE_STATUS_CODE, status)
                 .addKeyValue(TelemetryFields.EVENT_DURATION, durationNanos)
                 .addKeyValue(TelemetryFields.CLIENT_ADDRESS, request.getRemoteAddr())
-                .addKeyValue(TelemetryFields.CORRELATION_ID, request.getAttribute(TelemetryMdc.CORRELATION_ID))
-                .addKeyValue(TelemetryFields.REQUEST_ID, request.getAttribute(TelemetryMdc.REQUEST_ID))
                 .addKeyValue(TelemetryFields.USER_ID, request.getHeader(TelemetryHeaders.AUTHENTICATED_USER_ID))
                 .addKeyValue(TelemetryFields.PROFILE_ID, request.getHeader(TelemetryHeaders.AUTHENTICATED_PROFILE_ID))
                 .addKeyValue(TelemetryFields.DEVICE_ID, request.getHeader(TelemetryHeaders.AUTHENTICATED_DEVICE_ID))

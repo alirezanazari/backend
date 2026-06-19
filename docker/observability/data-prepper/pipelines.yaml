@@ -26,7 +26,13 @@ redbank-log-ingest:
           - from_key: service.name
             to_key: redbank/service_name
             overwrite_if_to_key_exists: true
+          - from_key: service/name
+            to_key: redbank/service_name
+            overwrite_if_to_key_exists: true
           - from_key: service.environment
+            to_key: redbank/service_environment
+            overwrite_if_to_key_exists: true
+          - from_key: service/environment
             to_key: redbank/service_environment
             overwrite_if_to_key_exists: true
           - from_key: time

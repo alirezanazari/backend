@@ -201,11 +201,11 @@ The profile starts:
 Local develop credentials are intentionally disposable. The Dashboards username
 is `admin`; the password comes from `REDBANK_OPENSEARCH_PASSWORD`.
 
-Fluent Bit forwards only container log lines that already look like Redbank ECS
-JSON. This keeps platform logs, database logs, and human-readable local service
-logs out of the application log indexes. To ingest service logs through Fluent
-Bit, run the service in a container with `REDBANK_LOG_FORMAT=ecs` and
-`REDBANK_OBSERVABILITY_ENVIRONMENT=develop`.
+Fluent Bit forwards only log lines that already look like Redbank ECS JSON from
+Docker container stdout or `logs/develop/*.log`. This keeps platform logs,
+database logs, and human-readable local service logs out of the application log
+indexes. To ingest locally started service logs, run the services with
+`REDBANK_LOG_FORMAT=ecs` and `REDBANK_OBSERVABILITY_ENVIRONMENT=develop`.
 
 ### Local Ingestion Smoke Test
 

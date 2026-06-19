@@ -84,8 +84,6 @@ public class CorrelationWebFilter implements WebFilter {
                     .addKeyValue(TelemetryFields.HTTP_RESPONSE_STATUS_CODE, status)
                     .addKeyValue(TelemetryFields.EVENT_DURATION, durationNanos)
                     .addKeyValue(TelemetryFields.CLIENT_ADDRESS, clientAddress(request))
-                    .addKeyValue(TelemetryFields.CORRELATION_ID, correlationId)
-                    .addKeyValue(TelemetryFields.REQUEST_ID, requestId)
                     .log("HTTP request completed method={} route={} status={} durationMs={}",
                             method, route, status, "%.3f".formatted(durationMillis));
         } finally {

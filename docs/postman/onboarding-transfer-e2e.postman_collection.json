@@ -283,7 +283,9 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "setTimeout(() => {}, 6500);"
+              "const waitMs = Number(pm.environment.get('provisioningWaitMs') || 6500);",
+              "const deadline = Date.now() + waitMs;",
+              "while (Date.now() < deadline) {}"
             ]
           }
         },
