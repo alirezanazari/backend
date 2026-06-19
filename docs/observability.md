@@ -314,6 +314,19 @@ docker/observability/data-prepper
 docker/observability/fluent-bit
 ```
 
+Production OpenSearch assets are version-controlled separately under:
+
+```text
+deploy/observability/opensearch/production
+docker/observability/opensearch/production
+docker/observability/opensearch/scripts/bootstrap-production.sh
+docker/observability/opensearch/scripts/validate-production-assets.sh
+```
+
+These assets define the production-only cluster topology, internal network and
+TLS requirements, mirrored image set, retention policies, index templates,
+roles, snapshot repository template, and validation test plan.
+
 ## Minimum Dashboards
 
 - Request rate, error rate, and latency by service and route.

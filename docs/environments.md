@@ -580,6 +580,12 @@ recovery unless legal eligibility, payment, and account continuity have been
 confirmed for the Iranian organization. Mirror approved observability images
 and packages into an internal registry.
 
+Production OpenSearch infrastructure assets live under
+`deploy/observability/opensearch/production` and
+`docker/observability/opensearch/production`. The production bootstrap is
+guarded and requires a production-only endpoint, credentials, TLS trust, and
+encrypted external snapshot repository variables.
+
 See:
 
 - [Observability and Centralized Logging](./observability.md)

@@ -1,0 +1,79 @@
+schemaVersion: 1
+environment: prod
+clusterName: redbank-prod-observability
+purpose: Production OpenSearch platform for logs, metrics, traces, dashboards, and alerts.
+requirements:
+  publicApiExposure: false
+  developNetworkReachability: false
+  minimumClusterManagerEligibleNodes: 3
+  oneNodeFailureMustPreserveIngestion: true
+  dedicatedSnapshotRepository: redbank-prod-observability-snapshots
+nodePools:
+  - name: cluster-manager
+    count: 3
+    roles:
+      - cluster_manager
+    placement: one node per failure domain
+    storage: persistent encrypted volume
+    notes:
+      - Keep quorum across independent failure domains.
+      - Do not colocate all cluster-manager nodes on the same physical host.
+  - name: data-hot
+    count: 3
+    roles:
+      - data
+      - ingest
+    placement: spread across failure domains
+    storage: persistent encrypted volume sized from measured daily ingest and retention
+    notes:
+      - Keep at least 20 percent disk headroom below OpenSearch watermarks.
+      - Scale this pool before extending retention.
+  - name: coordinating
+    count: 2
+    roles: []
+    placement: spread across failure domains
+    storage: ephemeral encrypted volume
+    notes:
+      - Internal load balancer targets these nodes for Dashboards, Data Prepper, and operators.
+platformPools:
+  dataPrepper:
+    count: 2
+    placement: spread across failure domains
+    ingress: internal only
+    egress:
+      - opensearch-internal-endpoint:9200
+  otelCollector:
+    count: 2
+    placement: spread across failure domains
+    ingress: internal only
+    egress:
+      - data-prepper-internal-endpoint:21890
+      - data-prepper-internal-endpoint:21891
+  fluentBit:
+    deployment: one agent per application runtime host
+    egress:
+      - data-prepper-internal-endpoint:2021
+  dashboards:
+    count: 2
+    ingress: operator network only
+    egress:
+      - opensearch-internal-endpoint:9200
+capacityInputsRequired:
+  - peak events per second
+  - average document bytes
+  - peak document bytes
+  - daily log GB
+  - daily trace span count
+  - metric active series count
+  - searchable retention days
+  - snapshot retention days
+  - shard count
+  - merge CPU and heap pressure
+  - search latency under support/operator load
+promotionGate:
+  - all images mirrored with immutable digests
+  - production TLS certificates issued by organization CA
+  - snapshot repository registered and verified
+  - node-failure test passes
+  - production-like snapshot restore test passes
+  - access approval runbook reviewed

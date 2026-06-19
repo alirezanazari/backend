@@ -1,0 +1,31 @@
+{
+  "cluster_permissions": [
+    "cluster_composite_ops",
+    "cluster_monitor",
+    "cluster:admin/snapshot/*",
+    "cluster:admin/repository/*",
+    "cluster:admin/reroute",
+    "cluster:admin/settings/update",
+    "cluster:admin/opendistro/ism/*"
+  ],
+  "index_permissions": [
+    {
+      "index_patterns": [
+        "logs-redbank.*-prod-*",
+        "deadletter-redbank.prod-*",
+        "metrics-redbank.prod-*",
+        "otel-v1-apm-span-*",
+        "otel-v1-apm-service-map-*"
+      ],
+      "dls": "",
+      "fls": [],
+      "masked_fields": [],
+      "allowed_actions": [
+        "read",
+        "manage",
+        "indices_monitor"
+      ]
+    }
+  ],
+  "tenant_permissions": []
+}

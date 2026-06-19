@@ -1,0 +1,38 @@
+{
+  "redbank_ingest_prod": {
+    "backend_roles": [
+      "svc:data-prepper-prod",
+      "svc:otel-collector-prod"
+    ],
+    "hosts": [],
+    "users": []
+  },
+  "redbank_prod_reader": {
+    "backend_roles": [
+      "group:observability-prod-readers"
+    ],
+    "hosts": [],
+    "users": []
+  },
+  "redbank_support_reader": {
+    "backend_roles": [
+      "group:support-observability-prod"
+    ],
+    "hosts": [],
+    "users": []
+  },
+  "redbank_observability_admin": {
+    "backend_roles": [
+      "group:observability-admins"
+    ],
+    "hosts": [],
+    "users": []
+  },
+  "redbank_cluster_operator": {
+    "backend_roles": [
+      "group:platform-operators"
+    ],
+    "hosts": [],
+    "users": []
+  }
+}

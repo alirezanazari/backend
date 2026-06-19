@@ -1,0 +1,64 @@
+{
+  "index_patterns": [
+    "otel-v1-apm-service-map-*"
+  ],
+  "priority": 600,
+  "template": {
+    "settings": {
+      "index.number_of_shards": "1",
+      "index.number_of_replicas": "1",
+      "index.refresh_interval": "10s",
+      "index.mapping.total_fields.limit": "500",
+      "plugins.index_state_management.policy_id": "redbank-prod-traces-policy"
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "dynamic_templates": [
+        {
+          "strings_as_keywords": {
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 1024
+            }
+          }
+        }
+      ],
+      "properties": {
+        "hashId": {
+          "type": "keyword"
+        },
+        "parent": {
+          "type": "keyword"
+        },
+        "child": {
+          "type": "keyword"
+        },
+        "startTime": {
+          "type": "date"
+        },
+        "traceGroupName": {
+          "type": "keyword"
+        },
+        "serviceName": {
+          "type": "keyword"
+        },
+        "target": {
+          "type": "keyword"
+        },
+        "latency": {
+          "type": "double"
+        },
+        "errorRate": {
+          "type": "double"
+        }
+      }
+    }
+  },
+  "_meta": {
+    "owner": "redbank",
+    "environment": "prod",
+    "data_class": "trace_service_map"
+  }
+}

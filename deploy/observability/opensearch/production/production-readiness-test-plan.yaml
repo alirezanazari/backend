@@ -1,0 +1,74 @@
+schemaVersion: 1
+environment: prod-like
+tests:
+  - id: capacity-baseline
+    purpose: Prove sizing assumptions for peak telemetry ingestion and query load.
+    prerequisites:
+      - production-like three-node OpenSearch cluster
+      - production Data Prepper and collector settings
+      - mirrored images pulled from internal registry
+    procedure:
+      - replay representative ECS logs, OTLP traces, and OTLP metrics at expected peak rate
+      - run support/operator dashboard queries during ingest
+      - hold load for at least 60 minutes
+    passCriteria:
+      - no sustained bulk rejections
+      - p95 indexing latency within SLO
+      - JVM heap stable below 75 percent
+      - disk growth matches capacity model
+      - dashboards remain usable
+  - id: one-node-failure
+    purpose: Prove one node failure does not stop ingestion.
+    prerequisites:
+      - at least three cluster-manager-eligible nodes
+      - at least three data-capable nodes
+      - replicas enabled on telemetry indexes
+    procedure:
+      - start steady telemetry load
+      - remove one data-capable node
+      - repeat by removing one cluster-manager-eligible node
+      - restore nodes and verify shard recovery
+    passCriteria:
+      - cluster does not become red
+      - Data Prepper continues successful bulk writes
+      - no permanent data loss
+      - alerts fire for node loss and recovery
+  - id: ingestion-backpressure
+    purpose: Prove backpressure is observable and does not silently drop telemetry.
+    procedure:
+      - throttle or pause OpenSearch bulk indexing
+      - observe Data Prepper bounded buffer, retries, and dead-letter behavior
+      - restore OpenSearch throughput
+    passCriteria:
+      - ingestion failure alerts trigger
+      - dead-letter records are searchable
+      - pipeline recovers without manual data deletion
+  - id: snapshot-restore
+    purpose: Prove a production-like snapshot can restore required telemetry and platform assets.
+    procedure:
+      - take a snapshot into the production-designated encrypted repository
+      - provision a clean compatible restore cluster
+      - restore selected logs, metrics, traces, dashboards, alerts, and security assets
+      - compare document counts and run dashboard smoke checks
+    passCriteria:
+      - restore completes without failed shards
+      - selected document counts match expected source counts
+      - dashboards and monitors are present
+      - restored cluster remains isolated from production ingestion
+  - id: upgrade-rehearsal
+    purpose: Prove the upgrade path against restored production-like data.
+    procedure:
+      - restore the latest production-like snapshot to a test cluster
+      - upgrade one supported version step at a time
+      - validate ingestion, searches, dashboards, monitors, roles, and snapshots
+    passCriteria:
+      - no incompatible indexes or plugins
+      - no dashboard import/export failures
+      - rollback decision point is documented
+evidencePaths:
+  - docs/runbooks/opensearch-production-operations.md
+  - deployment ticket or change record
+  - load-test report
+  - node-failure transcript
+  - snapshot restore transcript
+  - registry mirror and scan report

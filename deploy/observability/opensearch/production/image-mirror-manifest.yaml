@@ -1,0 +1,39 @@
+schemaVersion: 1
+environment: prod
+registryPolicy:
+  sourceImagesMustBeMirrored: true
+  targetRegistry: registry.internal.example.com/redbank/observability
+  digestPinningRequired: true
+  vulnerabilityScanRequired: true
+  recoveryRetention: keep current and previous approved release set
+images:
+  - component: opensearch
+    source: opensearchproject/opensearch:2.19.5
+    target: registry.internal.example.com/redbank/observability/opensearch:2.19.5
+    digest: REPLACE_WITH_APPROVED_DIGEST
+  - component: opensearch-dashboards
+    source: opensearchproject/opensearch-dashboards:2.19.5
+    target: registry.internal.example.com/redbank/observability/opensearch-dashboards:2.19.5
+    digest: REPLACE_WITH_APPROVED_DIGEST
+  - component: data-prepper
+    source: opensearchproject/data-prepper:2.11.0
+    target: registry.internal.example.com/redbank/observability/data-prepper:2.11.0
+    digest: REPLACE_WITH_APPROVED_DIGEST
+  - component: otel-collector
+    source: otel/opentelemetry-collector-contrib:0.136.0
+    target: registry.internal.example.com/redbank/observability/opentelemetry-collector-contrib:0.136.0
+    digest: REPLACE_WITH_APPROVED_DIGEST
+  - component: fluent-bit
+    source: fluent/fluent-bit:3.2.10
+    target: registry.internal.example.com/redbank/observability/fluent-bit:3.2.10
+    digest: REPLACE_WITH_APPROVED_DIGEST
+  - component: bootstrap-curl
+    source: curlimages/curl:8.11.1
+    target: registry.internal.example.com/redbank/observability/curl:8.11.1
+    digest: REPLACE_WITH_APPROVED_DIGEST
+evidenceRequired:
+  - mirror command output or registry replication job ID
+  - immutable digest for every target image
+  - vulnerability scan report
+  - approval record for production promotion
+  - recovery pull test from isolated environment

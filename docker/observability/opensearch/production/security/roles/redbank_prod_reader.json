@@ -1,0 +1,36 @@
+{
+  "cluster_permissions": [
+    "cluster_composite_ops_ro",
+    "cluster:monitor/main",
+    "indices_monitor"
+  ],
+  "index_permissions": [
+    {
+      "index_patterns": [
+        "logs-redbank.*-prod-*",
+        "deadletter-redbank.prod-*",
+        "metrics-redbank.prod-*",
+        "otel-v1-apm-span-*",
+        "otel-v1-apm-service-map-*",
+        "redbank-observability-assets-*"
+      ],
+      "dls": "",
+      "fls": [],
+      "masked_fields": [],
+      "allowed_actions": [
+        "read",
+        "indices_monitor"
+      ]
+    }
+  ],
+  "tenant_permissions": [
+    {
+      "tenant_patterns": [
+        "global_tenant"
+      ],
+      "allowed_actions": [
+        "kibana_all_read"
+      ]
+    }
+  ]
+}

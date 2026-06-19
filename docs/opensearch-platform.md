@@ -474,6 +474,53 @@ production import through deployment automation
 Manual production changes must be exported and reconciled back into version
 control.
 
+## Production OpenSearch Assets
+
+Phase 13.5 production assets are split by responsibility:
+
+```text
+deploy/observability/opensearch/production
+docker/observability/opensearch/production
+docker/observability/opensearch/scripts/bootstrap-production.sh
+docker/observability/opensearch/scripts/validate-production-assets.sh
+docs/runbooks/opensearch-production-operations.md
+```
+
+The deploy directory contains the production topology, network/TLS contract,
+internal image mirror manifest, and required production-like tests. The
+OpenSearch production directory contains API assets for:
+
+- Production ISM policies.
+- Production index templates.
+- OpenSearch Security roles.
+- Snapshot repository template.
+
+Validate static assets locally with:
+
+```sh
+sh docker/observability/opensearch/scripts/validate-production-assets.sh
+```
+
+Production bootstrap must run only from approved deployment automation or an
+approved operator workstation inside the production network. It refuses
+localhost, `http://`, and the develop Compose endpoint:
+
+```sh
+REDBANK_PRODUCTION_OPENSEARCH_BOOTSTRAP=confirm-prod-opensearch-bootstrap \
+OPENSEARCH_URL=https://internal-prod-opensearch.example.com:9200 \
+OPENSEARCH_USERNAME=... \
+OPENSEARCH_PASSWORD=... \
+REDBANK_SNAPSHOT_BUCKET=... \
+REDBANK_SNAPSHOT_REGION=... \
+REDBANK_SNAPSHOT_ENDPOINT=... \
+sh docker/observability/opensearch/scripts/bootstrap-production.sh
+```
+
+Production readiness is not complete until the capacity, node-failure,
+ingestion-backpressure, snapshot-restore, and upgrade-rehearsal tests in
+`deploy/observability/opensearch/production/production-readiness-test-plan.yaml` have
+passing evidence.
+
 ## Version and Artifact Management
 
 - Pin exact OpenSearch, Dashboards, Data Prepper, collector, and Fluent Bit

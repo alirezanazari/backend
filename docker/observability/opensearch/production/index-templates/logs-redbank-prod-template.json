@@ -1,0 +1,217 @@
+{
+  "index_patterns": [
+    "logs-redbank.*-prod-*"
+  ],
+  "priority": 600,
+  "template": {
+    "settings": {
+      "index.number_of_shards": "3",
+      "index.number_of_replicas": "1",
+      "index.refresh_interval": "5s",
+      "index.mapping.total_fields.limit": "500",
+      "plugins.index_state_management.policy_id": "redbank-prod-logs-policy"
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "dynamic_templates": [
+        {
+          "strings_as_keywords": {
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 1024
+            }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "message": {
+          "type": "match_only_text"
+        },
+        "log": {
+          "properties": {
+            "level": {
+              "type": "keyword"
+            },
+            "logger": {
+              "type": "keyword"
+            }
+          }
+        },
+        "service": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "version": {
+              "type": "keyword"
+            },
+            "environment": {
+              "type": "keyword"
+            },
+            "node": {
+              "properties": {
+                "name": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        },
+        "event": {
+          "properties": {
+            "action": {
+              "type": "keyword"
+            },
+            "dataset": {
+              "type": "keyword"
+            },
+            "duration": {
+              "type": "long"
+            },
+            "ingested": {
+              "type": "date"
+            }
+          }
+        },
+        "correlation": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            }
+          }
+        },
+        "request": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            }
+          }
+        },
+        "trace": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            }
+          }
+        },
+        "span": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            }
+          }
+        },
+        "transaction": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            }
+          }
+        },
+        "http": {
+          "properties": {
+            "request": {
+              "properties": {
+                "method": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "route": {
+              "type": "keyword"
+            },
+            "response": {
+              "properties": {
+                "status_code": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "error": {
+          "properties": {
+            "type": {
+              "type": "keyword"
+            },
+            "code": {
+              "type": "keyword"
+            },
+            "message": {
+              "type": "match_only_text"
+            },
+            "stack_trace": {
+              "type": "text",
+              "index": false
+            }
+          }
+        },
+        "user": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            }
+          }
+        },
+        "profile": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            }
+          }
+        },
+        "device": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            }
+          }
+        },
+        "client": {
+          "properties": {
+            "address": {
+              "type": "ip",
+              "ignore_malformed": true
+            }
+          }
+        },
+        "observer": {
+          "properties": {
+            "type": {
+              "type": "keyword"
+            },
+            "version": {
+              "type": "keyword"
+            }
+          }
+        },
+        "redbank": {
+          "properties": {
+            "service_name": {
+              "type": "keyword"
+            },
+            "service_environment": {
+              "type": "keyword"
+            },
+            "ingestion_pipeline": {
+              "type": "keyword"
+            },
+            "ingestion_source": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    }
+  },
+  "_meta": {
+    "owner": "redbank",
+    "environment": "prod",
+    "data_class": "application_logs"
+  }
+}

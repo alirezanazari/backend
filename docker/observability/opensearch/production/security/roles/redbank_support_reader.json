@@ -1,0 +1,43 @@
+{
+  "cluster_permissions": [
+    "cluster_composite_ops_ro",
+    "cluster:monitor/main"
+  ],
+  "index_permissions": [
+    {
+      "index_patterns": [
+        "logs-redbank.*-prod-*",
+        "metrics-redbank.prod-*"
+      ],
+      "dls": "",
+      "fls": [
+        "*",
+        "~user.id",
+        "~profile.id",
+        "~device.id",
+        "~client.address",
+        "~request.id",
+        "~transaction.id",
+        "~error.stack_trace"
+      ],
+      "masked_fields": [
+        "correlation.id",
+        "trace.id",
+        "span.id"
+      ],
+      "allowed_actions": [
+        "read"
+      ]
+    }
+  ],
+  "tenant_permissions": [
+    {
+      "tenant_patterns": [
+        "global_tenant"
+      ],
+      "allowed_actions": [
+        "kibana_all_read"
+      ]
+    }
+  ]
+}

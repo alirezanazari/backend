@@ -1,0 +1,109 @@
+schemaVersion: 1
+environment: prod
+publicExposure:
+  opensearchRestApi: false
+  dataPrepper: false
+  otelCollector: false
+  dashboards: false
+networkZones:
+  applicationRuntime:
+    canEgressTo:
+      - fluent-bit-local-agent
+      - otel-collector-internal
+  observabilityIngest:
+    contains:
+      - fluent-bit
+      - otel-collector
+      - data-prepper
+    canEgressTo:
+      - opensearch-internal-endpoint
+  observabilityStorage:
+    contains:
+      - opensearch
+    canEgressTo:
+      - snapshot-repository
+  operatorAccess:
+    contains:
+      - approved-vpn-or-bastion
+    canEgressTo:
+      - opensearch-dashboards
+allowedFlows:
+  - from: applicationRuntime
+    to: fluent-bit-local-agent
+    protocol: file/stdout
+    tls: not-applicable
+  - from: applicationRuntime
+    to: otel-collector-internal
+    protocol: https
+    tls: required
+    port: 4318
+  - from: fluent-bit-local-agent
+    to: data-prepper-internal
+    protocol: https
+    tls: required
+    port: 2021
+  - from: otel-collector-internal
+    to: data-prepper-internal
+    protocol: grpc
+    tls: required
+    ports:
+      - 21890
+      - 21891
+  - from: data-prepper-internal
+    to: opensearch-internal-endpoint
+    protocol: https
+    tls: required
+    port: 9200
+  - from: opensearch-dashboards
+    to: opensearch-internal-endpoint
+    protocol: https
+    tls: required
+    port: 9200
+  - from: operatorAccess
+    to: opensearch-dashboards
+    protocol: https
+    tls: required
+    port: 5601
+  - from: opensearch
+    to: snapshot-repository
+    protocol: https
+    tls: required
+deniedFlows:
+  - from: publicInternet
+    to: opensearchRestApi
+  - from: publicInternet
+    to: dataPrepper
+  - from: publicInternet
+    to: otelCollector
+  - from: developNetwork
+    to: opensearchProduction
+  - from: applicationRuntime
+    to: opensearchRestApi
+tls:
+  certificateAuthority: organization-controlled-production-ca
+  verification: required
+  certificates:
+    - name: opensearch-http
+      distinctFromDevelop: true
+      rotationAlert: required
+    - name: opensearch-transport
+      distinctFromDevelop: true
+      rotationAlert: required
+    - name: opensearch-dashboards
+      distinctFromDevelop: true
+      rotationAlert: required
+    - name: data-prepper
+      distinctFromDevelop: true
+      rotationAlert: required
+    - name: otel-collector
+      distinctFromDevelop: true
+      rotationAlert: required
+    - name: fluent-bit-client
+      distinctFromDevelop: true
+      rotationAlert: required
+secrets:
+  storage: production secret manager
+  forbidden:
+    - repository committed private keys
+    - shared develop credentials
+    - shared develop CA

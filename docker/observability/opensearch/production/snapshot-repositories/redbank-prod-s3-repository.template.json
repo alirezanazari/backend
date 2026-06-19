@@ -1,0 +1,11 @@
+{
+  "type": "s3",
+  "settings": {
+    "bucket": "__REDBANK_SNAPSHOT_BUCKET__",
+    "base_path": "__REDBANK_SNAPSHOT_BASE_PATH__",
+    "region": "__REDBANK_SNAPSHOT_REGION__",
+    "endpoint": "__REDBANK_SNAPSHOT_ENDPOINT__",
+    "server_side_encryption": true,
+    "readonly": false
+  }
+}

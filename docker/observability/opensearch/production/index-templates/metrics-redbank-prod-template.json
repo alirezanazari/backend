@@ -1,0 +1,95 @@
+{
+  "index_patterns": [
+    "metrics-redbank.prod-*"
+  ],
+  "priority": 600,
+  "template": {
+    "settings": {
+      "index.number_of_shards": "3",
+      "index.number_of_replicas": "1",
+      "index.refresh_interval": "10s",
+      "index.mapping.total_fields.limit": "1000",
+      "plugins.index_state_management.policy_id": "redbank-prod-metrics-policy"
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "dynamic_templates": [
+        {
+          "strings_as_keywords": {
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 1024
+            }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "description": {
+          "type": "match_only_text"
+        },
+        "unit": {
+          "type": "keyword"
+        },
+        "kind": {
+          "type": "keyword"
+        },
+        "service": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "version": {
+              "type": "keyword"
+            },
+            "namespace": {
+              "type": "keyword"
+            }
+          }
+        },
+        "deployment": {
+          "properties": {
+            "environment": {
+              "type": "keyword"
+            }
+          }
+        },
+        "attributes": {
+          "type": "object",
+          "enabled": true
+        },
+        "startTime": {
+          "type": "date"
+        },
+        "time": {
+          "type": "date"
+        },
+        "value": {
+          "type": "double"
+        },
+        "sum": {
+          "type": "double"
+        },
+        "count": {
+          "type": "long"
+        },
+        "buckets": {
+          "type": "object",
+          "enabled": true
+        }
+      }
+    }
+  },
+  "_meta": {
+    "owner": "redbank",
+    "environment": "prod",
+    "data_class": "application_metrics"
+  }
+}
