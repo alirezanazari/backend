@@ -6,11 +6,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record InternalAccessProperties(
         String serviceTokenSecret
 ) {
-    private static final String DEVELOP_SECRET = "local-develop-internal-service-token-change-me";
+    public static final String DEVELOP_SECRET = "local-develop-internal-service-token-change-me";
 
     public InternalAccessProperties {
         if (serviceTokenSecret == null || serviceTokenSecret.isBlank()) {
             serviceTokenSecret = DEVELOP_SECRET;
         }
+    }
+
+    public boolean usesDevelopServiceTokenSecret() {
+        return DEVELOP_SECRET.equals(serviceTokenSecret);
     }
 }

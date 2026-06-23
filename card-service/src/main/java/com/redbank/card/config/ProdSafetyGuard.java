@@ -11,6 +11,7 @@ public class ProdSafetyGuard implements ApplicationRunner {
     private final Environment environment;
     private final DebugProperties debugProperties;
     private final JwtProperties jwtProperties;
+    private final InternalAccessProperties internalAccessProperties;
     private final AccountClientProperties accountClientProperties;
     private final FeatureFlagClientProperties featureFlagClientProperties;
 
@@ -18,12 +19,14 @@ public class ProdSafetyGuard implements ApplicationRunner {
             Environment environment,
             DebugProperties debugProperties,
             JwtProperties jwtProperties,
+            InternalAccessProperties internalAccessProperties,
             AccountClientProperties accountClientProperties,
             FeatureFlagClientProperties featureFlagClientProperties
     ) {
         this.environment = environment;
         this.debugProperties = debugProperties;
         this.jwtProperties = jwtProperties;
+        this.internalAccessProperties = internalAccessProperties;
         this.accountClientProperties = accountClientProperties;
         this.featureFlagClientProperties = featureFlagClientProperties;
     }
@@ -43,6 +46,11 @@ public class ProdSafetyGuard implements ApplicationRunner {
         if (jwtProperties.signingSecret().contains("local-develop")
                 || jwtProperties.signingSecret().contains("change-me")) {
             throw new IllegalStateException("card-service cannot start in prod with a develop JWT signing secret");
+        }
+        if (internalAccessProperties.serviceTokenSecret() == null
+                || internalAccessProperties.serviceTokenSecret().isBlank()
+                || internalAccessProperties.usesDevelopServiceTokenSecret()) {
+            throw new IllegalStateException("card-service cannot start in prod with a develop internal service token");
         }
         if (!accountClientProperties.enabled()) {
             throw new IllegalStateException("card-service requires account validation in prod");
