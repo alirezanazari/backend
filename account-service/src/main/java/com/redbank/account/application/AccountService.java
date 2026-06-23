@@ -131,9 +131,13 @@ public class AccountService {
 
         try {
             profileRepository.save(profile);
+        } catch (DataIntegrityViolationException exception) {
+            throw new AccountConflictException("Account foundation already exists for this user");
+        }
+        try {
             bankAccountRepository.save(account);
         } catch (DataIntegrityViolationException exception) {
-            throw new AccountConflictException("Account number, IBAN, or profile already exists");
+            throw new AccountConflictException("Account number or IBAN already exists");
         }
         accountOutboxService.enqueueLedgerAccountCreation(account);
         accountOutboxService.enqueueDefaultCardCreation(account, CardForm.PHYSICAL);
