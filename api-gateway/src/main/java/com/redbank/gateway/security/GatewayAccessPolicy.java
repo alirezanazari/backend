@@ -43,6 +43,19 @@ public class GatewayAccessPolicy {
         return Access.NOT_GATEWAY_API;
     }
 
+    public String rateLimitRouteKey(HttpMethod method, String path, Access access) {
+        if (access == Access.NOT_GATEWAY_API) {
+            return method + ":not-gateway-api";
+        }
+        if (!HttpMethod.POST.equals(method)) {
+            return method + ":not-post";
+        }
+        if (isExactGatewayPath(path)) {
+            return method + ":" + path;
+        }
+        return method + ":" + gatewayServiceFamily(path);
+    }
+
     public boolean permits(Access access, GatewayToken token) {
         return switch (access) {
             case PUBLIC, NOT_GATEWAY_API -> true;
@@ -54,6 +67,36 @@ public class GatewayAccessPolicy {
             case ONBOARDING_REFERRAL ->
                     token.hasRole("USER") || token.hasScope(REFERRAL_SET_SCOPE);
         };
+    }
+
+    private boolean isExactGatewayPath(String path) {
+        return path.equals("/api/v1/iam/register")
+                || path.equals("/api/v1/iam/login")
+                || path.equals("/api/v1/kyc/jobs/list")
+                || path.equals("/api/v1/security/key-exchange")
+                || path.equals("/api/v1/iam/device-verify")
+                || path.equals("/api/v1/account/register")
+                || path.equals("/api/v1/kyc/referral/set")
+                || path.equals("/api/v1/card/unblock")
+                || path.equals("/api/v1/card/expire")
+                || path.equals("/api/v1/kyc/complete")
+                || path.equals("/api/v1/feature-flags/list")
+                || path.equals("/api/v1/feature-flags/update")
+                || path.equals("/api/v1/feature-flags/targeting/get")
+                || path.equals("/api/v1/feature-flags/targeting/update");
+    }
+
+    private String gatewayServiceFamily(String path) {
+        if (!path.startsWith("/api/v1/")) {
+            return "/api/v1/_unknown";
+        }
+        String remainder = path.substring("/api/v1/".length());
+        int slash = remainder.indexOf('/');
+        String service = slash >= 0 ? remainder.substring(0, slash) : remainder;
+        if (service.isBlank()) {
+            return "/api/v1/_unknown";
+        }
+        return "/api/v1/" + service + "/_wildcard";
     }
 
     private boolean isPublicServicePath(String path) {

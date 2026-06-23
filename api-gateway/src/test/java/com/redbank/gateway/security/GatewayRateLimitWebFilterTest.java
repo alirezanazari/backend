@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.redbank.gateway.web.GatewayResponseWriter;
+import java.net.InetSocketAddress;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -54,16 +55,58 @@ class GatewayRateLimitWebFilterTest {
     }
 
     @Test
-    void bearerTokensHaveSeparateBucketsFromSameClientAddress() {
+    void unverifiedBearerValuesUseTheSameClientBucket() {
         GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 1, 1, 60, 100));
-        MockServerWebExchange first = authenticatedExchange("10.0.0.3", "token-a");
-        MockServerWebExchange second = authenticatedExchange("10.0.0.3", "token-b");
+        MockServerWebExchange first = bearerExchange("/api/v1/account/list", "10.0.0.3", "invalid-token-a");
+        MockServerWebExchange second = bearerExchange("/api/v1/account/list", "10.0.0.3", "invalid-token-b");
 
         StepVerifier.create(filter.filter(first, chain())).verifyComplete();
         StepVerifier.create(filter.filter(second, chain())).verifyComplete();
 
         assertThat(first.getResponse().getStatusCode()).isNull();
-        assertThat(second.getResponse().getStatusCode()).isNull();
+        assertThat(second.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @Test
+    void spoofedForwardedForHeadersDoNotSplitClientBuckets() {
+        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 1, 1, 60, 100));
+        MockServerWebExchange first = exchange("/api/v1/iam/login", "10.0.0.4", "198.51.100.1");
+        MockServerWebExchange second = exchange("/api/v1/iam/login", "10.0.0.4", "198.51.100.2");
+
+        StepVerifier.create(filter.filter(first, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(second, chain())).verifyComplete();
+
+        assertThat(first.getResponse().getStatusCode()).isNull();
+        assertThat(second.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @Test
+    void wildcardServicePathsUseBoundedRouteBuckets() {
+        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 1, 1, 60, 100));
+        MockServerWebExchange first = bearerExchange("/api/v1/account/random-a", "10.0.0.5", "invalid-token-a");
+        MockServerWebExchange second = bearerExchange("/api/v1/account/random-b", "10.0.0.5", "invalid-token-b");
+
+        StepVerifier.create(filter.filter(first, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(second, chain())).verifyComplete();
+
+        assertThat(first.getResponse().getStatusCode()).isNull();
+        assertThat(second.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @Test
+    void maxBucketsIsAHardLimitForNewClientBuckets() {
+        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 2, 2, 60, 1));
+        MockServerWebExchange firstClient = exchange("10.0.0.6");
+        MockServerWebExchange sameClient = exchange("10.0.0.6");
+        MockServerWebExchange secondClient = exchange("10.0.0.7");
+
+        StepVerifier.create(filter.filter(firstClient, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(sameClient, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(secondClient, chain())).verifyComplete();
+
+        assertThat(firstClient.getResponse().getStatusCode()).isNull();
+        assertThat(sameClient.getResponse().getStatusCode()).isNull();
+        assertThat(secondClient.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
     }
 
     @Test
@@ -93,14 +136,21 @@ class GatewayRateLimitWebFilterTest {
     }
 
     private MockServerWebExchange exchange(String clientAddress) {
-        return MockServerWebExchange.from(MockServerHttpRequest.post("/api/v1/iam/login")
-                .header("X-Forwarded-For", clientAddress)
-                .build());
+        return exchange("/api/v1/iam/login", clientAddress, null);
     }
 
-    private MockServerWebExchange authenticatedExchange(String clientAddress, String token) {
-        return MockServerWebExchange.from(MockServerHttpRequest.post("/api/v1/account/list")
-                .header("X-Forwarded-For", clientAddress)
+    private MockServerWebExchange exchange(String path, String clientAddress, String forwardedFor) {
+        MockServerHttpRequest.BodyBuilder builder = MockServerHttpRequest.post(path)
+                .remoteAddress(new InetSocketAddress(clientAddress, 12345));
+        if (forwardedFor != null) {
+            builder.header("X-Forwarded-For", forwardedFor);
+        }
+        return MockServerWebExchange.from(builder.build());
+    }
+
+    private MockServerWebExchange bearerExchange(String path, String clientAddress, String token) {
+        return MockServerWebExchange.from(MockServerHttpRequest.post(path)
+                .remoteAddress(new InetSocketAddress(clientAddress, 12345))
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .build());
     }
