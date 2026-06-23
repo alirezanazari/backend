@@ -16,7 +16,7 @@ class ProdSafetyGuardTest {
 
     @Test
     void prodRejectsDevelopInternalServiceToken() {
-        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(null));
+        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(null, "prod-vault-create-token"));
 
         assertThatThrownBy(() -> guard.run(null))
                 .isInstanceOf(IllegalStateException.class)
@@ -25,16 +25,37 @@ class ProdSafetyGuardTest {
 
     @Test
     void prodAllowsCustomInternalServiceToken() {
-        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties("prod-internal-token-from-secret-store"));
+        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(
+                "prod-internal-token-from-secret-store",
+                "prod-vault-create-token-from-secret-store"
+        ));
 
         assertThatCode(() -> guard.run(null)).doesNotThrowAnyException();
     }
 
     @Test
     void nonProdAllowsDevelopInternalServiceToken() {
-        ProdSafetyGuard guard = guard("develop", new InternalAccessProperties(null));
+        ProdSafetyGuard guard = guard("develop", new InternalAccessProperties(null, null));
 
         assertThatCode(() -> guard.run(null)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void prodRejectsDevelopVaultCreateToken() {
+        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties("prod-internal-token", null));
+
+        assertThatThrownBy(() -> guard.run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("account-service cannot start in prod with a develop vault-create internal service token");
+    }
+
+    @Test
+    void prodRejectsVaultCreateTokenThatReusesGeneralInternalToken() {
+        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties("same-prod-token", "same-prod-token"));
+
+        assertThatThrownBy(() -> guard.run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("account-service cannot start in prod when vault-create token reuses the general internal service token");
     }
 
     private ProdSafetyGuard guard(String profile, InternalAccessProperties internalAccessProperties) {

@@ -53,6 +53,7 @@ redbank:
     allowed-job-ids: ${REDBANK_ACCOUNT_ALLOWED_JOB_IDS:job-engineer,job-student,job-business-owner,job-other}
   internal:
     service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    vault-create-token-secret: ${REDBANK_ACCOUNT_VAULT_CREATE_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
   ledger:
     enabled: ${REDBANK_LEDGER_CLIENT_ENABLED:false}
     base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}

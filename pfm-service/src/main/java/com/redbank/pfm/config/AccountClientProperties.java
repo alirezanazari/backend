@@ -6,7 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AccountClientProperties(
         boolean enabled,
         String baseUrl,
-        String serviceToken
+        String serviceToken,
+        String vaultCreateServiceToken
 ) {
     private static final String DEVELOP_BASE_URL = "http://localhost:8082";
     private static final String DEVELOP_SERVICE_TOKEN = "local-develop-internal-service-token-change-me";
@@ -17,6 +18,9 @@ public record AccountClientProperties(
         }
         if (serviceToken == null || serviceToken.isBlank()) {
             serviceToken = DEVELOP_SERVICE_TOKEN;
+        }
+        if (vaultCreateServiceToken == null || vaultCreateServiceToken.isBlank()) {
+            vaultCreateServiceToken = serviceToken;
         }
     }
 }

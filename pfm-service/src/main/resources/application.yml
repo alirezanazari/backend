@@ -52,6 +52,7 @@ redbank:
     enabled: ${REDBANK_PFM_ACCOUNT_CLIENT_ENABLED:true}
     base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
     service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    vault-create-service-token: ${REDBANK_ACCOUNT_VAULT_CREATE_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
   ledger-client:
     enabled: ${REDBANK_PFM_LEDGER_CLIENT_ENABLED:true}
     base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}

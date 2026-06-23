@@ -46,5 +46,13 @@ public class ProdSafetyGuard implements ApplicationRunner {
                 || internalAccessProperties.usesDevelopServiceTokenSecret()) {
             throw new IllegalStateException("account-service cannot start in prod with a develop internal service token");
         }
+        if (internalAccessProperties.vaultCreateTokenSecret() == null
+                || internalAccessProperties.vaultCreateTokenSecret().isBlank()
+                || internalAccessProperties.usesDevelopVaultCreateTokenSecret()) {
+            throw new IllegalStateException("account-service cannot start in prod with a develop vault-create internal service token");
+        }
+        if (internalAccessProperties.vaultCreateTokenReusesServiceTokenSecret()) {
+            throw new IllegalStateException("account-service cannot start in prod when vault-create token reuses the general internal service token");
+        }
     }
 }

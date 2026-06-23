@@ -26,6 +26,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class PfmHttpClientsTest {
     private static final String SERVICE_TOKEN = "test-internal-service-token";
+    private static final String VAULT_CREATE_SERVICE_TOKEN = "test-vault-create-service-token";
     private static final String ACCOUNT_NUMBER = "999999999999999999";
 
     @Test
@@ -34,7 +35,12 @@ class PfmHttpClientsTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         HttpVaultAccountClient client = new HttpVaultAccountClient(
                 builder,
-                new AccountClientProperties(true, "http://account.test", SERVICE_TOKEN),
+                new AccountClientProperties(
+                        true,
+                        "http://account.test",
+                        SERVICE_TOKEN,
+                        VAULT_CREATE_SERVICE_TOKEN
+                ),
                 new ObjectMapper()
         );
         UUID userId = UUID.randomUUID();
@@ -42,7 +48,7 @@ class PfmHttpClientsTest {
 
         server.expect(requestTo("http://account.test/internal/v1/account/vault/create"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header("X-Internal-Service-Token", SERVICE_TOKEN))
+                .andExpect(header("X-Internal-Service-Token", VAULT_CREATE_SERVICE_TOKEN))
                 .andExpect(jsonPath("$.userId").value(userId.toString()))
                 .andExpect(jsonPath("$.profileId").value(profileId.toString()))
                 .andExpect(jsonPath("$.currency").value("IRR"))

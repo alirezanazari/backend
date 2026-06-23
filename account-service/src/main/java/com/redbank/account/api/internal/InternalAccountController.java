@@ -92,7 +92,7 @@ public class InternalAccountController {
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody CreateVaultAccountRequest request
     ) {
-        authorize(serviceToken);
+        authorizeVaultCreate(serviceToken);
         CreateVaultAccountResponse response = accountService.createVaultAccount(request);
         return ResponseEntity.ok(ApiResponse.success(
                 "internal",
@@ -103,6 +103,12 @@ public class InternalAccountController {
 
     private void authorize(String serviceToken) {
         if (!internalAccessProperties.serviceTokenSecret().equals(serviceToken)) {
+            throw new AccountUnauthorizedException("Unauthorized");
+        }
+    }
+
+    private void authorizeVaultCreate(String serviceToken) {
+        if (!internalAccessProperties.vaultCreateTokenSecret().equals(serviceToken)) {
             throw new AccountUnauthorizedException("Unauthorized");
         }
     }
