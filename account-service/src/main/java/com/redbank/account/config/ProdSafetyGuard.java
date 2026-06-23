@@ -11,11 +11,18 @@ public class ProdSafetyGuard implements ApplicationRunner {
     private final Environment environment;
     private final DebugProperties debugProperties;
     private final JwtProperties jwtProperties;
+    private final InternalAccessProperties internalAccessProperties;
 
-    public ProdSafetyGuard(Environment environment, DebugProperties debugProperties, JwtProperties jwtProperties) {
+    public ProdSafetyGuard(
+            Environment environment,
+            DebugProperties debugProperties,
+            JwtProperties jwtProperties,
+            InternalAccessProperties internalAccessProperties
+    ) {
         this.environment = environment;
         this.debugProperties = debugProperties;
         this.jwtProperties = jwtProperties;
+        this.internalAccessProperties = internalAccessProperties;
     }
 
     @Override
@@ -33,6 +40,11 @@ public class ProdSafetyGuard implements ApplicationRunner {
         }
         if (jwtProperties.signingSecret().contains("local-develop") || jwtProperties.signingSecret().contains("change-me")) {
             throw new IllegalStateException("account-service cannot start in prod with a develop JWT signing secret");
+        }
+        if (internalAccessProperties.serviceTokenSecret() == null
+                || internalAccessProperties.serviceTokenSecret().isBlank()
+                || internalAccessProperties.usesDevelopServiceTokenSecret()) {
+            throw new IllegalStateException("account-service cannot start in prod with a develop internal service token");
         }
     }
 }
