@@ -268,7 +268,9 @@ class CardControllerIntegrationTest {
         cardOrderRepository.save(newer);
 
         assertThat(cardOrderRepository.findOpenByUserIdAndAccountNumber(userId, accountNumber))
-                .contains(newer);
+                .get()
+                .extracting(CardOrderRecord::id)
+                .isEqualTo(newer.id());
     }
 
     @Test
