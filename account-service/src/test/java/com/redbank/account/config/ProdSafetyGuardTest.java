@@ -31,7 +31,7 @@ class ProdSafetyGuardTest {
 
     @Test
     void prodRejectsDevelopInternalServiceToken() {
-        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(null, "prod-vault-create-token"));
+        ProdSafetyGuard guard = guard("prod", internalAccessProperties(null));
 
         assertThatThrownBy(() -> guard.run(null))
                 .isInstanceOf(IllegalStateException.class)
@@ -40,20 +40,18 @@ class ProdSafetyGuardTest {
 
     @Test
     void prodAllowsCustomInternalServiceToken() {
-        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(
-                "prod-internal-token-from-secret-store",
-                "prod-vault-create-token-from-secret-store"
-        ));
+        ProdSafetyGuard guard = guard("prod", internalAccessProperties("prod-internal-token-from-secret-store"));
 
         assertThatCode(() -> guard.run(null)).doesNotThrowAnyException();
     }
 
     @Test
     void prodRejectsMissingJwtVerificationPublicKey() {
-        ProdSafetyGuard guard = guard("prod", PROD_JWT_WITHOUT_PUBLIC_KEY, new InternalAccessProperties(
-                "prod-internal-token-from-secret-store",
-                "prod-vault-create-token-from-secret-store"
-        ));
+        ProdSafetyGuard guard = guard(
+                "prod",
+                PROD_JWT_WITHOUT_PUBLIC_KEY,
+                internalAccessProperties("prod-internal-token-from-secret-store")
+        );
 
         assertThatThrownBy(() -> guard.run(null))
                 .isInstanceOf(IllegalStateException.class)
@@ -69,7 +67,15 @@ class ProdSafetyGuardTest {
 
     @Test
     void prodRejectsDevelopVaultCreateToken() {
-        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties("prod-internal-token", null));
+        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(
+                "prod-internal-token",
+                null,
+                "prod-completion-get-token",
+                "prod-card-eligibility-get-token",
+                "prod-referral-reward-account-get-token",
+                "prod-feature-evaluation-context-get-token",
+                "prod-transfer-resolve-token"
+        ));
 
         assertThatThrownBy(() -> guard.run(null))
                 .isInstanceOf(IllegalStateException.class)
@@ -78,11 +84,65 @@ class ProdSafetyGuardTest {
 
     @Test
     void prodRejectsVaultCreateTokenThatReusesGeneralInternalToken() {
-        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties("same-prod-token", "same-prod-token"));
+        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(
+                "same-prod-token",
+                "same-prod-token",
+                "prod-completion-get-token",
+                "prod-card-eligibility-get-token",
+                "prod-referral-reward-account-get-token",
+                "prod-feature-evaluation-context-get-token",
+                "prod-transfer-resolve-token"
+        ));
 
         assertThatThrownBy(() -> guard.run(null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("account-service cannot start in prod when vault-create token reuses the general internal service token");
+    }
+
+    @Test
+    void prodRejectsDevelopScopedReadToken() {
+        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(
+                "prod-internal-token",
+                "prod-vault-create-token",
+                null,
+                "prod-card-eligibility-get-token",
+                "prod-referral-reward-account-get-token",
+                "prod-feature-evaluation-context-get-token",
+                "prod-transfer-resolve-token"
+        ));
+
+        assertThatThrownBy(() -> guard.run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("account-service cannot start in prod with a develop completion-get internal service token");
+    }
+
+    @Test
+    void prodRejectsScopedReadTokenThatReusesGeneralInternalToken() {
+        ProdSafetyGuard guard = guard("prod", new InternalAccessProperties(
+                "same-prod-token",
+                "prod-vault-create-token",
+                "same-prod-token",
+                "prod-card-eligibility-get-token",
+                "prod-referral-reward-account-get-token",
+                "prod-feature-evaluation-context-get-token",
+                "prod-transfer-resolve-token"
+        ));
+
+        assertThatThrownBy(() -> guard.run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("account-service cannot start in prod when completion-get token reuses the general internal service token");
+    }
+
+    private InternalAccessProperties internalAccessProperties(String serviceTokenSecret) {
+        return new InternalAccessProperties(
+                serviceTokenSecret,
+                "prod-vault-create-token-from-secret-store",
+                "prod-completion-get-token-from-secret-store",
+                "prod-card-eligibility-get-token-from-secret-store",
+                "prod-referral-reward-account-get-token-from-secret-store",
+                "prod-feature-evaluation-context-get-token-from-secret-store",
+                "prod-transfer-resolve-token-from-secret-store"
+        );
     }
 
     private ProdSafetyGuard guard(String profile, InternalAccessProperties internalAccessProperties) {

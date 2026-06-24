@@ -55,6 +55,11 @@ redbank:
   internal:
     service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
     vault-create-token-secret: ${REDBANK_ACCOUNT_VAULT_CREATE_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
+    completion-get-token-secret: ${REDBANK_ACCOUNT_COMPLETION_GET_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
+    card-eligibility-get-token-secret: ${REDBANK_ACCOUNT_CARD_ELIGIBILITY_GET_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
+    referral-reward-account-get-token-secret: ${REDBANK_ACCOUNT_REFERRAL_REWARD_ACCOUNT_GET_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
+    feature-evaluation-context-get-token-secret: ${REDBANK_ACCOUNT_FEATURE_EVALUATION_CONTEXT_GET_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
+    transfer-resolve-token-secret: ${REDBANK_ACCOUNT_TRANSFER_RESOLVE_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
   ledger:
     enabled: ${REDBANK_LEDGER_CLIENT_ENABLED:false}
     base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}

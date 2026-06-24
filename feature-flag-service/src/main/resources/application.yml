@@ -52,3 +52,4 @@ redbank:
     enabled: ${REDBANK_FEATURE_FLAG_ACCOUNT_CONTEXT_CLIENT_ENABLED:true}
     base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
     service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    feature-evaluation-context-get-token: ${REDBANK_ACCOUNT_FEATURE_EVALUATION_CONTEXT_GET_TOKEN_SECRET:local-develop-internal-service-token-change-me}

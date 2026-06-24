@@ -31,7 +31,7 @@ public class HttpReferrerAccountClient implements ReferrerAccountClient {
     ) {
         this.restClient = restClientBuilder
                 .baseUrl(properties.baseUrl())
-                .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.serviceToken())
+                .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.referralRewardAccountGetToken())
                 .build();
     }
 

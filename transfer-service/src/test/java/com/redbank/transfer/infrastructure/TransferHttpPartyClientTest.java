@@ -26,6 +26,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class TransferHttpPartyClientTest {
     private static final String SERVICE_TOKEN = "test-internal-service-token";
+    private static final String ACCOUNT_TRANSFER_RESOLVE_TOKEN = "test-account-transfer-resolve-token";
 
     @Test
     void resolvesOwnedAccountSourceAndCardDestination() {
@@ -37,7 +38,8 @@ class TransferHttpPartyClientTest {
                         true,
                         "http://account.test",
                         "http://card.test",
-                        SERVICE_TOKEN
+                        SERVICE_TOKEN,
+                        ACCOUNT_TRANSFER_RESOLVE_TOKEN
                 ),
                 new ObjectMapper()
         );
@@ -46,7 +48,7 @@ class TransferHttpPartyClientTest {
 
         server.expect(once(), requestTo("http://account.test/internal/v1/account/transfer/resolve"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header("X-Internal-Service-Token", SERVICE_TOKEN))
+                .andExpect(header("X-Internal-Service-Token", ACCOUNT_TRANSFER_RESOLVE_TOKEN))
                 .andExpect(jsonPath("$.accountNumber").value("111111111111111111"))
                 .andExpect(jsonPath("$.userId").value(userId.toString()))
                 .andExpect(jsonPath("$.profileId").value(profileId.toString()))
@@ -75,6 +77,7 @@ class TransferHttpPartyClientTest {
                         }
                         """, MediaType.APPLICATION_JSON));
         server.expect(once(), requestTo("http://account.test/internal/v1/account/transfer/resolve"))
+                .andExpect(header("X-Internal-Service-Token", ACCOUNT_TRANSFER_RESOLVE_TOKEN))
                 .andExpect(jsonPath("$.accountNumber").value("222222222222222222"))
                 .andExpect(jsonPath("$.requireOwnership").value(false))
                 .andRespond(accountResponse(

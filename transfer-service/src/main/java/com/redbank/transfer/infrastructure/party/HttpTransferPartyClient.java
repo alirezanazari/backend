@@ -44,7 +44,7 @@ public class HttpTransferPartyClient implements TransferPartyClient {
         this.accountRestClient = client(
                 restClientBuilder.clone(),
                 properties.accountBaseUrl(),
-                properties.serviceToken()
+                properties.accountTransferResolveToken()
         );
         this.cardRestClient = client(
                 restClientBuilder.clone(),

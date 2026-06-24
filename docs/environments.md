@@ -217,6 +217,12 @@ Common examples:
 | `REDBANK_GATEWAY_RATE_LIMIT_REFILL_PERIOD_SECONDS` | `60` | policy-controlled | Rate-limit refill window length. |
 | `REDBANK_GATEWAY_RATE_LIMIT_MAX_BUCKETS` | `50000` | policy-controlled | Memory guard for in-gateway rate-limit buckets. |
 | `REDBANK_INTERNAL_SERVICE_TOKEN_SECRET` | develop secret | prod secret | Internal service token secret. |
+| `REDBANK_ACCOUNT_VAULT_CREATE_TOKEN_SECRET` | develop secret | prod secret | Scoped token for account-service internal vault creation. |
+| `REDBANK_ACCOUNT_COMPLETION_GET_TOKEN_SECRET` | develop secret | prod secret | Scoped token for account-service internal completion reads. |
+| `REDBANK_ACCOUNT_CARD_ELIGIBILITY_GET_TOKEN_SECRET` | develop secret | prod secret | Scoped token for account-service card eligibility reads. |
+| `REDBANK_ACCOUNT_REFERRAL_REWARD_ACCOUNT_GET_TOKEN_SECRET` | develop secret | prod secret | Scoped token for account-service referral reward account reads. |
+| `REDBANK_ACCOUNT_FEATURE_EVALUATION_CONTEXT_GET_TOKEN_SECRET` | develop secret | prod secret | Scoped token for account-service feature-evaluation context reads. |
+| `REDBANK_ACCOUNT_TRANSFER_RESOLVE_TOKEN_SECRET` | develop secret | prod secret | Scoped token for account-service transfer party resolution. |
 | `REDBANK_LEDGER_CLIENT_ENABLED` | `false` or `true` | `true` | Lets account-service call ledger-service for account creation and balances. |
 | `REDBANK_LEDGER_BASE_URL` | `http://localhost:8083` | prod URL | Internal ledger-service base URL. |
 | `REDBANK_DB_HOST` | local/develop host | prod host | Database host. |

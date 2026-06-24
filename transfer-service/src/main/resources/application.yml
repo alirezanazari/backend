@@ -56,6 +56,7 @@ redbank:
     account-base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
     card-base-url: ${CARD_SERVICE_URL:http://localhost:8084}
     service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    account-transfer-resolve-token: ${REDBANK_ACCOUNT_TRANSFER_RESOLVE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
   ledger-client:
     enabled: ${REDBANK_TRANSFER_LEDGER_CLIENT_ENABLED:true}
     base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}

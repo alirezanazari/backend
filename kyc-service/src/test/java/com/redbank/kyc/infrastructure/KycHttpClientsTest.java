@@ -30,6 +30,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class KycHttpClientsTest {
     private static final String SERVICE_TOKEN = "test-internal-service-token";
+    private static final String REFERRAL_REWARD_ACCOUNT_GET_TOKEN = "test-referral-reward-account-get-token";
     private static final String REFERRAL_REWARD_TOKEN = "test-referral-reward-token";
 
     @Test
@@ -39,12 +40,17 @@ class KycHttpClientsTest {
         UUID userId = UUID.randomUUID();
         HttpReferrerAccountClient client = new HttpReferrerAccountClient(
                 builder,
-                new ReferrerAccountClientProperties(true, "http://account.test", SERVICE_TOKEN)
+                new ReferrerAccountClientProperties(
+                        true,
+                        "http://account.test",
+                        SERVICE_TOKEN,
+                        REFERRAL_REWARD_ACCOUNT_GET_TOKEN
+                )
         );
 
         server.expect(once(), requestTo("http://account.test/internal/v1/account/referral/reward-account/get"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header("X-Internal-Service-Token", SERVICE_TOKEN))
+                .andExpect(header("X-Internal-Service-Token", REFERRAL_REWARD_ACCOUNT_GET_TOKEN))
                 .andExpect(jsonPath("$.userId").value(userId.toString()))
                 .andExpect(jsonPath("$.currency").value("IRR"))
                 .andRespond(withSuccess("""
@@ -74,7 +80,12 @@ class KycHttpClientsTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         HttpReferrerAccountClient client = new HttpReferrerAccountClient(
                 builder,
-                new ReferrerAccountClientProperties(true, "http://account.test", SERVICE_TOKEN)
+                new ReferrerAccountClientProperties(
+                        true,
+                        "http://account.test",
+                        SERVICE_TOKEN,
+                        REFERRAL_REWARD_ACCOUNT_GET_TOKEN
+                )
         );
 
         server.expect(requestTo("http://account.test/internal/v1/account/referral/reward-account/get"))

@@ -6,10 +6,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ReferrerAccountClientProperties(
         boolean enabled,
         String baseUrl,
-        String serviceToken
+        String serviceToken,
+        String referralRewardAccountGetToken
 ) {
     private static final String DEVELOP_BASE_URL = "http://localhost:8082";
     private static final String DEVELOP_SERVICE_TOKEN = "local-develop-internal-service-token-change-me";
+
+    public ReferrerAccountClientProperties(boolean enabled, String baseUrl, String serviceToken) {
+        this(enabled, baseUrl, serviceToken, null);
+    }
 
     public ReferrerAccountClientProperties {
         if (baseUrl == null || baseUrl.isBlank()) {
@@ -17,6 +22,9 @@ public record ReferrerAccountClientProperties(
         }
         if (serviceToken == null || serviceToken.isBlank()) {
             serviceToken = DEVELOP_SERVICE_TOKEN;
+        }
+        if (referralRewardAccountGetToken == null || referralRewardAccountGetToken.isBlank()) {
+            referralRewardAccountGetToken = DEVELOP_SERVICE_TOKEN;
         }
     }
 }

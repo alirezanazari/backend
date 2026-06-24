@@ -37,7 +37,7 @@ public class HttpFeatureEvaluationContextClient implements FeatureEvaluationCont
     ) {
         this.restClient = restClientBuilder
                 .baseUrl(properties.baseUrl())
-                .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.serviceToken())
+                .defaultHeader(INTERNAL_SERVICE_TOKEN_HEADER, properties.featureEvaluationContextGetToken())
                 .build();
     }
 

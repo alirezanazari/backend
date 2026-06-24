@@ -42,7 +42,7 @@ public class InternalAccountController {
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody GetAccountCompletionRequest request
     ) {
-        authorize(serviceToken);
+        authorizeScoped(serviceToken, internalAccessProperties.completionGetTokenSecret());
         GetAccountCompletionResponse response = accountService.getCompletion(request);
         return ResponseEntity.ok(ApiResponse.success("internal", response.activeProfileId(), response));
     }
@@ -52,7 +52,7 @@ public class InternalAccountController {
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody GetCardAccountRequest request
     ) {
-        authorize(serviceToken);
+        authorizeScoped(serviceToken, internalAccessProperties.cardEligibilityGetTokenSecret());
         GetCardAccountResponse response = accountService.getCardAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
     }
@@ -62,7 +62,7 @@ public class InternalAccountController {
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody GetReferralRewardAccountRequest request
     ) {
-        authorize(serviceToken);
+        authorizeScoped(serviceToken, internalAccessProperties.referralRewardAccountGetTokenSecret());
         GetReferralRewardAccountResponse response = accountService.getReferralRewardAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
@@ -72,7 +72,7 @@ public class InternalAccountController {
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody GetFeatureEvaluationContextRequest request
     ) {
-        authorize(serviceToken);
+        authorizeScoped(serviceToken, internalAccessProperties.featureEvaluationContextGetTokenSecret());
         GetFeatureEvaluationContextResponse response = accountService.getFeatureEvaluationContext(request);
         return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
     }
@@ -82,7 +82,7 @@ public class InternalAccountController {
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody ResolveTransferAccountRequest request
     ) {
-        authorize(serviceToken);
+        authorizeScoped(serviceToken, internalAccessProperties.transferResolveTokenSecret());
         ResolveTransferAccountResponse response = accountService.resolveTransferAccount(request);
         return ResponseEntity.ok(ApiResponse.success("internal", response.profileId(), response));
     }
@@ -101,14 +101,12 @@ public class InternalAccountController {
         ));
     }
 
-    private void authorize(String serviceToken) {
-        if (!internalAccessProperties.serviceTokenSecret().equals(serviceToken)) {
-            throw new AccountUnauthorizedException("Unauthorized");
-        }
+    private void authorizeVaultCreate(String serviceToken) {
+        authorizeScoped(serviceToken, internalAccessProperties.vaultCreateTokenSecret());
     }
 
-    private void authorizeVaultCreate(String serviceToken) {
-        if (!internalAccessProperties.vaultCreateTokenSecret().equals(serviceToken)) {
+    private void authorizeScoped(String serviceToken, String expectedToken) {
+        if (!expectedToken.equals(serviceToken)) {
             throw new AccountUnauthorizedException("Unauthorized");
         }
     }

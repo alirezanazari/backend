@@ -56,6 +56,7 @@ redbank:
     enabled: ${REDBANK_CARD_ACCOUNT_CLIENT_ENABLED:true}
     base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
     service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    card-eligibility-get-token: ${REDBANK_ACCOUNT_CARD_ELIGIBILITY_GET_TOKEN_SECRET:local-develop-internal-service-token-change-me}
   feature-flag-client:
     enabled: ${REDBANK_CARD_FEATURE_FLAG_CLIENT_ENABLED:false}
     base-url: ${FEATURE_FLAG_SERVICE_URL:http://localhost:8086}
