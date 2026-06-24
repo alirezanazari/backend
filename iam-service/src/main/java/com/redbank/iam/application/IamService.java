@@ -168,7 +168,7 @@ public class IamService {
             );
         }
 
-        OtpChallengeRecord challenge = createOtpChallenge(user.id(), device.id());
+        OtpChallengeRecord challenge = findOrCreateOtpChallenge(user.id(), device.id());
         TokenResult token = jwtTokenService.createDeviceVerifyToken(user.id(), device.id());
         recordAuth("login", "challenge_required");
         return new LoginResponse(
@@ -259,8 +259,14 @@ public class IamService {
                 });
     }
 
-    private OtpChallengeRecord createOtpChallenge(UUID userId, UUID deviceId) {
+    private OtpChallengeRecord findOrCreateOtpChallenge(UUID userId, UUID deviceId) {
         Instant now = clock.instant();
+        otpChallengeRepository.expirePendingByUserDevicePurpose(userId, deviceId, OtpPurpose.DEVICE_VERIFICATION, now);
+        return otpChallengeRepository.findPendingByUserDevicePurpose(userId, deviceId, OtpPurpose.DEVICE_VERIFICATION, now)
+                .orElseGet(() -> createOtpChallenge(userId, deviceId, now));
+    }
+
+    private OtpChallengeRecord createOtpChallenge(UUID userId, UUID deviceId, Instant now) {
         OtpChallengeRecord challenge = new OtpChallengeRecord(
                 UUID.randomUUID(),
                 userId,

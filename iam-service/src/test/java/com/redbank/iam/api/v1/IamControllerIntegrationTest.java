@@ -131,6 +131,41 @@ class IamControllerIntegrationTest {
     }
 
     @Test
+    void repeatedLoginForPendingDeviceReusesActiveChallenge() throws Exception {
+        RegistrationData data = registrationData();
+        String fingerprint = "fingerprint-repeat-login-" + data.sequence();
+        register(data).andExpect(status().isCreated());
+
+        JsonNode firstLogin = objectMapper.readTree(login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deviceVerificationRequired").value(true))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        JsonNode secondLogin = objectMapper.readTree(login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deviceVerificationRequired").value(true))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        UUID challengeId = UUID.fromString(firstLogin.path("data").path("challengeId").asText());
+        assertThat(secondLogin.path("data").path("challengeId").asText()).isEqualTo(challengeId.toString());
+
+        var challengeOwner = dsl.select(OTP_CHALLENGES.USER_ID, OTP_CHALLENGES.DEVICE_ID)
+                .from(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.ID.eq(challengeId))
+                .fetchOne();
+        assertThat(dsl.fetchCount(
+                OTP_CHALLENGES,
+                OTP_CHALLENGES.USER_ID.eq(challengeOwner.get(OTP_CHALLENGES.USER_ID))
+                        .and(OTP_CHALLENGES.DEVICE_ID.eq(challengeOwner.get(OTP_CHALLENGES.DEVICE_ID)))
+                        .and(OTP_CHALLENGES.PURPOSE.eq("DEVICE_VERIFICATION"))
+                        .and(OTP_CHALLENGES.STATUS.eq("PENDING"))
+        )).isEqualTo(1);
+    }
+
+    @Test
     void deviceVerifyMarksDeviceVerifiedAndNextLoginReturnsUserToken() throws Exception {
         RegistrationData data = registrationData();
         String fingerprint = "fingerprint-verify-device-" + data.sequence();
