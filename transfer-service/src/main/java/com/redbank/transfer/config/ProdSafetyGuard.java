@@ -56,5 +56,8 @@ public class ProdSafetyGuard implements ApplicationRunner {
         if (!ledgerClientProperties.enabled()) {
             throw new IllegalStateException("transfer-service requires ledger integration in prod");
         }
+        if (ledgerClientProperties.usesDevelopInternalTransferToken()) {
+            throw new IllegalStateException("transfer-service cannot start in prod with a develop ledger internal transfer token");
+        }
     }
 }

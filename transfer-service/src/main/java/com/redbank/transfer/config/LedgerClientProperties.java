@@ -6,17 +6,21 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record LedgerClientProperties(
         boolean enabled,
         String baseUrl,
-        String serviceToken
+        String internalTransferToken
 ) {
     private static final String DEVELOP_BASE_URL = "http://localhost:8083";
-    private static final String DEVELOP_SERVICE_TOKEN = "local-develop-internal-service-token-change-me";
+    public static final String DEVELOP_SERVICE_TOKEN = "local-develop-internal-service-token-change-me";
 
     public LedgerClientProperties {
         if (baseUrl == null || baseUrl.isBlank()) {
             baseUrl = DEVELOP_BASE_URL;
         }
-        if (serviceToken == null || serviceToken.isBlank()) {
-            serviceToken = DEVELOP_SERVICE_TOKEN;
+        if (internalTransferToken == null || internalTransferToken.isBlank()) {
+            internalTransferToken = DEVELOP_SERVICE_TOKEN;
         }
+    }
+
+    public boolean usesDevelopInternalTransferToken() {
+        return DEVELOP_SERVICE_TOKEN.equals(internalTransferToken);
     }
 }

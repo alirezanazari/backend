@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.redbank.contracts.common.Money;
+import com.redbank.ledger.api.internal.dto.InternalTransferRequest;
 import com.redbank.ledger.api.internal.dto.LedgerTransactionResponse;
 import com.redbank.ledger.api.internal.dto.ReferralRewardRequest;
 import com.redbank.ledger.application.InboxEventProcessor;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 class InternalLedgerControllerTest {
     private static final String GENERAL_TOKEN = "general-service-token";
+    private static final String INTERNAL_TRANSFER_TOKEN = "internal-transfer-token";
     private static final String REFERRAL_REWARD_TOKEN = "referral-reward-token";
 
     private final LedgerService ledgerService = mock(LedgerService.class);
@@ -26,8 +28,29 @@ class InternalLedgerControllerTest {
     private final InternalLedgerController controller = new InternalLedgerController(
             ledgerService,
             inboxEventProcessor,
-            new InternalAccessProperties(GENERAL_TOKEN, REFERRAL_REWARD_TOKEN)
+            new InternalAccessProperties(GENERAL_TOKEN, INTERNAL_TRANSFER_TOKEN, REFERRAL_REWARD_TOKEN)
     );
+
+    @Test
+    void internalTransferRejectsGeneralServiceToken() {
+        assertThatThrownBy(() -> controller.internalTransfer(GENERAL_TOKEN, internalTransferRequest()))
+                .isInstanceOf(LedgerUnauthorizedException.class);
+
+        verifyNoInteractions(ledgerService);
+    }
+
+    @Test
+    void internalTransferAcceptsDedicatedInternalTransferToken() {
+        InternalTransferRequest request = internalTransferRequest();
+        when(ledgerService.postInternalTransfer(request))
+                .thenReturn(new LedgerTransactionResponse("ledger-456", "POSTED"));
+
+        var response = controller.internalTransfer(INTERNAL_TRANSFER_TOKEN, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().ledgerTransactionId()).isEqualTo("ledger-456");
+        verify(ledgerService).postInternalTransfer(request);
+    }
 
     @Test
     void referralRewardRejectsGeneralServiceToken() {
@@ -55,6 +78,16 @@ class InternalLedgerControllerTest {
                 "reward-123",
                 "123456789012345678",
                 new Money(new BigDecimal("500000"), "IRR")
+        );
+    }
+
+    private InternalTransferRequest internalTransferRequest() {
+        return new InternalTransferRequest(
+                "transfer-123",
+                "111111111111111111",
+                "222222222222222222",
+                new Money(new BigDecimal("500000"), "IRR"),
+                "idem-123"
         );
     }
 }

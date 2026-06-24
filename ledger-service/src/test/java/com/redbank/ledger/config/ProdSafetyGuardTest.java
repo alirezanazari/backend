@@ -11,7 +11,11 @@ class ProdSafetyGuardTest {
     void prodRejectsDevelopReferralRewardToken() {
         ProdSafetyGuard guard = new ProdSafetyGuard(
                 new MockEnvironment().withProperty("spring.profiles.active", "prod"),
-                new InternalAccessProperties("prod-general-token", InternalAccessProperties.DEVELOP_SERVICE_TOKEN_SECRET)
+                new InternalAccessProperties(
+                        "prod-general-token",
+                        "prod-internal-transfer-token",
+                        InternalAccessProperties.DEVELOP_SERVICE_TOKEN_SECRET
+                )
         );
 
         assertThatThrownBy(() -> guard.run(null))
@@ -23,7 +27,7 @@ class ProdSafetyGuardTest {
     void prodRejectsReferralRewardTokenReusingGeneralServiceToken() {
         ProdSafetyGuard guard = new ProdSafetyGuard(
                 new MockEnvironment().withProperty("spring.profiles.active", "prod"),
-                new InternalAccessProperties("shared-prod-token", "shared-prod-token")
+                new InternalAccessProperties("shared-prod-token", "prod-internal-transfer-token", "shared-prod-token")
         );
 
         assertThatThrownBy(() -> guard.run(null))
@@ -32,10 +36,42 @@ class ProdSafetyGuardTest {
     }
 
     @Test
+    void prodRejectsDevelopInternalTransferToken() {
+        ProdSafetyGuard guard = new ProdSafetyGuard(
+                new MockEnvironment().withProperty("spring.profiles.active", "prod"),
+                new InternalAccessProperties(
+                        "prod-general-token",
+                        InternalAccessProperties.DEVELOP_SERVICE_TOKEN_SECRET,
+                        "prod-referral-reward-token"
+                )
+        );
+
+        assertThatThrownBy(() -> guard.run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("ledger-service cannot start in prod with a develop internal transfer token");
+    }
+
+    @Test
+    void prodRejectsInternalTransferTokenReusingGeneralServiceToken() {
+        ProdSafetyGuard guard = new ProdSafetyGuard(
+                new MockEnvironment().withProperty("spring.profiles.active", "prod"),
+                new InternalAccessProperties("shared-prod-token", "shared-prod-token", "prod-referral-reward-token")
+        );
+
+        assertThatThrownBy(() -> guard.run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("ledger-service internal transfer token must not reuse the general service token");
+    }
+
+    @Test
     void prodAllowsDistinctNonDefaultInternalTokens() {
         ProdSafetyGuard guard = new ProdSafetyGuard(
                 new MockEnvironment().withProperty("spring.profiles.active", "prod"),
-                new InternalAccessProperties("prod-general-token", "prod-referral-reward-token")
+                new InternalAccessProperties(
+                        "prod-general-token",
+                        "prod-internal-transfer-token",
+                        "prod-referral-reward-token"
+                )
         );
 
         assertThatCode(() -> guard.run(null)).doesNotThrowAnyException();

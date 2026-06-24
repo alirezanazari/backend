@@ -24,7 +24,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class TransferHttpLedgerClientTest {
-    private static final String SERVICE_TOKEN = "test-internal-service-token";
+    private static final String INTERNAL_TRANSFER_TOKEN = "test-internal-transfer-token";
 
     @Test
     void postsInternalTransferAndReturnsLedgerReference() {
@@ -34,7 +34,7 @@ class TransferHttpLedgerClientTest {
 
         server.expect(requestTo("http://ledger.test/internal/v1/ledger/transactions/internal-transfer"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header("X-Internal-Service-Token", SERVICE_TOKEN))
+                .andExpect(header("X-Internal-Service-Token", INTERNAL_TRANSFER_TOKEN))
                 .andExpect(jsonPath("$.referenceId").value("transfer-1"))
                 .andExpect(jsonPath("$.sourceExternalAccountNumber").value("111111111111111111"))
                 .andExpect(jsonPath("$.destinationExternalAccountNumber").value("222222222222222222"))
@@ -104,7 +104,7 @@ class TransferHttpLedgerClientTest {
     private HttpLedgerTransferClient client(RestClient.Builder builder) {
         return new HttpLedgerTransferClient(
                 builder,
-                new LedgerClientProperties(true, "http://ledger.test", SERVICE_TOKEN),
+                new LedgerClientProperties(true, "http://ledger.test", INTERNAL_TRANSFER_TOKEN),
                 new ObjectMapper()
         );
     }

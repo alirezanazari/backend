@@ -59,4 +59,4 @@ redbank:
   ledger-client:
     enabled: ${REDBANK_TRANSFER_LEDGER_CLIENT_ENABLED:true}
     base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}
-    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    internal-transfer-token: ${REDBANK_LEDGER_INTERNAL_TRANSFER_TOKEN_SECRET:local-develop-internal-service-token-change-me}

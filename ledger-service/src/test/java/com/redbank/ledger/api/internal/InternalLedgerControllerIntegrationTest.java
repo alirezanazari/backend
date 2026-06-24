@@ -41,6 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 class InternalLedgerControllerIntegrationTest {
     private static final String INTERNAL_TOKEN = "local-develop-internal-service-token-change-me";
+    private static final String INTERNAL_TRANSFER_TOKEN = "local-develop-internal-service-token-change-me";
     private static final AtomicLong ACCOUNT_SEQUENCE = new AtomicLong(100000000000000000L);
 
     @Container
@@ -377,7 +378,7 @@ class InternalLedgerControllerIntegrationTest {
             String idempotencyKey
     ) throws Exception {
         return mockMvc.perform(post("/internal/v1/ledger/transactions/internal-transfer")
-                .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TOKEN)
+                .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, INTERNAL_TRANSFER_TOKEN)
                 .contentType("application/json")
                 .content("""
                         {

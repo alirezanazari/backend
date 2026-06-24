@@ -29,6 +29,12 @@ public class ProdSafetyGuard implements ApplicationRunner {
         if (internalAccessProperties.usesDevelopReferralRewardTokenSecret()) {
             throw new IllegalStateException("ledger-service cannot start in prod with a develop referral reward token");
         }
+        if (internalAccessProperties.usesDevelopInternalTransferTokenSecret()) {
+            throw new IllegalStateException("ledger-service cannot start in prod with a develop internal transfer token");
+        }
+        if (internalAccessProperties.internalTransferTokenReusesServiceTokenSecret()) {
+            throw new IllegalStateException("ledger-service internal transfer token must not reuse the general service token");
+        }
         if (internalAccessProperties.referralRewardTokenReusesServiceTokenSecret()) {
             throw new IllegalStateException("ledger-service referral reward token must not reuse the general service token");
         }
