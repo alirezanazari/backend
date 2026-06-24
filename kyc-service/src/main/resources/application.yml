@@ -59,7 +59,7 @@ redbank:
   referral-reward-client:
     enabled: ${REDBANK_KYC_REWARD_CLIENT_ENABLED:true}
     base-url: ${REDBANK_LEDGER_BASE_URL:http://localhost:8083}
-    service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    referral-reward-token: ${REDBANK_LEDGER_REFERRAL_REWARD_TOKEN_SECRET:local-develop-internal-service-token-change-me}
   feature-flag-client:
     enabled: ${REDBANK_KYC_FEATURE_FLAG_CLIENT_ENABLED:true}
     base-url: ${FEATURE_FLAG_SERVICE_URL:http://localhost:8086}

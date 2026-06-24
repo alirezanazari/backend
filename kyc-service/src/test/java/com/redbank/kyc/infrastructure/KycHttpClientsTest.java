@@ -30,6 +30,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class KycHttpClientsTest {
     private static final String SERVICE_TOKEN = "test-internal-service-token";
+    private static final String REFERRAL_REWARD_TOKEN = "test-referral-reward-token";
 
     @Test
     void accountClientReturnsCurrencyMatchedActiveAccount() {
@@ -128,7 +129,7 @@ class KycHttpClientsTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         HttpReferralRewardClient client = new HttpReferralRewardClient(
                 builder,
-                new ReferralRewardClientProperties(true, "http://ledger.test", SERVICE_TOKEN)
+                new ReferralRewardClientProperties(true, "http://ledger.test", REFERRAL_REWARD_TOKEN)
         );
         ReferralRewardCommand command = new ReferralRewardCommand(
                 "reward-123",
@@ -138,7 +139,7 @@ class KycHttpClientsTest {
 
         server.expect(requestTo("http://ledger.test/internal/v1/ledger/transactions/referral-reward"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header("X-Internal-Service-Token", SERVICE_TOKEN))
+                .andExpect(header("X-Internal-Service-Token", REFERRAL_REWARD_TOKEN))
                 .andExpect(jsonPath("$.referralRewardId").value("reward-123"))
                 .andExpect(jsonPath("$.referrerExternalAccountNumber").value("123456789012345678"))
                 .andExpect(jsonPath("$.amount.amount").value(500000))

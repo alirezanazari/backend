@@ -120,7 +120,7 @@ public class InternalLedgerController {
             @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
             @Valid @RequestBody ReferralRewardRequest request
     ) {
-        authorize(serviceToken);
+        authorizeReferralReward(serviceToken);
         LedgerTransactionResponse response = ledgerService.postReferralReward(request);
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
@@ -147,6 +147,12 @@ public class InternalLedgerController {
 
     private void authorize(String serviceToken) {
         if (!internalAccessProperties.serviceTokenSecret().equals(serviceToken)) {
+            throw new LedgerUnauthorizedException("Unauthorized");
+        }
+    }
+
+    private void authorizeReferralReward(String serviceToken) {
+        if (!internalAccessProperties.referralRewardTokenSecret().equals(serviceToken)) {
             throw new LedgerUnauthorizedException("Unauthorized");
         }
     }
