@@ -47,7 +47,7 @@ public class JwtTokenService {
 
     public VerifiedToken verifyReferralToken(String authorizationHeader) {
         VerifiedToken token = verifyBearerToken(authorizationHeader);
-        if (!token.hasRole("USER") && !token.hasScope(REFERRAL_SCOPE)) {
+        if (!token.hasScope(REFERRAL_SCOPE)) {
             throw new KycUnauthorizedException("Unauthorized");
         }
         return token;

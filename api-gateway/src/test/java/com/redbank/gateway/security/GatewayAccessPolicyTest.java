@@ -33,12 +33,18 @@ class GatewayAccessPolicyTest {
                 List.of("ONBOARDING"),
                 List.of(GatewayAccessPolicy.ACCOUNT_REGISTER_SCOPE)
         );
+        GatewayToken referralOnboarding = token(
+                List.of("ONBOARDING"),
+                List.of(GatewayAccessPolicy.REFERRAL_SET_SCOPE)
+        );
 
         assertThat(policy.permits(GatewayAccessPolicy.Access.USER, user)).isTrue();
         assertThat(policy.permits(GatewayAccessPolicy.Access.USER, admin)).isFalse();
         assertThat(policy.permits(GatewayAccessPolicy.Access.ADMIN, admin)).isTrue();
         assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_ACCOUNT, onboarding)).isTrue();
         assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_DEVICE, onboarding)).isFalse();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_REFERRAL, user)).isFalse();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_REFERRAL, referralOnboarding)).isTrue();
     }
 
     private GatewayToken token(List<String> roles, List<String> scopes) {

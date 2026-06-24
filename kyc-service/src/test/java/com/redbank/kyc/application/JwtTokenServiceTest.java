@@ -52,6 +52,31 @@ class JwtTokenServiceTest {
         assertThat(verifiedToken.hasRole("ADMIN")).isTrue();
     }
 
+    @Test
+    void referralTokenRequiresOnboardingReferralScopeEvenWhenUserRoleIsPresent() throws Exception {
+        KeyPair keyPair = rsaKeyPair();
+        JwtTokenService service = service(publicKeyPem((RSAPublicKey) keyPair.getPublic()));
+        String userToken = rsaToken((RSAPrivateKey) keyPair.getPrivate(), List.of("USER"), List.of());
+
+        assertThatThrownBy(() -> service.verifyReferralToken("Bearer " + userToken))
+                .isInstanceOf(KycUnauthorizedException.class);
+    }
+
+    @Test
+    void referralTokenAcceptsOnboardingReferralScope() throws Exception {
+        KeyPair keyPair = rsaKeyPair();
+        JwtTokenService service = service(publicKeyPem((RSAPublicKey) keyPair.getPublic()));
+        String referralToken = rsaToken(
+                (RSAPrivateKey) keyPair.getPrivate(),
+                List.of("ONBOARDING"),
+                List.of("ONBOARDING_REFERRAL_SET")
+        );
+
+        VerifiedToken verifiedToken = service.verifyReferralToken("Bearer " + referralToken);
+
+        assertThat(verifiedToken.hasScope("ONBOARDING_REFERRAL_SET")).isTrue();
+    }
+
     private JwtTokenService service(String publicKeyPem) {
         return new JwtTokenService(
                 new JwtProperties("red-bank", "red-bank-api", SHARED_HMAC_SECRET, publicKeyPem),
@@ -62,18 +87,22 @@ class JwtTokenServiceTest {
     }
 
     private String hmacToken(List<String> roles) throws JOSEException {
-        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims(roles));
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims(roles, List.of()));
         jwt.sign(new MACSigner(SHARED_HMAC_SECRET.getBytes(StandardCharsets.UTF_8)));
         return jwt.serialize();
     }
 
     private String rsaToken(RSAPrivateKey privateKey, List<String> roles) throws JOSEException {
-        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claims(roles));
+        return rsaToken(privateKey, roles, List.of());
+    }
+
+    private String rsaToken(RSAPrivateKey privateKey, List<String> roles, List<String> scopes) throws JOSEException {
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claims(roles, scopes));
         jwt.sign(new RSASSASigner(privateKey));
         return jwt.serialize();
     }
 
-    private JWTClaimsSet claims(List<String> roles) {
+    private JWTClaimsSet claims(List<String> roles, List<String> scopes) {
         return new JWTClaimsSet.Builder()
                 .issuer("red-bank")
                 .audience("red-bank-api")
@@ -84,7 +113,7 @@ class JwtTokenServiceTest {
                 .claim("profile_id", UUID.randomUUID().toString())
                 .claim("device_id", UUID.randomUUID().toString())
                 .claim("roles", roles)
-                .claim("scope", List.of())
+                .claim("scope", scopes)
                 .build();
     }
 

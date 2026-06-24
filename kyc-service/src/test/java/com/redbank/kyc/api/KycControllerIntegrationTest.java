@@ -179,7 +179,7 @@ class KycControllerIntegrationTest {
 
         api(
                 "/api/v1/kyc/referral/set",
-                token(referredUserId, List.of("USER"), List.of()),
+                token(referredUserId, List.of("ONBOARDING"), List.of("ONBOARDING_REFERRAL_SET")),
                 """
                         {"referralCode":"ALICE_2026"}
                         """
@@ -236,7 +236,7 @@ class KycControllerIntegrationTest {
 
         api(
                 "/api/v1/kyc/referral/set",
-                token(referredUserId, List.of("USER"), List.of()),
+                token(referredUserId, List.of("ONBOARDING"), List.of("ONBOARDING_REFERRAL_SET")),
                 """
                         {"referralCode":"ALICE_2026"}
                         """
@@ -260,6 +260,46 @@ class KycControllerIntegrationTest {
                 .from(REFERRAL_REWARDS)
                 .fetchOne(REFERRAL_REWARDS.STATUS)).isEqualTo("PENDING");
         verify(referralRewardClient, times(0)).requestReward(any());
+    }
+
+    @Test
+    void referralRequiresOnboardingScopeAndRejectsLateCompletedKyc() throws Exception {
+        UUID referredUserId = UUID.randomUUID();
+        UUID referrerUserId = UUID.randomUUID();
+        saveReferralCode(referrerUserId, "ALICE_2026", "Alice");
+
+        api(
+                "/api/v1/kyc/referral/set",
+                token(referredUserId, List.of("USER"), List.of()),
+                """
+                        {"referralCode":"ALICE_2026"}
+                        """
+        ).andExpect(status().isUnauthorized());
+
+        api(
+                "/api/v1/kyc/complete",
+                token(UUID.randomUUID(), List.of("ADMIN"), List.of()),
+                """
+                        {
+                          "userId":"%s",
+                          "status":"APPROVED",
+                          "reason":"Documents verified"
+                        }
+                        """.formatted(referredUserId)
+        ).andExpect(status().isOk());
+
+        api(
+                "/api/v1/kyc/referral/set",
+                token(referredUserId, List.of("ONBOARDING"), List.of("ONBOARDING_REFERRAL_SET")),
+                """
+                        {"referralCode":"ALICE_2026"}
+                        """
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
+
+        assertThat(dsl.fetchCount(REFERRALS)).isZero();
+        assertThat(dsl.fetchCount(REFERRAL_REWARDS)).isZero();
     }
 
     private void saveReferralCode(UUID userId, String code, String displayName) {

@@ -64,8 +64,7 @@ public class GatewayAccessPolicy {
             case ONBOARDING_ACCOUNT ->
                     token.hasRole("USER") || token.hasScope(ACCOUNT_REGISTER_SCOPE);
             case ONBOARDING_DEVICE -> token.hasScope(DEVICE_VERIFY_SCOPE);
-            case ONBOARDING_REFERRAL ->
-                    token.hasRole("USER") || token.hasScope(REFERRAL_SET_SCOPE);
+            case ONBOARDING_REFERRAL -> token.hasScope(REFERRAL_SET_SCOPE);
         };
     }
 

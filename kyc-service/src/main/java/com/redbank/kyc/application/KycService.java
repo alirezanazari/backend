@@ -104,6 +104,7 @@ public class KycService {
             }
             return toReferralResponse(existing);
         }
+        ensureReferralWindowOpen(token.userId());
 
         ReferralCodeRecord referrer = referralCodeRepository.findByCode(referralCode)
                 .orElseThrow(() -> new KycNotFoundException("Referral code was not found"));
@@ -132,6 +133,16 @@ public class KycService {
                 throw new KycConflictException("Referral cannot be changed after it is set");
             }
             return toReferralResponse(concurrent);
+        }
+    }
+
+    private void ensureReferralWindowOpen(UUID userId) {
+        KycCaseRecord kycCase = kycCaseRepository.findByUserId(userId).orElse(null);
+        if (kycCase == null) {
+            return;
+        }
+        if (kycCase.status() == KycStatus.APPROVED || kycCase.status() == KycStatus.REJECTED) {
+            throw new KycBusinessRuleException("Referral can only be set before KYC completion");
         }
     }
 
