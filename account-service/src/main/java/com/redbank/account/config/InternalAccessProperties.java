@@ -1,6 +1,7 @@
 package com.redbank.account.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 @ConfigurationProperties(prefix = "redbank.internal")
 public record InternalAccessProperties(
@@ -18,6 +19,7 @@ public record InternalAccessProperties(
         this(serviceTokenSecret, vaultCreateTokenSecret, null, null, null, null, null);
     }
 
+    @ConstructorBinding
     public InternalAccessProperties {
         serviceTokenSecret = defaultIfBlank(serviceTokenSecret);
         vaultCreateTokenSecret = defaultIfBlank(vaultCreateTokenSecret);

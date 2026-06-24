@@ -1,6 +1,7 @@
 package com.redbank.transfer.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 @ConfigurationProperties(prefix = "redbank.party-client")
 public record PartyClientProperties(
@@ -18,6 +19,7 @@ public record PartyClientProperties(
         this(enabled, accountBaseUrl, cardBaseUrl, serviceToken, null);
     }
 
+    @ConstructorBinding
     public PartyClientProperties {
         if (accountBaseUrl == null || accountBaseUrl.isBlank()) {
             accountBaseUrl = DEVELOP_ACCOUNT_BASE_URL;

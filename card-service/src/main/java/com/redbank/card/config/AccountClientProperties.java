@@ -1,6 +1,7 @@
 package com.redbank.card.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 @ConfigurationProperties(prefix = "redbank.account-client")
 public record AccountClientProperties(
@@ -16,6 +17,7 @@ public record AccountClientProperties(
         this(enabled, baseUrl, serviceToken, null);
     }
 
+    @ConstructorBinding
     public AccountClientProperties {
         if (baseUrl == null || baseUrl.isBlank()) {
             baseUrl = DEVELOP_BASE_URL;

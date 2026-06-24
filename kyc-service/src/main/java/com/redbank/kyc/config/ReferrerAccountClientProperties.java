@@ -1,6 +1,7 @@
 package com.redbank.kyc.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 @ConfigurationProperties(prefix = "redbank.referrer-account-client")
 public record ReferrerAccountClientProperties(
@@ -16,6 +17,7 @@ public record ReferrerAccountClientProperties(
         this(enabled, baseUrl, serviceToken, null);
     }
 
+    @ConstructorBinding
     public ReferrerAccountClientProperties {
         if (baseUrl == null || baseUrl.isBlank()) {
             baseUrl = DEVELOP_BASE_URL;
