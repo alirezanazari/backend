@@ -35,32 +35,32 @@ jobs:
           path: "**/target/surefire-reports/**"
           if-no-files-found: ignore
 
-  # docker-build:
-  #   name: Build Docker Images
-  #   runs-on: ubuntu-latest
-  #   needs:
-  #     - test
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       service:
-  #         - api-gateway
-  #         - iam-service
-  #         - account-service
-  #         - ledger-service
-  #         - card-service
-  #         - kyc-service
-  #         - feature-flag-service
-  #         - transfer-service
-  #         - pfm-service
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Build image
-  #       run: |
-  #         docker build \
-  #           --file docker/app/Dockerfile \
-  #           --build-arg SERVICE=${{ matrix.service }} \
-  #           --tag redbank/${{ matrix.service }}:${{ github.sha }} \
-  #           .
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs:
+      - test
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - iam-service
+          - account-service
+          - ledger-service
+          - card-service
+          - kyc-service
+          - feature-flag-service
+          - transfer-service
+          - pfm-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          docker build \
+            --file docker/app/Dockerfile \
+            --build-arg SERVICE=${{ matrix.service }} \
+            --tag redbank/${{ matrix.service }}:${{ github.sha }} \
+            .
