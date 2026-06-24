@@ -207,6 +207,35 @@ class IamControllerIntegrationTest {
     }
 
     @Test
+    void failedOtpAttemptsConsumeBudgetAndFailChallenge() throws Exception {
+        RegistrationData data = registrationData();
+        String fingerprint = "fingerprint-failed-otp-" + data.sequence();
+        register(data).andExpect(status().isCreated());
+
+        JsonNode login = objectMapper.readTree(login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String limitedToken = login.path("data").path("accessToken").asText();
+        UUID challengeId = UUID.fromString(login.path("data").path("challengeId").asText());
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            verifyDevice(limitedToken, challengeId.toString(), "000000")
+                    .andExpect(status().isUnauthorized());
+        }
+
+        assertThat(dsl.select(OTP_CHALLENGES.ATTEMPT_COUNT, OTP_CHALLENGES.STATUS)
+                .from(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.ID.eq(challengeId))
+                .fetchOne())
+                .satisfies(record -> {
+                    assertThat(record.get(OTP_CHALLENGES.ATTEMPT_COUNT)).isEqualTo(5);
+                    assertThat(record.get(OTP_CHALLENGES.STATUS)).isEqualTo("FAILED");
+                });
+    }
+
+    @Test
     void verifiedLoginReturnsAccountCompletionFromAccountService() throws Exception {
         RegistrationData data = registrationData();
         String fingerprint = "fingerprint-account-completion-" + data.sequence();
@@ -339,6 +368,14 @@ class IamControllerIntegrationTest {
     }
 
     private org.springframework.test.web.servlet.ResultActions verifyDevice(String limitedToken, String challengeId) throws Exception {
+        return verifyDevice(limitedToken, challengeId, "111111");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions verifyDevice(
+            String limitedToken,
+            String challengeId,
+            String otpCode
+    ) throws Exception {
         return mockMvc.perform(post("/api/v1/iam/device-verify")
                 .header("Authorization", "Bearer " + limitedToken)
                 .contentType("application/json")
@@ -354,10 +391,10 @@ class IamControllerIntegrationTest {
                           },
                           "data": {
                             "challengeId": "%s",
-                            "otpCode": "111111"
+                            "otpCode": "%s"
                           }
                         }
-                        """.formatted(challengeId)));
+                        """.formatted(challengeId, otpCode)));
     }
 
     private RegistrationData registrationData() {

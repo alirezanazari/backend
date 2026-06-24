@@ -1,6 +1,7 @@
 package com.redbank.iam.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -11,12 +12,14 @@ import static org.mockito.Mockito.when;
 
 import com.redbank.contracts.envelope.DeviceContext;
 import com.redbank.contracts.envelope.RequestContext;
+import com.redbank.iam.api.v1.dto.DeviceVerifyRequest;
 import com.redbank.iam.api.v1.dto.LoginRequest;
 import com.redbank.iam.api.v1.dto.LoginResponse;
 import com.redbank.iam.domain.CredentialRecord;
 import com.redbank.iam.domain.DeviceRecord;
 import com.redbank.iam.domain.DeviceStatus;
 import com.redbank.iam.domain.OtpChallengeRecord;
+import com.redbank.iam.domain.OtpChallengeStatus;
 import com.redbank.iam.domain.OtpPurpose;
 import com.redbank.iam.domain.UserRecord;
 import com.redbank.iam.domain.UserStatus;
@@ -28,11 +31,13 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 class IamServiceOtpChallengeTest {
     private static final Instant NOW = Instant.parse("2026-06-24T08:00:00Z");
@@ -104,6 +109,35 @@ class IamServiceOtpChallengeTest {
         verify(otpChallengeRepository, times(1)).save(any(OtpChallengeRecord.class));
     }
 
+    @Test
+    void wrongOtpConsumesAttemptBeforeUnauthorizedResponse() {
+        UUID userId = UUID.randomUUID();
+        UUID deviceId = UUID.randomUUID();
+        UUID challengeId = UUID.randomUUID();
+        OtpChallengeRecord challenge = challenge(userId, deviceId, challengeId, 4, 5);
+
+        when(jwtTokenService.verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_DEVICE_VERIFY))
+                .thenReturn(new VerifiedToken(userId, deviceId, java.util.List.of("ONBOARDING"), java.util.List.of(JwtTokenService.SCOPE_DEVICE_VERIFY)));
+        when(otpChallengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+        when(otpService.matches("000000", "otp-hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> iamService.verifyDevice(
+                "Bearer device-token",
+                new DeviceVerifyRequest(challengeId.toString(), "000000")
+        )).isInstanceOf(IamUnauthorizedException.class);
+
+        verify(otpChallengeRepository).recordFailedAttempt(challengeId, NOW);
+    }
+
+    @Test
+    void deviceVerificationUnauthorizedResponsesDoNotRollbackAttemptUpdates() throws NoSuchMethodException {
+        Transactional transactional = IamService.class
+                .getMethod("verifyDevice", String.class, DeviceVerifyRequest.class)
+                .getAnnotation(Transactional.class);
+
+        assertThat(Arrays.asList(transactional.noRollbackFor())).contains(IamUnauthorizedException.class);
+    }
+
     private RequestContext context() {
         return new RequestContext(
                 "request-id",
@@ -157,6 +191,22 @@ class IamServiceOtpChallengeTest {
                 "1.0.0",
                 DeviceStatus.PENDING_VERIFICATION,
                 null,
+                NOW,
+                NOW
+        );
+    }
+
+    private OtpChallengeRecord challenge(UUID userId, UUID deviceId, UUID challengeId, int attemptCount, int maxAttempts) {
+        return new OtpChallengeRecord(
+                challengeId,
+                userId,
+                deviceId,
+                "otp-hash",
+                OtpPurpose.DEVICE_VERIFICATION,
+                NOW.plusSeconds(300),
+                attemptCount,
+                maxAttempts,
+                OtpChallengeStatus.PENDING,
                 NOW,
                 NOW
         );

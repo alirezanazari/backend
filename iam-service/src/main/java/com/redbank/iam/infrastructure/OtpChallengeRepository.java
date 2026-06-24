@@ -13,6 +13,7 @@ import org.jooq.Record;
 import org.springframework.stereotype.Repository;
 
 import static com.redbank.iam.jooq.tables.OtpChallenges.OTP_CHALLENGES;
+import static org.jooq.impl.DSL.when;
 
 @Repository
 public class OtpChallengeRepository {
@@ -73,19 +74,25 @@ public class OtpChallengeRepository {
                 .execute();
     }
 
-    public void incrementAttemptCount(UUID id, Instant updatedAt) {
-        dsl.update(OTP_CHALLENGES)
-                .set(OTP_CHALLENGES.ATTEMPT_COUNT, OTP_CHALLENGES.ATTEMPT_COUNT.add(1))
-                .set(OTP_CHALLENGES.UPDATED_AT, toOffsetDateTime(updatedAt))
-                .where(OTP_CHALLENGES.ID.eq(id))
-                .execute();
-    }
-
     public void markStatus(UUID id, OtpChallengeStatus status, Instant updatedAt) {
         dsl.update(OTP_CHALLENGES)
                 .set(OTP_CHALLENGES.STATUS, status.name())
                 .set(OTP_CHALLENGES.UPDATED_AT, toOffsetDateTime(updatedAt))
                 .where(OTP_CHALLENGES.ID.eq(id))
+                .execute();
+    }
+
+    public int recordFailedAttempt(UUID id, Instant updatedAt) {
+        return dsl.update(OTP_CHALLENGES)
+                .set(OTP_CHALLENGES.ATTEMPT_COUNT, OTP_CHALLENGES.ATTEMPT_COUNT.add(1))
+                .set(OTP_CHALLENGES.STATUS, when(
+                        OTP_CHALLENGES.ATTEMPT_COUNT.add(1).ge(OTP_CHALLENGES.MAX_ATTEMPTS),
+                        OtpChallengeStatus.FAILED.name()
+                ).otherwise(OTP_CHALLENGES.STATUS))
+                .set(OTP_CHALLENGES.UPDATED_AT, toOffsetDateTime(updatedAt))
+                .where(OTP_CHALLENGES.ID.eq(id))
+                .and(OTP_CHALLENGES.STATUS.eq(OtpChallengeStatus.PENDING.name()))
+                .and(OTP_CHALLENGES.ATTEMPT_COUNT.lt(OTP_CHALLENGES.MAX_ATTEMPTS))
                 .execute();
     }
 

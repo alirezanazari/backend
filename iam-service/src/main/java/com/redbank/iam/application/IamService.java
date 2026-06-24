@@ -182,7 +182,7 @@ public class IamService {
         );
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = IamUnauthorizedException.class)
     public DeviceVerifyResponse verifyDevice(String authorizationHeader, DeviceVerifyRequest request) {
         VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_DEVICE_VERIFY);
         UUID challengeId = parseChallengeId(request.challengeId());
@@ -198,11 +198,8 @@ public class IamService {
         validateChallengeCanBeUsed(challenge);
 
         Instant now = clock.instant();
-        otpChallengeRepository.incrementAttemptCount(challenge.id(), now);
         if (!otpService.matches(request.otpCode(), challenge.otpHash())) {
-            if (challenge.attemptCount() + 1 >= challenge.maxAttempts()) {
-                otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.FAILED, now);
-            }
+            otpChallengeRepository.recordFailedAttempt(challenge.id(), now);
             recordAuth("verify_device", "rejected");
             throw new IamUnauthorizedException("Unauthorized");
         }
