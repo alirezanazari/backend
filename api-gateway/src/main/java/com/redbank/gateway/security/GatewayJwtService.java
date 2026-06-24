@@ -3,14 +3,20 @@ package com.redbank.gateway.security;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.crypto.MACVerifier;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.redbank.gateway.config.DebugProperties;
 import com.redbank.gateway.config.JwtProperties;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.X509EncodedKeySpec;
 import java.text.ParseException;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,11 +72,8 @@ public class GatewayJwtService {
     private JWTClaimsSet verify(String token) {
         try {
             SignedJWT jwt = SignedJWT.parse(token);
-            if (!JWSAlgorithm.HS256.equals(jwt.getHeader().getAlgorithm())) {
-                throw new GatewayTokenException();
-            }
             JWTClaimsSet claims = jwt.getJWTClaimsSet();
-            if (!jwt.verify(new MACVerifier(secretForIssuer(claims.getIssuer())))) {
+            if (!verifySignature(jwt, claims.getIssuer())) {
                 throw new GatewayTokenException();
             }
             Date expiration = claims.getExpirationTime();
@@ -90,12 +93,24 @@ public class GatewayJwtService {
         }
     }
 
-    private byte[] secretForIssuer(String issuer) {
+    private boolean verifySignature(SignedJWT jwt, String issuer) throws JOSEException {
         if (jwtProperties.issuer().equals(issuer)) {
-            return signingSecret(jwtProperties.signingSecret(), "REDBANK_JWT_SIGNING_SECRET");
+            if (jwtProperties.usesAsymmetricVerification()) {
+                if (!JWSAlgorithm.RS256.equals(jwt.getHeader().getAlgorithm())) {
+                    throw new GatewayTokenException();
+                }
+                return jwt.verify(new RSASSAVerifier(verificationPublicKey()));
+            }
+            if (!JWSAlgorithm.HS256.equals(jwt.getHeader().getAlgorithm())) {
+                throw new GatewayTokenException();
+            }
+            return jwt.verify(new MACVerifier(signingSecret(jwtProperties.signingSecret(), "REDBANK_JWT_SIGNING_SECRET")));
         }
         if (DEBUG_ISSUER.equals(issuer) && debugProperties.enabled() && isDevelopProfile()) {
-            return signingSecret(debugProperties.jwtSecret(), "REDBANK_DEBUG_JWT_SECRET");
+            if (!JWSAlgorithm.HS256.equals(jwt.getHeader().getAlgorithm())) {
+                throw new GatewayTokenException();
+            }
+            return jwt.verify(new MACVerifier(signingSecret(debugProperties.jwtSecret(), "REDBANK_DEBUG_JWT_SECRET")));
         }
         throw new GatewayTokenException();
     }
@@ -110,6 +125,20 @@ public class GatewayJwtService {
             throw new IllegalStateException(name + " must be at least 32 bytes for HS256");
         }
         return secret;
+    }
+
+    private RSAPublicKey verificationPublicKey() {
+        try {
+            String publicKey = jwtProperties.verificationPublicKey()
+                    .replace("-----BEGIN PUBLIC KEY-----", "")
+                    .replace("-----END PUBLIC KEY-----", "")
+                    .replaceAll("\\s", "");
+            byte[] decoded = Base64.getDecoder().decode(publicKey);
+            return (RSAPublicKey) KeyFactory.getInstance("RSA")
+                    .generatePublic(new X509EncodedKeySpec(decoded));
+        } catch (GeneralSecurityException | RuntimeException exception) {
+            throw new IllegalStateException("REDBANK_JWT_PUBLIC_KEY must be a valid RSA public key", exception);
+        }
     }
 
     private String extractBearerToken(String authorizationHeader) {

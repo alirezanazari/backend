@@ -7,7 +7,8 @@ public record JwtProperties(
         String issuer,
         String audience,
         long accessTokenTtlSeconds,
-        String signingSecret
+        String signingSecret,
+        String verificationPublicKey
 ) {
     private static final String DEVELOP_SIGNING_SECRET = "local-develop-debug-secret-change-me-32bytes";
 
@@ -24,5 +25,9 @@ public record JwtProperties(
         if (signingSecret == null || signingSecret.isBlank()) {
             signingSecret = DEVELOP_SIGNING_SECRET;
         }
+    }
+
+    public boolean usesAsymmetricVerification() {
+        return verificationPublicKey != null && !verificationPublicKey.isBlank();
     }
 }

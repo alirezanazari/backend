@@ -5,12 +5,21 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.redbank.iam.config.JwtProperties;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.text.ParseException;
 import java.time.Clock;
+import java.util.Base64;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -78,8 +87,14 @@ public class JwtTokenService {
                 .build();
 
         try {
-            SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
-            jwt.sign(new MACSigner(secret));
+            SignedJWT jwt = jwtProperties.usesAsymmetricSigning()
+                    ? new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claims)
+                    : new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+            if (jwtProperties.usesAsymmetricSigning()) {
+                jwt.sign(new RSASSASigner(signingPrivateKey()));
+            } else {
+                jwt.sign(new MACSigner(secret));
+            }
             return TokenResult.bearer(jwt.serialize(), expiresAt);
         } catch (JOSEException exception) {
             throw new IllegalStateException("Unable to sign access token", exception);
@@ -105,10 +120,7 @@ public class JwtTokenService {
     private JWTClaimsSet verify(String token) {
         try {
             SignedJWT jwt = SignedJWT.parse(token);
-            if (!JWSAlgorithm.HS256.equals(jwt.getHeader().getAlgorithm())) {
-                throw new IamUnauthorizedException("Unauthorized");
-            }
-            if (!jwt.verify(new MACVerifier(signingSecret()))) {
+            if (!verifySignature(jwt)) {
                 throw new IamUnauthorizedException("Unauthorized");
             }
 
@@ -127,6 +139,19 @@ public class JwtTokenService {
         } catch (ParseException | JOSEException exception) {
             throw new IamUnauthorizedException("Unauthorized");
         }
+    }
+
+    private boolean verifySignature(SignedJWT jwt) throws JOSEException {
+        if (jwtProperties.usesAsymmetricSigning()) {
+            if (!JWSAlgorithm.RS256.equals(jwt.getHeader().getAlgorithm())) {
+                throw new IamUnauthorizedException("Unauthorized");
+            }
+            return jwt.verify(new RSASSAVerifier(verificationPublicKey()));
+        }
+        if (!JWSAlgorithm.HS256.equals(jwt.getHeader().getAlgorithm())) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+        return jwt.verify(new MACVerifier(signingSecret()));
     }
 
     private String extractBearerToken(String authorizationHeader) {
@@ -150,6 +175,38 @@ public class JwtTokenService {
             throw new IllegalStateException("REDBANK_JWT_SIGNING_SECRET must be at least 32 bytes for HS256");
         }
         return secret;
+    }
+
+    private RSAPrivateKey signingPrivateKey() {
+        try {
+            String privateKey = jwtProperties.signingPrivateKey()
+                    .replace("-----BEGIN PRIVATE KEY-----", "")
+                    .replace("-----END PRIVATE KEY-----", "")
+                    .replaceAll("\\s", "");
+            byte[] decoded = Base64.getDecoder().decode(privateKey);
+            return (RSAPrivateKey) KeyFactory.getInstance("RSA")
+                    .generatePrivate(new PKCS8EncodedKeySpec(decoded));
+        } catch (GeneralSecurityException | RuntimeException exception) {
+            throw new IllegalStateException("REDBANK_JWT_PRIVATE_KEY must be a valid RSA private key", exception);
+        }
+    }
+
+    private RSAPublicKey verificationPublicKey() {
+        try {
+            String configuredPublicKey = jwtProperties.verificationPublicKey();
+            if (configuredPublicKey == null || configuredPublicKey.isBlank()) {
+                throw new IllegalStateException("REDBANK_JWT_PUBLIC_KEY is required for RSA JWT verification");
+            }
+            String publicKey = configuredPublicKey
+                    .replace("-----BEGIN PUBLIC KEY-----", "")
+                    .replace("-----END PUBLIC KEY-----", "")
+                    .replaceAll("\\s", "");
+            byte[] decoded = Base64.getDecoder().decode(publicKey);
+            return (RSAPublicKey) KeyFactory.getInstance("RSA")
+                    .generatePublic(new X509EncodedKeySpec(decoded));
+        } catch (GeneralSecurityException | RuntimeException exception) {
+            throw new IllegalStateException("REDBANK_JWT_PUBLIC_KEY must be a valid RSA public key", exception);
+        }
     }
 
     private UUID parseUuid(String value) {

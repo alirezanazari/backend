@@ -44,10 +44,9 @@ public class ProdSafetyGuard implements ApplicationRunner {
                     "feature-flag-service cannot start in prod with a develop/debug JWT issuer"
             );
         }
-        if (jwtProperties.signingSecret().contains("local-develop")
-                || jwtProperties.signingSecret().contains("change-me")) {
+        if (!jwtProperties.usesAsymmetricVerification()) {
             throw new IllegalStateException(
-                    "feature-flag-service cannot start in prod with a develop JWT signing secret"
+                    "feature-flag-service requires an asymmetric JWT verification public key in prod"
             );
         }
         if (internalAccessProperties.serviceTokenSecret().contains("local-develop")

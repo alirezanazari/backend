@@ -44,7 +44,8 @@ redbank:
   jwt:
     issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
     audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
-    signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
+    signing-secret: ${REDBANK_JWT_SIGNING_SECRET:}
+    verification-public-key: ${REDBANK_JWT_PUBLIC_KEY:}
   internal:
     service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
   kyc:

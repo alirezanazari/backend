@@ -38,8 +38,8 @@ public class ProdSafetyGuard implements ApplicationRunner {
         if (jwtProperties.issuer().contains("develop") || jwtProperties.issuer().contains("debug")) {
             throw new IllegalStateException("account-service cannot start in prod with a develop/debug JWT issuer");
         }
-        if (jwtProperties.signingSecret().contains("local-develop") || jwtProperties.signingSecret().contains("change-me")) {
-            throw new IllegalStateException("account-service cannot start in prod with a develop JWT signing secret");
+        if (!jwtProperties.usesAsymmetricVerification()) {
+            throw new IllegalStateException("account-service requires an asymmetric JWT verification public key in prod");
         }
         if (internalAccessProperties.serviceTokenSecret() == null
                 || internalAccessProperties.serviceTokenSecret().isBlank()

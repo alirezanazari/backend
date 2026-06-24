@@ -93,3 +93,4 @@ redbank:
     audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
     access-token-ttl-seconds: ${REDBANK_JWT_ACCESS_TOKEN_TTL_SECONDS:900}
     signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
+    verification-public-key: ${REDBANK_JWT_PUBLIC_KEY:}

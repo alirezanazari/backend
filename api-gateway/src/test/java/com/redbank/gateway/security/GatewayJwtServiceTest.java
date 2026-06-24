@@ -77,7 +77,7 @@ class GatewayJwtServiceTest {
     private GatewayJwtService service(String profile, boolean debugEnabled) {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles(profile);
-        JwtProperties jwt = new JwtProperties("red-bank-develop", "red-bank-api", 900, SIGNING_SECRET);
+        JwtProperties jwt = new JwtProperties("red-bank-develop", "red-bank-api", 900, SIGNING_SECRET, null);
         DebugProperties debug = new DebugProperties(
                 debugEnabled,
                 "gateway-debug-signing-secret-at-least-32-bytes",

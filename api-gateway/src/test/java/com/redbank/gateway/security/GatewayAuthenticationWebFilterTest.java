@@ -99,7 +99,7 @@ class GatewayAuthenticationWebFilterTest {
     private static class RejectingJwtService extends GatewayJwtService {
         RejectingJwtService() {
             super(
-                    new JwtProperties("issuer", "audience", 900, SECRET),
+                    new JwtProperties("issuer", "audience", 900, SECRET, null),
                     new DebugProperties(false, SECRET, new DebugProperties.MockOtp(false)),
                     new MockEnvironment(),
                     Clock.systemUTC()

@@ -52,6 +52,8 @@ redbank:
     access-token-ttl-seconds: ${REDBANK_JWT_ACCESS_TOKEN_TTL_SECONDS:900}
     onboarding-token-ttl-seconds: ${REDBANK_JWT_ONBOARDING_TOKEN_TTL_SECONDS:300}
     signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
+    signing-private-key: ${REDBANK_JWT_PRIVATE_KEY:}
+    verification-public-key: ${REDBANK_JWT_PUBLIC_KEY:}
   account-client:
     base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
     internal-service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
