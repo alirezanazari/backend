@@ -34,7 +34,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static com.redbank.iam.jooq.tables.Credentials.CREDENTIALS;
 import static com.redbank.iam.jooq.tables.OtpChallenges.OTP_CHALLENGES;
 import static com.redbank.iam.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
-//import static javax.security.sasl.Sasl.CREDENTIALS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
