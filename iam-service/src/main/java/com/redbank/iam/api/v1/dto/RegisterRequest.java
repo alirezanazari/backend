@@ -13,7 +13,7 @@ public record RegisterRequest(
         @NotBlank @Size(min = 8, max = 200) String password,
         @NotBlank @Size(max = 80) String firstName,
         @NotBlank @Size(max = 80) String lastName,
-        @NotNull @Valid Location location,
+        @Valid Location location,
         @NotBlank @Size(max = 80) String jobId
 ) {
 }

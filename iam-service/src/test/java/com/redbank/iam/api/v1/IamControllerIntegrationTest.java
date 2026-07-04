@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.redbank.contracts.account.ProfileSummary;
 import com.redbank.contracts.account.ProfileType;
 import com.redbank.contracts.identity.AccountCompletionStatus;
+import com.redbank.iam.api.v1.dto.RegisterRequest;
 import com.redbank.iam.application.AccountCompletionClient;
 import com.redbank.iam.application.AccountCompletionResult;
 import com.redbank.iam.domain.OutboxEventRecord;
@@ -25,6 +26,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -32,6 +34,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static com.redbank.iam.jooq.tables.Credentials.CREDENTIALS;
 import static com.redbank.iam.jooq.tables.OtpChallenges.OTP_CHALLENGES;
 import static com.redbank.iam.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
+import static javax.security.sasl.Sasl.CREDENTIALS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -439,4 +442,41 @@ class IamControllerIntegrationTest {
             return result;
         }
     }
+    private ResultActions register(RegisterRequest request) throws Exception {
+        return mockMvc.perform(post("/api/v1/iam/register")
+                .contentType("application/json")
+                .content("""
+                    {
+                      "context": {
+                        "requestId": "req-register-test",
+                        "account": null,
+                        "os": null,
+                        "app": null,
+                        "device": null,
+                        "network": null
+                      },
+                      "data": %s
+                    }
+                    """.formatted(objectMapper.writeValueAsString(request))));
+    }
+    @Test
+    void registerSucceedsWhenLocationIsNull() throws Exception{
+        RegisterRequest request = new RegisterRequest(
+                "1234328234",
+                "09387652314",
+                "shimo",
+                "45326743@Ei",
+                "shima",
+                "azizi",
+                null,
+                "job-1"
+        );
+        register(request)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.context.status.code").value("CREATED"))
+                .andExpect(jsonPath("$.data.userId").isNotEmpty());
+
+    }
+
 }
+

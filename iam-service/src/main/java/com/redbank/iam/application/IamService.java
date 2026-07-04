@@ -1,5 +1,6 @@
 package com.redbank.iam.application;
 
+import com.redbank.contracts.common.Location;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.identity.AccountCompletionStatus;
@@ -87,6 +88,14 @@ public class IamService {
         String username = normalizeUsername(request.username());
         ensureUniqueRegistration(username, request.phoneNumber(), request.nationalId());
 
+        final Location location = request.location() ;
+
+        String countryCode = location == null ? "" : location.countryCode();
+        String province = location == null ? "" : location.province();
+        String city = location == null ? "" : location.city();
+        String address = location == null ? "" : location.address();
+        String postalCode = location == null ? "" : location.postalCode();
+
         Instant now = clock.instant();
         UserRecord user = new UserRecord(
                 UUID.randomUUID(),
@@ -95,11 +104,12 @@ public class IamService {
                 request.nationalId(),
                 request.firstName(),
                 request.lastName(),
-                request.location().countryCode(),
-                request.location().province(),
-                request.location().city(),
-                request.location().address(),
-                request.location().postalCode(),
+                countryCode,
+                province,
+                city,
+                address,
+                postalCode,
+
                 request.jobId(),
                 UserStatus.REGISTERED,
                 now,
