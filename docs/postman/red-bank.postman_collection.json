@@ -52,7 +52,8 @@
           "  if (data.keyExchangeId) pm.collectionVariables.set('keyExchangeId', data.keyExchangeId);",
           "  if (data.serverPublicKey) pm.collectionVariables.set('serverPublicKey', data.serverPublicKey);",
           "  if (data.userId) pm.collectionVariables.set('userId', data.userId);",
-          "  if (data.challengeId) pm.collectionVariables.set('deviceChallengeId', data.challengeId);",
+          "  if (data.challengeId && data.resendAvailableAt) pm.collectionVariables.set('phoneChallengeId', data.challengeId);",
+          "  else if (data.challengeId) pm.collectionVariables.set('deviceChallengeId', data.challengeId);",
           "  if (data.deviceId) pm.collectionVariables.set('deviceId', data.deviceId);",
           "  if (data.activeProfileId) pm.collectionVariables.set('profileId', data.activeProfileId);",
           "  if (data.profile && data.profile.profileId) pm.collectionVariables.set('profileId', data.profile.profileId);",
@@ -79,6 +80,8 @@
           "      pm.collectionVariables.set('adminToken', data.accessToken);",
           "    } else if (pm.info.requestName === 'Debug Service Token') {",
           "      pm.collectionVariables.set('serviceToken', data.accessToken);",
+          "    } else if (data.accountCompletionStatus === 'ONBOARDING') {",
+          "      pm.collectionVariables.set('anonymousOnboardingToken', data.accessToken);",
           "    } else if (data.deviceVerificationRequired) {",
           "      pm.collectionVariables.set('deviceVerifyToken', data.accessToken);",
           "    } else if (data.userId && data.accountCompletionStatus === 'ACCOUNT_REQUIRED') {",
@@ -316,6 +319,14 @@
       "key": "boxPresetId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "anonymousOnboardingToken",
+      "value": ""
+    },
+    {
+      "key": "phoneChallengeId",
+      "value": ""
     }
   ],
   "item": [
@@ -368,7 +379,33 @@
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"nationalId\":\"{{nationalId}}\",\"phoneNumber\":\"{{phoneNumber}}\",\"username\":\"{{username}}\",\"password\":\"{{password}}\",\"firstName\":\"Ali\",\"lastName\":\"Nazari\",\"location\":{\"countryCode\":\"IR\",\"province\":\"Tehran\",\"city\":\"Tehran\",\"address\":\"Main street\",\"postalCode\":\"1234567890\"},\"jobId\":\"{{jobId}}\"}}"
             },
             "url": "{{gatewayBaseUrl}}/api/v1/iam/register",
-            "description": "Creates a user and returns a limited onboarding token. The collection test stores it as onboardingToken."
+            "description": "Creates a user and returns a limited onboarding token. The collection test stores it as onboardingToken. location may be null/omitted. Optionally send the anonymous onboarding token to adopt the verified wizard phone and device (see Register (Onboarding Wizard))."
+          }
+        },
+        {
+          "name": "Register (Onboarding Wizard)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{anonymousOnboardingToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"1\"},\"app\":null,\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"PWA\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":null},\"data\":{\"nationalId\":\"{{nationalId}}\",\"phoneNumber\":\"{{phoneNumber}}\",\"username\":\"{{username}}\",\"password\":\"{{password}}\",\"firstName\":\"Ali\",\"lastName\":\"Nazari\",\"location\":null,\"jobId\":\"{{jobId}}\"}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/iam/register",
+            "description": "Wizard registration with the anonymous onboarding token: phoneNumber must equal the session's verified phone (BUSINESS_RULE_VIOLATION otherwise) and the verified device is adopted, so the next login from the same fingerprint needs no OTP. location is optional (null here). The collection test stores the limited token as onboardingToken."
           }
         },
         {
@@ -390,7 +427,29 @@
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"username\":\"{{username}}\",\"password\":\"{{password}}\"}}"
             },
             "url": "{{gatewayBaseUrl}}/api/v1/iam/login",
-            "description": "Returns either a user token or a device verification challenge. The collection test stores challengeId as deviceChallengeId and the limited token as deviceVerifyToken."
+            "description": "Returns either a user token or a device verification challenge. The collection test stores challengeId as deviceChallengeId and the limited token as deviceVerifyToken. Send data.reason=REGISTER with null credentials to start an anonymous onboarding session instead (see Anonymous Onboarding Login)."
+          }
+        },
+        {
+          "name": "Anonymous Onboarding Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"1\"},\"app\":null,\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"PWA\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":null},\"data\":{\"username\":null,\"password\":null,\"reason\":\"REGISTER\"}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/iam/login",
+            "description": "Starts an anonymous onboarding session for the registration wizard: no credentials, short-lived token limited to ONBOARDING_PHONE_SET, ONBOARDING_DEVICE_VERIFY, and ONBOARDING_IAM_REGISTER. Returns accountCompletionStatus=ONBOARDING. The collection test stores the token as anonymousOnboardingToken. reason=RECOVERY is reserved and rejected with BUSINESS_RULE_VIOLATION."
           }
         },
         {
@@ -416,7 +475,33 @@
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{\"challengeId\":\"{{deviceChallengeId}}\",\"otpCode\":\"{{otpCode}}\"}}"
             },
             "url": "{{gatewayBaseUrl}}/api/v1/iam/device-verify",
-            "description": "Uses the login challenge token. In develop, otpCode=111111 works only when REDBANK_DEBUG_MOCK_OTP_ENABLED=true."
+            "description": "Uses the login challenge token. In develop, otpCode=111111 works only when REDBANK_DEBUG_MOCK_OTP_ENABLED=true. Also accepts the phoneChallengeId from KYC Set Phone under the anonymous onboarding token (see Verify Onboarding Phone)."
+          }
+        },
+        {
+          "name": "Verify Onboarding Phone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{anonymousOnboardingToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"1\"},\"app\":null,\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"PWA\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":null},\"data\":{\"challengeId\":\"{{phoneChallengeId}}\",\"otpCode\":\"{{otpCode}}\"}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/iam/device-verify",
+            "description": "Verifies the phoneChallengeId created by KYC Set Phone under the anonymous onboarding token. context.device.fingerprint is required: on success the verified phone and fingerprint bind to the onboarding session and Register (Onboarding Wizard) adopts them. Returns deviceId=null, no new token, accountCompletionStatus=ONBOARDING. In develop, otpCode=111111 works only when REDBANK_DEBUG_MOCK_OTP_ENABLED=true."
           }
         }
       ]
@@ -893,6 +978,32 @@
           }
         },
         {
+          "name": "Set Phone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{anonymousOnboardingToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"1\"},\"app\":null,\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"PWA\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":null},\"data\":{\"phoneNumber\":\"{{phoneNumber}}\"}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/kyc/phone/set",
+            "description": "Creates a phone-verification OTP challenge for the anonymous onboarding session (delegated to iam-service). Requires the anonymous onboarding token; full user tokens are rejected. Returns challengeId, expiresAt, and resendAvailableAt (45s resend timer). Resends inside the cooldown and more than 5 challenges per phone per hour return LIMIT_EXCEEDED; an already registered phone returns CONFLICT. The collection test stores the challenge as phoneChallengeId."
+          }
+        },
+        {
           "name": "Set Referral",
           "event": [
             {
@@ -1347,6 +1458,37 @@
             },
             "url": "{{gatewayBaseUrl}}/api/v1/pfm/transactions/list",
             "description": "Lists ledger-backed transactions for an owned PFM box through the API gateway."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal IAM",
+      "item": [
+        {
+          "name": "Create OTP Challenge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"onboardingSessionId\":\"{{$guid}}\",\"phoneNumber\":\"{{phoneNumber}}\"}"
+            },
+            "url": "{{iamBaseUrl}}/internal/v1/iam/otp-challenge/create",
+            "description": "Internal endpoint normally called by kyc-service for POST /api/v1/kyc/phone/set. Creates a hashed phone-verification OTP challenge bound to the onboarding session (anonymous token subject). Uses a random onboardingSessionId here for direct testing; the wizard path goes through KYC Set Phone."
           }
         }
       ]
