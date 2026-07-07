@@ -272,6 +272,102 @@ class IamControllerIntegrationTest {
     }
 
     @Test
+    void anonymousLoginWithRegisterReasonIssuesOnboardingToken() throws Exception {
+        String response = anonymousLogin("REGISTER")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ONBOARDING"))
+                .andExpect(jsonPath("$.data.deviceVerificationRequired").value(false))
+                .andExpect(jsonPath("$.data.challengeId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.activeProfile").value(org.hamcrest.Matchers.nullValue()))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String accessToken = objectMapper.readTree(response).path("data").path("accessToken").asText();
+        com.nimbusds.jwt.JWTClaimsSet claims = com.nimbusds.jwt.SignedJWT.parse(accessToken).getJWTClaimsSet();
+
+        assertThat(claims.getStringListClaim("scope")).containsExactlyInAnyOrder(
+                "ONBOARDING_PHONE_SET",
+                "ONBOARDING_DEVICE_VERIFY",
+                "ONBOARDING_IAM_REGISTER"
+        );
+        assertThat(claims.getStringListClaim("roles")).containsExactly("ONBOARDING");
+        assertThat(UUID.fromString(claims.getSubject())).isNotNull();
+        assertThat(dsl.fetchCount(com.redbank.iam.jooq.tables.Users.USERS,
+                com.redbank.iam.jooq.tables.Users.USERS.ID.eq(UUID.fromString(claims.getSubject()))))
+                .isZero();
+        long ttlSeconds = (claims.getExpirationTime().getTime() - claims.getIssueTime().getTime()) / 1000;
+        assertThat(ttlSeconds).isEqualTo(900);
+    }
+
+    @Test
+    void anonymousLoginWithRecoveryReasonIsRejectedAsReserved() throws Exception {
+        anonymousLogin("RECOVERY")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
+    void loginWithoutReasonStillRequiresCredentials() throws Exception {
+        mockMvc.perform(post("/api/v1/iam/login")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "context": {
+                                    "requestId": "req-login-missing-credentials",
+                                    "account": null,
+                                    "os": null,
+                                    "app": null,
+                                    "device": {
+                                      "deviceId": "client-device-x",
+                                      "model": "Pixel 9",
+                                      "fingerprint": "fingerprint-missing-credentials"
+                                    },
+                                    "network": null
+                                  },
+                                  "data": {
+                                    "username": null,
+                                    "password": null
+                                  }
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("VALIDATION_ERROR"));
+    }
+
+    private ResultActions anonymousLogin(String reason) throws Exception {
+        return mockMvc.perform(post("/api/v1/iam/login")
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-anonymous-login",
+                            "account": null,
+                            "os": {
+                              "name": "Web",
+                              "version": "1"
+                            },
+                            "app": null,
+                            "device": {
+                              "deviceId": "pwa-device",
+                              "model": "PWA",
+                              "fingerprint": "fingerprint-anonymous-onboarding"
+                            },
+                            "network": null
+                          },
+                          "data": {
+                            "username": null,
+                            "password": null,
+                            "reason": "%s"
+                          }
+                        }
+                        """.formatted(reason)));
+    }
+
+    @Test
     void outboxRetriesMoveEventToDeadLetter() {
         UUID eventId = UUID.randomUUID();
         Instant now = Instant.parse("2026-06-14T12:00:00Z");

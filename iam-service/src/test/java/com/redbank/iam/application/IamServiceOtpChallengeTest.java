@@ -59,6 +59,7 @@ class IamServiceOtpChallengeTest {
             jwtTokenService,
             otpService,
             mock(RegistrationValidator.class),
+            new LoginValidator(),
             new DeviceContextValidator(),
             accountCompletionClient,
             mock(IamOutboxService.class),
@@ -94,8 +95,8 @@ class IamServiceOtpChallengeTest {
             return null;
         }).when(otpChallengeRepository).save(any(OtpChallengeRecord.class));
 
-        LoginResponse firstLogin = iamService.login(context(), new LoginRequest("Alice", "correct-password"));
-        LoginResponse secondLogin = iamService.login(context(), new LoginRequest("Alice", "correct-password"));
+        LoginResponse firstLogin = iamService.login(context(), new LoginRequest("Alice", "correct-password", null));
+        LoginResponse secondLogin = iamService.login(context(), new LoginRequest("Alice", "correct-password", null));
 
         assertThat(firstLogin.deviceVerificationRequired()).isTrue();
         assertThat(secondLogin.deviceVerificationRequired()).isTrue();

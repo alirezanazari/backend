@@ -47,6 +47,24 @@ class GatewayAccessPolicyTest {
         assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_REFERRAL, referralOnboarding)).isTrue();
     }
 
+    @Test
+    void anonymousOnboardingTokenIsLimitedToItsScopes() {
+        GatewayToken anonymous = token(
+                List.of("ONBOARDING"),
+                List.of(
+                        GatewayAccessPolicy.PHONE_SET_SCOPE,
+                        GatewayAccessPolicy.DEVICE_VERIFY_SCOPE,
+                        GatewayAccessPolicy.IAM_REGISTER_SCOPE
+                )
+        );
+
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_DEVICE, anonymous)).isTrue();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.USER, anonymous)).isFalse();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ADMIN, anonymous)).isFalse();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_ACCOUNT, anonymous)).isFalse();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_REFERRAL, anonymous)).isFalse();
+    }
+
     private GatewayToken token(List<String> roles, List<String> scopes) {
         return new GatewayToken("user-1", null, null, "token-1", roles, scopes);
     }

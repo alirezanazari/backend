@@ -87,7 +87,26 @@ Suggested scopes:
 ONBOARDING_ACCOUNT_REGISTER
 ONBOARDING_DEVICE_VERIFY
 ONBOARDING_REFERRAL_SET
+ONBOARDING_PHONE_SET
+ONBOARDING_IAM_REGISTER
 ```
+
+### Anonymous Onboarding Token
+
+A special limited onboarding token issued by `POST /api/v1/iam/login` with
+`reason=REGISTER`, before any user exists.
+
+Rules:
+
+- Short TTL (default 15 minutes, `REDBANK_JWT_ANONYMOUS_TOKEN_TTL_SECONDS`).
+- Subject is a synthetic onboarding-session UUID, not a user ID.
+- Role is `ONBOARDING`.
+- Scopes are exactly `ONBOARDING_PHONE_SET`, `ONBOARDING_DEVICE_VERIFY`,
+  and `ONBOARDING_IAM_REGISTER`.
+- Must not grant access to any account, card, PFM, or transfer API;
+  the gateway returns `403 Forbidden` for those routes.
+- The login route is rate-limited more strictly at the gateway because these
+  tokens are minted without credentials.
 
 ### Admin Token
 
@@ -117,7 +136,7 @@ Rules:
 | --- | --- | --- | --- |
 | Gateway | `POST /api/v1/security/key-exchange` | `PUBLIC` | Gateway-only app-level key exchange. |
 | IAM | `POST /api/v1/iam/register` | `PUBLIC` | Creates user identity and limited onboarding token. |
-| IAM | `POST /api/v1/iam/login` | `PUBLIC` | Returns user token or device verification requirement. |
+| IAM | `POST /api/v1/iam/login` | `PUBLIC` | Returns user token, device verification requirement, or anonymous onboarding token when `reason=REGISTER`. |
 | IAM | `POST /api/v1/iam/device-verify` | `ONBOARDING` | Requires limited token or login challenge context. |
 | IAM | `POST /api/v1/iam/logout` | `USER` | Ends current client session/audit state. |
 | Account | `POST /api/v1/account/register` | `ONBOARDING` | Creates personal profile and default saving account. |

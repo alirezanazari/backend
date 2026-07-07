@@ -288,6 +288,7 @@ These enum names should be shared and reused consistently.
 
 ```text
 AccountCompletionStatus:
+ONBOARDING
 REGISTERED
 DEVICE_VERIFICATION_REQUIRED
 ACCOUNT_REQUIRED
@@ -296,6 +297,10 @@ KYC_REQUIRED
 KYC_PENDING
 COMPLETED
 SUSPENDED
+
+LoginReason:
+REGISTER
+RECOVERY
 
 ProfileType:
 PERSONAL
@@ -409,20 +414,21 @@ Request:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `username` | `String` | Yes | Username. |
-| `password` | `String` | Yes | Raw value after gateway decryption. |
+| `username` | `String` | Conditional | Username. Required when `reason` is absent. May be null/empty when `reason` is present. |
+| `password` | `String` | Conditional | Raw value after gateway decryption. Required when `reason` is absent. May be null/empty when `reason` is present. |
+| `reason` | `LoginReason` | No | Optional login reason. `REGISTER` starts an anonymous onboarding session. `RECOVERY` is reserved and currently rejected with `BUSINESS_RULE_VIOLATION`. |
 
 Response:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `accessToken` | `String` | Conditional | Present when login can continue. |
+| `accessToken` | `String` | Conditional | Present when login can continue. For `reason=REGISTER` this is the anonymous onboarding token (~15 min TTL, scopes `ONBOARDING_PHONE_SET`, `ONBOARDING_DEVICE_VERIFY`, `ONBOARDING_IAM_REGISTER` only). |
 | `tokenType` | `String` | Conditional | Usually `Bearer`. |
 | `expiresAt` | `Instant` | Conditional | Token expiration. |
-| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | User onboarding/completion state. |
-| `activeProfile` | `ProfileSummary` | No | Active profile if available. |
-| `deviceVerificationRequired` | `Boolean` | Yes | Whether device verify is required. |
-| `challengeId` | `String` | No | OTP challenge ID when verification is required. |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | User onboarding/completion state. Anonymous sessions always return `ONBOARDING`; the client routes to the KYC wizard (`kyc/phone/set` next). |
+| `activeProfile` | `ProfileSummary` | No | Active profile if available. Always null for anonymous sessions. |
+| `deviceVerificationRequired` | `Boolean` | Yes | Whether device verify is required. Always `false` for anonymous sessions; the wizard's OTP challenge is created later by `kyc/phone/set`. |
+| `challengeId` | `String` | No | OTP challenge ID when verification is required. Always null for anonymous sessions. |
 
 ### POST /api/v1/iam/device-verify
 

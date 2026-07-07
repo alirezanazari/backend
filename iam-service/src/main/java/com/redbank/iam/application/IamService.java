@@ -4,6 +4,7 @@ import com.redbank.contracts.common.Location;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.identity.AccountCompletionStatus;
+import com.redbank.contracts.identity.LoginReason;
 import com.redbank.iam.api.v1.dto.DeviceVerifyRequest;
 import com.redbank.iam.api.v1.dto.DeviceVerifyResponse;
 import com.redbank.iam.api.v1.dto.LoginRequest;
@@ -45,6 +46,7 @@ public class IamService {
     private final JwtTokenService jwtTokenService;
     private final OtpService otpService;
     private final RegistrationValidator registrationValidator;
+    private final LoginValidator loginValidator;
     private final DeviceContextValidator deviceContextValidator;
     private final AccountCompletionClient accountCompletionClient;
     private final IamOutboxService iamOutboxService;
@@ -60,6 +62,7 @@ public class IamService {
             JwtTokenService jwtTokenService,
             OtpService otpService,
             RegistrationValidator registrationValidator,
+            LoginValidator loginValidator,
             DeviceContextValidator deviceContextValidator,
             AccountCompletionClient accountCompletionClient,
             IamOutboxService iamOutboxService,
@@ -74,6 +77,7 @@ public class IamService {
         this.jwtTokenService = jwtTokenService;
         this.otpService = otpService;
         this.registrationValidator = registrationValidator;
+        this.loginValidator = loginValidator;
         this.deviceContextValidator = deviceContextValidator;
         this.accountCompletionClient = accountCompletionClient;
         this.iamOutboxService = iamOutboxService;
@@ -146,7 +150,15 @@ public class IamService {
 
     @Transactional
     public LoginResponse login(RequestContext context, LoginRequest request) {
+        loginValidator.validate(request);
+        if (request.reason() == LoginReason.RECOVERY) {
+            recordAuth("login", "recovery_unsupported");
+            throw new IamBusinessRuleException("Login reason RECOVERY is not supported yet");
+        }
         String fingerprint = deviceContextValidator.requireFingerprint(context);
+        if (request.reason() == LoginReason.REGISTER) {
+            return anonymousOnboardingLogin();
+        }
         String username = normalizeUsername(request.username());
         UserRecord user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IamUnauthorizedException("Unauthorized"));
@@ -230,6 +242,20 @@ public class IamService {
                 userToken.tokenType(),
                 userToken.expiresAt(),
                 completion.accountCompletionStatus()
+        );
+    }
+
+    private LoginResponse anonymousOnboardingLogin() {
+        TokenResult token = jwtTokenService.createAnonymousOnboardingToken(UUID.randomUUID());
+        recordAuth("login", "anonymous_onboarding");
+        return new LoginResponse(
+                token.accessToken(),
+                token.tokenType(),
+                token.expiresAt(),
+                AccountCompletionStatus.ONBOARDING,
+                null,
+                false,
+                null
         );
     }
 

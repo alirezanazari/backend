@@ -8,6 +8,9 @@ public class GatewayAccessPolicy {
     public static final String ACCOUNT_REGISTER_SCOPE = "ONBOARDING_ACCOUNT_REGISTER";
     public static final String DEVICE_VERIFY_SCOPE = "ONBOARDING_DEVICE_VERIFY";
     public static final String REFERRAL_SET_SCOPE = "ONBOARDING_REFERRAL_SET";
+    // Scopes carried by the anonymous onboarding token minted by POST /api/v1/iam/login with data.reason.
+    public static final String PHONE_SET_SCOPE = "ONBOARDING_PHONE_SET";
+    public static final String IAM_REGISTER_SCOPE = "ONBOARDING_IAM_REGISTER";
 
     public Access access(HttpMethod method, String path) {
         if (!HttpMethod.POST.equals(method)) {

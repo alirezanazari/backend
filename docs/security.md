@@ -145,6 +145,10 @@ Production rate-limit thresholds are configured through
 a shared ingress or infrastructure limiter when strict global limits are
 required.
 
+`POST /api/v1/iam/login` uses a stricter dedicated per-client limit
+(`REDBANK_GATEWAY_RATE_LIMIT_LOGIN_*`, default 10 per minute) because anonymous
+onboarding logins mint tokens without credentials.
+
 ## Login
 
 Login input:
@@ -233,6 +237,7 @@ secret keys
 Suggested enum:
 
 ```text
+ONBOARDING
 REGISTERED
 DEVICE_VERIFICATION_REQUIRED
 ACCOUNT_REQUIRED
@@ -244,6 +249,10 @@ SUSPENDED
 ```
 
 This status tells the client what screen to show next.
+
+`ONBOARDING` is returned only for anonymous onboarding sessions created by
+`POST /api/v1/iam/login` with `reason=REGISTER`; the client continues the
+registration wizard from there.
 
 ## Device Verification
 

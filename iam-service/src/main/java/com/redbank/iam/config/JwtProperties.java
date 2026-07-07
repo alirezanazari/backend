@@ -8,6 +8,7 @@ public record JwtProperties(
         String audience,
         long accessTokenTtlSeconds,
         long onboardingTokenTtlSeconds,
+        long anonymousTokenTtlSeconds,
         String signingSecret,
         String signingPrivateKey,
         String verificationPublicKey
@@ -26,6 +27,9 @@ public record JwtProperties(
         }
         if (onboardingTokenTtlSeconds <= 0) {
             onboardingTokenTtlSeconds = 300;
+        }
+        if (anonymousTokenTtlSeconds <= 0) {
+            anonymousTokenTtlSeconds = 900;
         }
         if (signingSecret == null || signingSecret.isBlank()) {
             signingSecret = DEVELOP_SIGNING_SECRET;

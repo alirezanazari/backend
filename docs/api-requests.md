@@ -16,7 +16,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | --- | --- | --- | --- |
 | Gateway | `POST /api/v1/security/key-exchange` | Public | Create temporary app-level encryption session with gateway. |
 | IAM | `POST /api/v1/iam/register` | Public | Register user identity and initial credentials. |
-| IAM | `POST /api/v1/iam/login` | Public | Authenticate user with username and password. |
+| IAM | `POST /api/v1/iam/login` | Public | Authenticate user with username and password, or start an anonymous onboarding session with `reason`. |
 | IAM | `POST /api/v1/iam/device-verify` | Conditional | Verify device using 6-digit OTP. |
 | IAM | `POST /api/v1/iam/logout` | Required | End current client login session. |
 | Account | `POST /api/v1/account/register` | Required | Create personal profile and default saving account. |
@@ -231,7 +231,7 @@ iam-service
 Purpose:
 
 ```text
-authenticate user by username and password
+authenticate user by username and password, or start an anonymous onboarding session
 ```
 
 Authentication:
@@ -250,6 +250,27 @@ Important rules:
 - If login succeeds and device is allowed, IAM returns an access token.
 - There is no refresh token.
 - Expired access token requires login again.
+
+Anonymous onboarding rules:
+
+- `data.reason` is optional. When absent, credentials are required and behavior is unchanged.
+- `reason=REGISTER` starts an anonymous onboarding session for the registration wizard:
+  `username` and `password` may be null or empty.
+- The response is an **anonymous onboarding token**: short TTL (default 15 minutes,
+  `REDBANK_JWT_ANONYMOUS_TOKEN_TTL_SECONDS`), a synthetic onboarding-session subject
+  (no user identity exists yet), role `ONBOARDING`, and exactly these scopes:
+  `ONBOARDING_PHONE_SET`, `ONBOARDING_DEVICE_VERIFY`, `ONBOARDING_IAM_REGISTER`.
+- The anonymous token must not grant access to any account, card, PFM, or transfer API.
+  The gateway rejects those routes with `403 Forbidden` (or `401` without a token).
+- Anonymous responses return `accountCompletionStatus=ONBOARDING`,
+  `deviceVerificationRequired=false`, and no `challengeId`; the client continues the
+  KYC wizard (`kyc/phone/set` next).
+- `context.device.fingerprint` is still required, like credential login.
+- The gateway rate-limits the login route more strictly than other routes because
+  anonymous logins mint tokens without credentials
+  (`REDBANK_GATEWAY_RATE_LIMIT_LOGIN_*`).
+- `reason=RECOVERY` is reserved for the future account recovery flow. It is rejected
+  with `BUSINESS_RULE_VIOLATION` until that flow exists.
 
 Returned business concepts:
 

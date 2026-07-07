@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "3f26abdc-b6ff-4db0-b147-8fcb6f605f58",
     "name": "red-bank Onboarding and Transfer E2E",
-    "description": "Deterministic local flow: register two users, create their accounts, verify the source device, wait for outbox provisioning, fund the source through the ledger referral-reward path, transfer money, and replay the same idempotent request.",
+    "description": "Deterministic local flow: start an anonymous onboarding session and prove its token is scope-limited, register two users, create their accounts, verify the source device, wait for outbox provisioning, fund the source through the ledger referral-reward path, transfer money, and replay the same idempotent request.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -58,6 +58,77 @@
     }
   ],
   "item": [
+    {
+      "name": "0. Anonymous Onboarding Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('anonymous onboarding session starts', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 200) {",
+              "  pm.expect(body.context.status.code).to.eql('SUCCESS');",
+              "  pm.expect(body.data.accountCompletionStatus).to.eql('ONBOARDING');",
+              "  pm.expect(body.data.deviceVerificationRequired).to.eql(false);",
+              "  pm.expect(body.data.accessToken).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('anonymousOnboardingToken', body.data.accessToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-anonymous-login-{{runSuffix}}\",\"account\":null,\"os\":{\"name\":\"Web\",\"version\":\"1\"},\"app\":null,\"device\":{\"deviceId\":\"e2e-anon-device-{{runSuffix}}\",\"model\":\"PWA\",\"fingerprint\":\"e2e-anon-{{runSuffix}}\"},\"network\":null},\"data\":{\"username\":null,\"password\":null,\"reason\":\"REGISTER\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/iam/login"
+      }
+    },
+    {
+      "name": "0.1 Anonymous Token Cannot List Accounts",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('anonymous token is rejected on account APIs', () => pm.response.to.have.status(403));",
+              "if (pm.response.code === 403) {",
+              "  pm.expect(pm.response.json().context.status.code).to.eql('FORBIDDEN');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{anonymousOnboardingToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-anonymous-scope-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"types\":null,\"statuses\":null,\"includeBalance\":false}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/account/list"
+      }
+    },
     {
       "name": "1. Register Source User",
       "event": [

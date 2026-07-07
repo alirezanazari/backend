@@ -30,6 +30,8 @@ import org.springframework.stereotype.Service;
 public class JwtTokenService {
     public static final String SCOPE_ACCOUNT_REGISTER = "ONBOARDING_ACCOUNT_REGISTER";
     public static final String SCOPE_DEVICE_VERIFY = "ONBOARDING_DEVICE_VERIFY";
+    public static final String SCOPE_PHONE_SET = "ONBOARDING_PHONE_SET";
+    public static final String SCOPE_IAM_REGISTER = "ONBOARDING_IAM_REGISTER";
 
     private final JwtProperties jwtProperties;
     private final Clock clock;
@@ -47,6 +49,16 @@ public class JwtTokenService {
     public TokenResult createDeviceVerifyToken(UUID userId, UUID deviceId) {
         return createToken(userId, deviceId, List.of("ONBOARDING"), List.of(SCOPE_DEVICE_VERIFY),
                 jwtProperties.onboardingTokenTtlSeconds());
+    }
+
+    public TokenResult createAnonymousOnboardingToken(UUID onboardingSessionId) {
+        return createToken(
+                onboardingSessionId,
+                null,
+                List.of("ONBOARDING"),
+                List.of(SCOPE_PHONE_SET, SCOPE_DEVICE_VERIFY, SCOPE_IAM_REGISTER),
+                jwtProperties.anonymousTokenTtlSeconds()
+        );
     }
 
     public TokenResult createUserToken(UUID userId, UUID deviceId) {
