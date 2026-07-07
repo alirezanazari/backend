@@ -9,7 +9,8 @@ public record GatewayRateLimitProperties(
         int refillTokens,
         long refillPeriodSeconds,
         int maxBuckets,
-        Limit login
+        Limit login,
+        Limit phoneSet
 ) {
     public GatewayRateLimitProperties {
         if (enabled == null) {
@@ -30,6 +31,9 @@ public record GatewayRateLimitProperties(
         login = login == null
                 ? new Limit(10, 10, 60)
                 : login.withDefaults(10, 60);
+        phoneSet = phoneSet == null
+                ? new Limit(5, 5, 60)
+                : phoneSet.withDefaults(5, 60);
     }
 
     public Limit defaultLimit() {

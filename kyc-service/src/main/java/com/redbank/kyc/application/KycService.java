@@ -11,6 +11,8 @@ import com.redbank.kyc.api.v1.dto.GetKycStatusResponse;
 import com.redbank.kyc.api.v1.dto.JobSummary;
 import com.redbank.kyc.api.v1.dto.ListJobsRequest;
 import com.redbank.kyc.api.v1.dto.ListJobsResponse;
+import com.redbank.kyc.api.v1.dto.SetPhoneRequest;
+import com.redbank.kyc.api.v1.dto.SetPhoneResponse;
 import com.redbank.kyc.api.v1.dto.SetReferralRequest;
 import com.redbank.kyc.api.v1.dto.SetReferralResponse;
 import com.redbank.kyc.config.KycProperties;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +44,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class KycService {
     private static final String REFERRAL_REWARD_FLAG = "referral.reward.enabled";
     private static final int REFERRAL_CODE_GENERATION_ATTEMPTS = 5;
+    // Same rule as iam/register so the wizard fails fast on phones register would reject.
+    private static final Pattern PHONE_NUMBER = Pattern.compile("^\\+?[0-9]{10,15}$");
 
     private final JobRepository jobRepository;
     private final KycCaseRepository kycCaseRepository;
@@ -52,6 +57,7 @@ public class KycService {
     private final ReferrerAccountClient referrerAccountClient;
     private final ReferralRewardClient referralRewardClient;
     private final FeatureFlagClient featureFlagClient;
+    private final OtpChallengeClient otpChallengeClient;
     private final KycProperties kycProperties;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -67,6 +73,7 @@ public class KycService {
             ReferrerAccountClient referrerAccountClient,
             ReferralRewardClient referralRewardClient,
             FeatureFlagClient featureFlagClient,
+            OtpChallengeClient otpChallengeClient,
             KycProperties kycProperties,
             TransactionTemplate transactionTemplate,
             Clock clock
@@ -81,6 +88,7 @@ public class KycService {
         this.referrerAccountClient = referrerAccountClient;
         this.referralRewardClient = referralRewardClient;
         this.featureFlagClient = featureFlagClient;
+        this.otpChallengeClient = otpChallengeClient;
         this.kycProperties = kycProperties;
         this.transactionTemplate = transactionTemplate;
         this.clock = clock;
@@ -91,6 +99,25 @@ public class KycService {
         return new ListJobsResponse(jobRepository.findActive().stream()
                 .map(job -> new JobSummary(job.id(), job.code(), job.title()))
                 .toList());
+    }
+
+    public SetPhoneResponse setPhone(String authorizationHeader, SetPhoneRequest request) {
+        VerifiedToken token = jwtTokenService.verifyPhoneSetToken(authorizationHeader);
+        String phoneNumber = request.phoneNumber() == null ? null : request.phoneNumber().trim();
+        if (phoneNumber == null || !PHONE_NUMBER.matcher(phoneNumber).matches()) {
+            throw new KycValidationException(List.of(new StatusDetail(
+                    "data.phoneNumber",
+                    "phone number must be 10-15 digits and may start with +",
+                    "PHONE_PATTERN"
+            )));
+        }
+
+        PhoneOtpChallenge challenge = otpChallengeClient.createPhoneChallenge(token.userId(), phoneNumber);
+        return new SetPhoneResponse(
+                challenge.challengeId(),
+                challenge.expiresAt(),
+                challenge.resendAvailableAt()
+        );
     }
 
     @Transactional

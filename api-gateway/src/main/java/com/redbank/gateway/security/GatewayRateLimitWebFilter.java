@@ -31,6 +31,8 @@ public class GatewayRateLimitWebFilter implements WebFilter {
     );
     // Login mints tokens without credentials (anonymous onboarding), so it gets a stricter bucket.
     private static final String LOGIN_PATH = "/api/v1/iam/login";
+    // Phone/set triggers an SMS per request, so it gets an even stricter bucket per client.
+    private static final String PHONE_SET_PATH = "/api/v1/kyc/phone/set";
 
     private final GatewayRateLimitProperties properties;
     private final GatewayAccessPolicy accessPolicy;
@@ -84,9 +86,15 @@ public class GatewayRateLimitWebFilter implements WebFilter {
     }
 
     private GatewayRateLimitProperties.Limit limitFor(ServerHttpRequest request) {
-        if (HttpMethod.POST.equals(request.getMethod())
-                && LOGIN_PATH.equals(request.getPath().value())) {
+        if (!HttpMethod.POST.equals(request.getMethod())) {
+            return properties.defaultLimit();
+        }
+        String path = request.getPath().value();
+        if (LOGIN_PATH.equals(path)) {
             return properties.login();
+        }
+        if (PHONE_SET_PATH.equals(path)) {
+            return properties.phoneSet();
         }
         return properties.defaultLimit();
     }

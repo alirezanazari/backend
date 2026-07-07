@@ -202,6 +202,8 @@ class IamServiceOtpChallengeTest {
                 challengeId,
                 userId,
                 deviceId,
+                null,
+                null,
                 "otp-hash",
                 OtpPurpose.DEVICE_VERIFICATION,
                 NOW.plusSeconds(300),

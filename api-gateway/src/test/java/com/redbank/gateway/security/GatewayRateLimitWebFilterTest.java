@@ -112,7 +112,7 @@ class GatewayRateLimitWebFilterTest {
     @Test
     void loginRouteUsesStricterLoginLimit() {
         GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(
-                true, 100, 100, 60, 100, new GatewayRateLimitProperties.Limit(1, 1, 60)
+                true, 100, 100, 60, 100, new GatewayRateLimitProperties.Limit(1, 1, 60), null
         ));
         MockServerWebExchange firstLogin = exchange("/api/v1/iam/login", "10.0.0.8", null);
         MockServerWebExchange blockedLogin = exchange("/api/v1/iam/login", "10.0.0.8", null);
@@ -131,8 +131,26 @@ class GatewayRateLimitWebFilterTest {
     }
 
     @Test
+    void phoneSetRouteUsesStricterPhoneSetLimit() {
+        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(
+                true, 100, 100, 60, 100, null, new GatewayRateLimitProperties.Limit(1, 1, 60)
+        ));
+        MockServerWebExchange firstPhoneSet = exchange("/api/v1/kyc/phone/set", "10.0.0.9", null);
+        MockServerWebExchange blockedPhoneSet = exchange("/api/v1/kyc/phone/set", "10.0.0.9", null);
+        MockServerWebExchange otherKycRoute = exchange("/api/v1/kyc/jobs/list", "10.0.0.9", null);
+
+        StepVerifier.create(filter.filter(firstPhoneSet, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(blockedPhoneSet, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(otherKycRoute, chain())).verifyComplete();
+
+        assertThat(firstPhoneSet.getResponse().getStatusCode()).isNull();
+        assertThat(blockedPhoneSet.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(otherKycRoute.getResponse().getStatusCode()).isNull();
+    }
+
+    @Test
     void disabledLimiterPassesThrough() {
-        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(false, 1, 1, 60, 100, null));
+        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(false, 1, 1, 60, 100, null, null));
         AtomicInteger calls = new AtomicInteger();
 
         StepVerifier.create(filter.filter(exchange("10.0.0.4"), current -> {
@@ -155,7 +173,8 @@ class GatewayRateLimitWebFilterTest {
                 refillTokens,
                 60,
                 maxBuckets,
-                new GatewayRateLimitProperties.Limit(capacity, refillTokens, 60)
+                new GatewayRateLimitProperties.Limit(capacity, refillTokens, 60),
+                null
         );
     }
 

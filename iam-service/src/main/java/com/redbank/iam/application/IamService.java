@@ -304,6 +304,8 @@ public class IamService {
                 UUID.randomUUID(),
                 userId,
                 deviceId,
+                null,
+                null,
                 otpService.generateOtpHash(),
                 OtpPurpose.DEVICE_VERIFICATION,
                 now.plusSeconds(otpService.ttlSeconds()),

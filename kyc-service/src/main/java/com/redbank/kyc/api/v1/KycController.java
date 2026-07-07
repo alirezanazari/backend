@@ -8,6 +8,8 @@ import com.redbank.kyc.api.v1.dto.GetKycStatusRequest;
 import com.redbank.kyc.api.v1.dto.GetKycStatusResponse;
 import com.redbank.kyc.api.v1.dto.ListJobsRequest;
 import com.redbank.kyc.api.v1.dto.ListJobsResponse;
+import com.redbank.kyc.api.v1.dto.SetPhoneRequest;
+import com.redbank.kyc.api.v1.dto.SetPhoneResponse;
 import com.redbank.kyc.api.v1.dto.SetReferralRequest;
 import com.redbank.kyc.api.v1.dto.SetReferralResponse;
 import com.redbank.kyc.application.KycService;
@@ -34,6 +36,19 @@ public class KycController {
     ) {
         ListJobsResponse response = kycService.listJobs(request.data());
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), null, response));
+    }
+
+    @PostMapping("/phone/set")
+    public ResponseEntity<ApiResponse<SetPhoneResponse>> setPhone(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<SetPhoneRequest> request
+    ) {
+        SetPhoneResponse response = kycService.setPhone(authorizationHeader, request.data());
+        return ResponseEntity.status(201).body(ApiResponse.created(
+                request.context().requestId(),
+                null,
+                response
+        ));
     }
 
     @PostMapping("/referral/set")

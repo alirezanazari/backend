@@ -1,5 +1,6 @@
 package com.redbank.iam.domain;
 
 public enum OtpPurpose {
-    DEVICE_VERIFICATION
+    DEVICE_VERIFICATION,
+    PHONE_VERIFICATION
 }

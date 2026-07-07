@@ -65,3 +65,7 @@ redbank:
     enabled: ${REDBANK_KYC_FEATURE_FLAG_CLIENT_ENABLED:true}
     base-url: ${FEATURE_FLAG_SERVICE_URL:http://localhost:8086}
     service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  iam-client:
+    enabled: ${REDBANK_KYC_IAM_CLIENT_ENABLED:true}
+    base-url: ${IAM_SERVICE_URL:http://localhost:8081}
+    otp-challenge-create-token: ${REDBANK_IAM_OTP_CHALLENGE_CREATE_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}

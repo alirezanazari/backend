@@ -25,6 +25,9 @@ public class GatewayAccessPolicy {
         if (path.equals("/api/v1/iam/device-verify")) {
             return Access.ONBOARDING_DEVICE;
         }
+        if (path.equals("/api/v1/kyc/phone/set")) {
+            return Access.ONBOARDING_PHONE;
+        }
         if (path.equals("/api/v1/account/register")) {
             return Access.ONBOARDING_ACCOUNT;
         }
@@ -67,6 +70,7 @@ public class GatewayAccessPolicy {
             case ONBOARDING_ACCOUNT ->
                     token.hasRole("USER") || token.hasScope(ACCOUNT_REGISTER_SCOPE);
             case ONBOARDING_DEVICE -> token.hasScope(DEVICE_VERIFY_SCOPE);
+            case ONBOARDING_PHONE -> token.hasScope(PHONE_SET_SCOPE);
             case ONBOARDING_REFERRAL -> token.hasScope(REFERRAL_SET_SCOPE);
         };
     }
@@ -77,6 +81,7 @@ public class GatewayAccessPolicy {
                 || path.equals("/api/v1/kyc/jobs/list")
                 || path.equals("/api/v1/security/key-exchange")
                 || path.equals("/api/v1/iam/device-verify")
+                || path.equals("/api/v1/kyc/phone/set")
                 || path.equals("/api/v1/account/register")
                 || path.equals("/api/v1/kyc/referral/set")
                 || path.equals("/api/v1/card/unblock")
@@ -117,6 +122,7 @@ public class GatewayAccessPolicy {
         PUBLIC,
         ONBOARDING_ACCOUNT,
         ONBOARDING_DEVICE,
+        ONBOARDING_PHONE,
         ONBOARDING_REFERRAL,
         USER,
         ADMIN

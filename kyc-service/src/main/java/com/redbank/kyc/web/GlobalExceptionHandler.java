@@ -8,6 +8,7 @@ import com.redbank.contracts.telemetry.TelemetryMdc;
 import com.redbank.kyc.application.KycBusinessRuleException;
 import com.redbank.kyc.application.KycConflictException;
 import com.redbank.kyc.application.KycExternalServiceException;
+import com.redbank.kyc.application.KycLimitExceededException;
 import com.redbank.kyc.application.KycNotFoundException;
 import com.redbank.kyc.application.KycUnauthorizedException;
 import com.redbank.kyc.application.KycValidationException;
@@ -45,6 +46,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(KycConflictException.class)
     ResponseEntity<ApiResponse<Void>> conflict(KycConflictException exception, HttpServletRequest request) {
         return response(Status.conflict(exception.getMessage()), request);
+    }
+
+    @ExceptionHandler(KycLimitExceededException.class)
+    ResponseEntity<ApiResponse<Void>> limitExceeded(KycLimitExceededException exception, HttpServletRequest request) {
+        return response(Status.limitExceeded(exception.getMessage()), request);
     }
 
     @ExceptionHandler(KycBusinessRuleException.class)

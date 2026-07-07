@@ -92,6 +92,10 @@ redbank:
         capacity: ${REDBANK_GATEWAY_RATE_LIMIT_LOGIN_CAPACITY:10}
         refill-tokens: ${REDBANK_GATEWAY_RATE_LIMIT_LOGIN_REFILL_TOKENS:10}
         refill-period-seconds: ${REDBANK_GATEWAY_RATE_LIMIT_LOGIN_REFILL_PERIOD_SECONDS:60}
+      phone-set:
+        capacity: ${REDBANK_GATEWAY_RATE_LIMIT_PHONE_SET_CAPACITY:5}
+        refill-tokens: ${REDBANK_GATEWAY_RATE_LIMIT_PHONE_SET_REFILL_TOKENS:5}
+        refill-period-seconds: ${REDBANK_GATEWAY_RATE_LIMIT_PHONE_SET_REFILL_PERIOD_SECONDS:60}
   jwt:
     issuer: ${REDBANK_JWT_ISSUER:red-bank-develop}
     audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}

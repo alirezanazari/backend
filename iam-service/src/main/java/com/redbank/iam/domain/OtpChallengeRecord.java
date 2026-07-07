@@ -7,6 +7,8 @@ public record OtpChallengeRecord(
         UUID id,
         UUID userId,
         UUID deviceId,
+        UUID onboardingSessionId,
+        String phoneNumber,
         String otpHash,
         OtpPurpose purpose,
         Instant expiresAt,

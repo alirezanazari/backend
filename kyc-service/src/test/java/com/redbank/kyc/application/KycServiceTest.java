@@ -43,6 +43,7 @@ class KycServiceTest {
     private final ReferrerAccountClient referrerAccountClient = mock(ReferrerAccountClient.class);
     private final ReferralRewardClient referralRewardClient = mock(ReferralRewardClient.class);
     private final FeatureFlagClient featureFlagClient = mock(FeatureFlagClient.class);
+    private final OtpChallengeClient otpChallengeClient = mock(OtpChallengeClient.class);
     private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
 
     @Test
@@ -97,6 +98,7 @@ class KycServiceTest {
                 referrerAccountClient,
                 referralRewardClient,
                 featureFlagClient,
+                otpChallengeClient,
                 new KycProperties(new BigDecimal("500000"), "IRR", true),
                 transactionTemplate,
                 Clock.fixed(NOW, ZoneOffset.UTC)

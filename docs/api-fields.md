@@ -823,6 +823,26 @@ JobSummary:
 | `code` | `String` | Yes | Job code. |
 | `title` | `String` | Yes | Display title. |
 
+### POST /api/v1/kyc/phone/set
+
+Request: [See request details](./api-requests.md#post-apiv1kycphoneset)
+
+Auth: anonymous onboarding token (scope `ONBOARDING_PHONE_SET`). Public and full user tokens are rejected.
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `phoneNumber` | `String` | Yes | Phone number to verify. Same rule as `iam/register`: 10-15 digits, optional leading `+`. Must not belong to an existing user (`CONFLICT` otherwise). |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `challengeId` | `String` | Yes | OTP challenge ID for `POST /api/v1/iam/device-verify`. |
+| `expiresAt` | `Instant` | Yes | Challenge expiration. |
+| `resendAvailableAt` | `Instant` | Yes | Earliest time a resend is accepted (default 45s). The client shows the resend timer from this value; earlier resends return `LIMIT_EXCEEDED`. |
+
 ### POST /api/v1/kyc/referral/set
 
 Request: [See request details](./api-requests.md#post-apiv1kycreferralset)
@@ -1257,6 +1277,29 @@ Response:
 | `profileId` | `String` | Yes | Owner profile UUID. |
 | `accountNumber` | `String` | Yes | Linked 18-digit account number. |
 | `maskedCardNumber` | `String` | Yes | Non-sensitive masked PAN. |
+
+## Internal IAM
+
+### POST /internal/v1/iam/otp-challenge/create
+
+Request: [See request details](./api-requests.md#post-internalv1iamotp-challengecreate)
+
+Internal endpoints use plain request bodies (no client envelope); responses use the standard envelope.
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `onboardingSessionId` | `String` | Yes | Anonymous onboarding session UUID (anonymous token subject). |
+| `phoneNumber` | `String` | Yes | Phone number to verify. Must not belong to an existing user. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `challengeId` | `String` | Yes | Created OTP challenge ID. |
+| `expiresAt` | `Instant` | Yes | Challenge expiration. |
+| `resendAvailableAt` | `Instant` | Yes | Earliest accepted resend time for this phone number. |
 
 ## Internal Ledger
 

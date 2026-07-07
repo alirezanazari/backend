@@ -8,6 +8,7 @@ import com.redbank.contracts.telemetry.TelemetryMdc;
 import com.redbank.iam.application.IamBusinessRuleException;
 import com.redbank.iam.application.IamConflictException;
 import com.redbank.iam.application.IamExternalServiceException;
+import com.redbank.iam.application.IamLimitExceededException;
 import com.redbank.iam.application.IamUnauthorizedException;
 import com.redbank.iam.application.IamValidationException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,6 +44,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IamUnauthorizedException.class)
     ResponseEntity<ApiResponse<Void>> unauthorized(IamUnauthorizedException exception, HttpServletRequest request) {
         Status status = Status.unauthorized();
+        return ResponseEntity.status(status.httpStatus())
+                .body(ApiResponse.failure(requestId(request), correlationId(request), null, status));
+    }
+
+    @ExceptionHandler(IamLimitExceededException.class)
+    ResponseEntity<ApiResponse<Void>> limitExceeded(IamLimitExceededException exception, HttpServletRequest request) {
+        Status status = Status.limitExceeded(exception.getMessage());
         return ResponseEntity.status(status.httpStatus())
                 .body(ApiResponse.failure(requestId(request), correlationId(request), null, status));
     }

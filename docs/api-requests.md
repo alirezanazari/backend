@@ -41,6 +41,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Card | `POST /api/v1/card/expire` | Admin/Internal | Mark card as expired. |
 | Card | `POST /internal/v1/card/transfer/resolve` | Internal | Resolve an active transfer card and optionally verify ownership. |
 | KYC | `POST /api/v1/kyc/jobs/list` | Public | List active jobs for registration. |
+| KYC | `POST /api/v1/kyc/phone/set` | Onboarding | Verify onboarding phone by creating an OTP challenge. |
 | KYC | `POST /api/v1/kyc/referral/set` | Required/Limited | Save referral during registration flow. |
 | KYC | `POST /api/v1/kyc/status/get` | Required | Get current user's KYC status. |
 | KYC | `POST /api/v1/kyc/complete` | Admin/Internal | Complete or approve KYC case. |
@@ -57,6 +58,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Transfer | `POST /api/v1/transfers/create` | Required | Create a money transfer. |
 | Transfer | `POST /api/v1/transfers/methods/list` | Required | List available transfer methods. |
 | Transfer | `POST /api/v1/transfers/recent/list` | Required | List successful recent transfers. |
+| IAM | `POST /internal/v1/iam/otp-challenge/create` | Internal | Create a phone-verification OTP challenge for an onboarding session. |
 | Ledger | `POST /internal/v1/ledger/account/create` | Internal | Create ledger account. |
 | Ledger | `POST /internal/v1/ledger/account/close` | Internal | Close a zero-balance ledger account. |
 | Ledger | `POST /internal/v1/ledger/account/reopen` | Internal | Reopen a closed ledger account. |
@@ -125,6 +127,7 @@ Public unauthenticated APIs:
 Conditionally authenticated APIs:
 
 - `POST /api/v1/iam/device-verify`
+- `POST /api/v1/kyc/phone/set` (anonymous onboarding token only)
 
 Authenticated APIs:
 
@@ -900,6 +903,52 @@ Important rules:
 - Selected `jobId` must be saved during user account/profile creation.
 - `jobId` must be validated against active jobs.
 
+### POST /api/v1/kyc/phone/set
+
+Fields: [See fields](./api-fields.md#post-apiv1kycphoneset)
+
+Owner:
+
+```text
+kyc-service
+```
+
+Purpose:
+
+```text
+verify the onboarding phone number by creating a 6-digit OTP challenge
+```
+
+Authentication:
+
+```text
+anonymous onboarding token only (scope ONBOARDING_PHONE_SET); not public, not full user token
+```
+
+Important rules:
+
+- First wizard step after the anonymous login (`POST /api/v1/iam/login` with `reason=REGISTER`).
+- Phone number format uses the same rule as `iam/register`: 10-15 digits, optional leading `+`.
+- Phone uniqueness is checked here to fail fast; an already registered phone returns `CONFLICT`.
+- kyc-service does not store OTP or phone state. It delegates challenge creation to
+  `POST /internal/v1/iam/otp-challenge/create` because OTP/device state is owned by iam-service.
+- The response returns `challengeId`, `expiresAt`, and `resendAvailableAt`; the client shows a
+  45-second resend timer based on `resendAvailableAt`.
+- Resend cooldown (default 45s, `REDBANK_OTP_RESEND_COOLDOWN_SECONDS`) is enforced server-side
+  per phone number; violations return `LIMIT_EXCEEDED`.
+- Per phone number, challenges are capped per hour (default 5, `REDBANK_OTP_MAX_PER_PHONE_PER_HOUR`).
+- The gateway rate-limits this route per client address (`REDBANK_GATEWAY_RATE_LIMIT_PHONE_SET_*`,
+  default 5 per minute) because every request can trigger an SMS.
+- The OTP is stored hashed, expires quickly, and is attempt-limited per [Security Design](./security.md).
+- Mock OTP `111111` works against the created challenge in develop when
+  `REDBANK_DEBUG_MOCK_OTP_ENABLED=true`.
+
+Expected next step:
+
+```text
+POST /api/v1/iam/device-verify with the returned challengeId
+```
+
 ### POST /api/v1/kyc/referral/set
 
 Fields: [See fields](./api-fields.md#post-apiv1kycreferralset)
@@ -1460,6 +1509,43 @@ Important rules:
 - Ambiguous masked PAN matches return `CONFLICT`.
 - When ownership is required, user ID and profile ID must both match the card.
 - Raw PAN is never stored or returned.
+
+## Internal IAM Requests
+
+These APIs are internal service APIs. They should not be directly exposed to mobile/web clients.
+
+### POST /internal/v1/iam/otp-challenge/create
+
+Fields: [See fields](./api-fields.md#post-internalv1iamotp-challengecreate)
+
+Owner:
+
+```text
+iam-service
+```
+
+Purpose:
+
+```text
+create a phone-verification OTP challenge for an anonymous onboarding session
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- Called by kyc-service for `POST /api/v1/kyc/phone/set`; OTP/device state is owned by iam-service.
+- The challenge is bound to the onboarding session ID (anonymous token subject) and the phone number;
+  no user or device exists yet.
+- An already registered phone number returns `CONFLICT`.
+- Only one pending challenge per onboarding session; a new challenge supersedes the previous one.
+- Resend cooldown is enforced per phone number, including across different onboarding sessions.
+- Challenges per phone number are capped per hour to limit SMS bombing.
+- OTP is stored hashed, expires quickly, and is attempt-limited.
 
 ## Internal Ledger Requests
 

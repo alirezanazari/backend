@@ -9,6 +9,9 @@ import com.nimbusds.jwt.SignedJWT;
 import com.redbank.kyc.application.ActiveReferrerAccount;
 import com.redbank.kyc.application.FeatureFlagClient;
 import com.redbank.kyc.application.FeatureFlagSubject;
+import com.redbank.kyc.application.KycLimitExceededException;
+import com.redbank.kyc.application.OtpChallengeClient;
+import com.redbank.kyc.application.PhoneOtpChallenge;
 import com.redbank.kyc.application.ReferralRewardClient;
 import com.redbank.kyc.application.ReferralRewardResult;
 import com.redbank.kyc.application.ReferrerAccountClient;
@@ -79,6 +82,9 @@ class KycControllerIntegrationTest {
     @MockitoBean
     private FeatureFlagClient featureFlagClient;
 
+    @MockitoBean
+    private OtpChallengeClient otpChallengeClient;
+
     @BeforeEach
     void clean() {
         dsl.deleteFrom(KYC_CASE_HISTORY).execute();
@@ -86,7 +92,7 @@ class KycControllerIntegrationTest {
         dsl.deleteFrom(REFERRALS).execute();
         dsl.deleteFrom(REFERRAL_CODES).execute();
         dsl.deleteFrom(KYC_CASES).execute();
-        reset(referrerAccountClient, referralRewardClient, featureFlagClient);
+        reset(referrerAccountClient, referralRewardClient, featureFlagClient, otpChallengeClient);
         when(featureFlagClient.isEnabled(anyString(), any(FeatureFlagSubject.class))).thenReturn(true);
     }
 
@@ -329,6 +335,80 @@ class KycControllerIntegrationTest {
 
         api("/api/v1/kyc/complete", token(userId, List.of("USER"), List.of()), request)
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void phoneSetCreatesChallengeThroughIamForAnonymousOnboardingToken() throws Exception {
+        UUID onboardingSessionId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-07-07T10:00:00Z");
+        when(otpChallengeClient.createPhoneChallenge(onboardingSessionId, "09121234567"))
+                .thenReturn(new PhoneOtpChallenge("challenge-1", now.plusSeconds(300), now.plusSeconds(45)));
+
+        api("/api/v1/kyc/phone/set",
+                token(onboardingSessionId, List.of("ONBOARDING"), List.of("ONBOARDING_PHONE_SET")),
+                """
+                        {"phoneNumber":"09121234567"}
+                        """)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.context.status.code").value("CREATED"))
+                .andExpect(jsonPath("$.data.challengeId").value("challenge-1"))
+                .andExpect(jsonPath("$.data.expiresAt").value("2026-07-07T10:05:00Z"))
+                .andExpect(jsonPath("$.data.resendAvailableAt").value("2026-07-07T10:00:45Z"));
+
+        verify(otpChallengeClient).createPhoneChallenge(onboardingSessionId, "09121234567");
+    }
+
+    @Test
+    void phoneSetRejectsMissingUserAndUnscopedTokens() throws Exception {
+        api("/api/v1/kyc/phone/set", null, """
+                {"phoneNumber":"09121234567"}
+                """)
+                .andExpect(status().isUnauthorized());
+
+        api("/api/v1/kyc/phone/set",
+                token(UUID.randomUUID(), List.of("USER"), List.of()),
+                """
+                        {"phoneNumber":"09121234567"}
+                        """)
+                .andExpect(status().isUnauthorized());
+
+        org.mockito.Mockito.verifyNoInteractions(otpChallengeClient);
+    }
+
+    @Test
+    void phoneSetRejectsInvalidPhoneBeforeCallingIam() throws Exception {
+        api("/api/v1/kyc/phone/set",
+                token(UUID.randomUUID(), List.of("ONBOARDING"), List.of("ONBOARDING_PHONE_SET")),
+                """
+                        {"phoneNumber":"abc"}
+                        """)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("VALIDATION_ERROR"));
+
+        org.mockito.Mockito.verifyNoInteractions(otpChallengeClient);
+    }
+
+    @Test
+    void phoneSetPropagatesConflictAndCooldownFromIam() throws Exception {
+        String anonymousToken = token(UUID.randomUUID(), List.of("ONBOARDING"), List.of("ONBOARDING_PHONE_SET"));
+        when(otpChallengeClient.createPhoneChallenge(any(UUID.class), anyString()))
+                .thenThrow(new com.redbank.kyc.application.KycConflictException("Phone number already exists"));
+
+        api("/api/v1/kyc/phone/set", anonymousToken, """
+                {"phoneNumber":"09121234567"}
+                """)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
+
+        reset(otpChallengeClient);
+        when(otpChallengeClient.createPhoneChallenge(any(UUID.class), anyString()))
+                .thenThrow(new KycLimitExceededException("OTP resend is not available yet"));
+
+        api("/api/v1/kyc/phone/set", anonymousToken, """
+                {"phoneNumber":"09121234567"}
+                """)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("LIMIT_EXCEEDED"));
     }
 
     private org.springframework.test.web.servlet.ResultActions api(

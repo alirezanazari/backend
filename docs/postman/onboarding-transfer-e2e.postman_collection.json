@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "3f26abdc-b6ff-4db0-b147-8fcb6f605f58",
     "name": "red-bank Onboarding and Transfer E2E",
-    "description": "Deterministic local flow: start an anonymous onboarding session and prove its token is scope-limited, register two users, create their accounts, verify the source device, wait for outbox provisioning, fund the source through the ledger referral-reward path, transfer money, and replay the same idempotent request.",
+    "description": "Deterministic local flow: start an anonymous onboarding session, prove its token is scope-limited, verify the onboarding phone via a kyc-created OTP challenge (including the server-side resend cooldown), register two users, create their accounts, verify the source device, wait for outbox provisioning, fund the source through the ledger referral-reward path, transfer money, and replay the same idempotent request.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -127,6 +127,81 @@
           "raw": "{\"context\":{\"requestId\":\"e2e-anonymous-scope-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":null,\"network\":null},\"data\":{\"types\":null,\"statuses\":null,\"includeBalance\":false}}"
         },
         "url": "{{gatewayBaseUrl}}/api/v1/account/list"
+      }
+    },
+    {
+      "name": "0.2 Set Onboarding Phone",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('phone OTP challenge is created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 201) {",
+              "  pm.expect(body.context.status.code).to.eql('CREATED');",
+              "  pm.expect(body.data.challengeId).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.data.expiresAt).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.data.resendAvailableAt).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('onboardingPhoneChallengeId', body.data.challengeId);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{anonymousOnboardingToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-phone-set-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":{\"deviceId\":\"e2e-anon-device-{{runSuffix}}\",\"model\":\"PWA\",\"fingerprint\":\"e2e-anon-{{runSuffix}}\"},\"network\":null},\"data\":{\"phoneNumber\":\"{{sourcePhoneNumber}}\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/kyc/phone/set"
+      }
+    },
+    {
+      "name": "0.3 Phone Resend Blocked By Cooldown",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('immediate resend is blocked server-side', () => pm.response.to.have.status(400));",
+              "if (pm.response.code === 400) {",
+              "  pm.expect(pm.response.json().context.status.code).to.eql('LIMIT_EXCEEDED');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{anonymousOnboardingToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"context\":{\"requestId\":\"e2e-phone-set-resend-{{runSuffix}}\",\"account\":null,\"os\":null,\"app\":null,\"device\":{\"deviceId\":\"e2e-anon-device-{{runSuffix}}\",\"model\":\"PWA\",\"fingerprint\":\"e2e-anon-{{runSuffix}}\"},\"network\":null},\"data\":{\"phoneNumber\":\"{{sourcePhoneNumber}}\"}}"
+        },
+        "url": "{{gatewayBaseUrl}}/api/v1/kyc/phone/set"
       }
     },
     {

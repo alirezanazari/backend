@@ -28,6 +28,8 @@ public class OtpChallengeRepository {
                 .set(OTP_CHALLENGES.ID, challenge.id())
                 .set(OTP_CHALLENGES.USER_ID, challenge.userId())
                 .set(OTP_CHALLENGES.DEVICE_ID, challenge.deviceId())
+                .set(OTP_CHALLENGES.ONBOARDING_SESSION_ID, challenge.onboardingSessionId())
+                .set(OTP_CHALLENGES.PHONE_NUMBER, challenge.phoneNumber())
                 .set(OTP_CHALLENGES.OTP_HASH, challenge.otpHash())
                 .set(OTP_CHALLENGES.PURPOSE, challenge.purpose().name())
                 .set(OTP_CHALLENGES.EXPIRES_AT, toOffsetDateTime(challenge.expiresAt()))
@@ -74,6 +76,45 @@ public class OtpChallengeRepository {
                 .execute();
     }
 
+    public Optional<OtpChallengeRecord> findPendingBySessionPurpose(UUID onboardingSessionId, OtpPurpose purpose) {
+        return dsl.selectFrom(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.ONBOARDING_SESSION_ID.eq(onboardingSessionId))
+                .and(OTP_CHALLENGES.PURPOSE.eq(purpose.name()))
+                .and(OTP_CHALLENGES.STATUS.eq(OtpChallengeStatus.PENDING.name()))
+                .orderBy(OTP_CHALLENGES.CREATED_AT.desc())
+                .limit(1)
+                .fetchOptional(this::map);
+    }
+
+    public void supersedePendingBySessionPurpose(UUID onboardingSessionId, OtpPurpose purpose, Instant now) {
+        dsl.update(OTP_CHALLENGES)
+                .set(OTP_CHALLENGES.STATUS, OtpChallengeStatus.EXPIRED.name())
+                .set(OTP_CHALLENGES.UPDATED_AT, toOffsetDateTime(now))
+                .where(OTP_CHALLENGES.ONBOARDING_SESSION_ID.eq(onboardingSessionId))
+                .and(OTP_CHALLENGES.PURPOSE.eq(purpose.name()))
+                .and(OTP_CHALLENGES.STATUS.eq(OtpChallengeStatus.PENDING.name()))
+                .execute();
+    }
+
+    public Optional<Instant> findLatestCreatedAtByPhonePurpose(String phoneNumber, OtpPurpose purpose) {
+        return dsl.select(OTP_CHALLENGES.CREATED_AT)
+                .from(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.PHONE_NUMBER.eq(phoneNumber))
+                .and(OTP_CHALLENGES.PURPOSE.eq(purpose.name()))
+                .orderBy(OTP_CHALLENGES.CREATED_AT.desc())
+                .limit(1)
+                .fetchOptional(record -> record.get(OTP_CHALLENGES.CREATED_AT).toInstant());
+    }
+
+    public int countByPhonePurposeSince(String phoneNumber, OtpPurpose purpose, Instant since) {
+        return dsl.fetchCount(
+                OTP_CHALLENGES,
+                OTP_CHALLENGES.PHONE_NUMBER.eq(phoneNumber)
+                        .and(OTP_CHALLENGES.PURPOSE.eq(purpose.name()))
+                        .and(OTP_CHALLENGES.CREATED_AT.gt(toOffsetDateTime(since)))
+        );
+    }
+
     public void markStatus(UUID id, OtpChallengeStatus status, Instant updatedAt) {
         dsl.update(OTP_CHALLENGES)
                 .set(OTP_CHALLENGES.STATUS, status.name())
@@ -101,6 +142,8 @@ public class OtpChallengeRepository {
                 record.get(OTP_CHALLENGES.ID),
                 record.get(OTP_CHALLENGES.USER_ID),
                 record.get(OTP_CHALLENGES.DEVICE_ID),
+                record.get(OTP_CHALLENGES.ONBOARDING_SESSION_ID),
+                record.get(OTP_CHALLENGES.PHONE_NUMBER),
                 record.get(OTP_CHALLENGES.OTP_HASH),
                 OtpPurpose.valueOf(record.get(OTP_CHALLENGES.PURPOSE)),
                 record.get(OTP_CHALLENGES.EXPIRES_AT).toInstant(),
