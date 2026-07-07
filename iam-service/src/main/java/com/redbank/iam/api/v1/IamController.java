@@ -56,7 +56,7 @@ public class IamController {
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<DeviceVerifyRequest> request
     ) {
-        DeviceVerifyResponse response = iamService.verifyDevice(authorizationHeader, request.data());
+        DeviceVerifyResponse response = iamService.verifyDevice(request.context(), authorizationHeader, request.data());
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), null, response));
     }
 }

@@ -338,6 +338,130 @@ class IamControllerIntegrationTest {
                 .andExpect(jsonPath("$.context.status.code").value("VALIDATION_ERROR"));
     }
 
+    @Test
+    void onboardingPhoneChallengeVerifiesWithMockOtpAndBindsSession() throws Exception {
+        AnonymousSession session = anonymousSession();
+        String phone = "0935%07d".formatted(SEQUENCE.incrementAndGet());
+        String challengeId = createOnboardingPhoneChallenge(session.sessionId(), phone);
+        String fingerprint = "fp-onboarding-" + session.sessionId();
+
+        verifyDeviceWithFingerprint(session.accessToken(), challengeId, "111111", fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.deviceId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.deviceStatus").value("VERIFIED"))
+                .andExpect(jsonPath("$.data.accessToken").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ONBOARDING"));
+
+        var challenge = dsl.selectFrom(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.ID.eq(UUID.fromString(challengeId)))
+                .fetchOne();
+        assertThat(challenge.get(OTP_CHALLENGES.STATUS)).isEqualTo("VERIFIED");
+        assertThat(challenge.get(OTP_CHALLENGES.DEVICE_FINGERPRINT)).isEqualTo(fingerprint);
+        assertThat(challenge.get(OTP_CHALLENGES.PHONE_NUMBER)).isEqualTo(phone);
+        assertThat(challenge.get(OTP_CHALLENGES.ONBOARDING_SESSION_ID))
+                .isEqualTo(UUID.fromString(session.sessionId()));
+    }
+
+    @Test
+    void onboardingPhoneChallengeRejectsOtherSessionsAndMissingFingerprint() throws Exception {
+        AnonymousSession owner = anonymousSession();
+        AnonymousSession stranger = anonymousSession();
+        String phone = "0936%07d".formatted(SEQUENCE.incrementAndGet());
+        String challengeId = createOnboardingPhoneChallenge(owner.sessionId(), phone);
+
+        verifyDeviceWithFingerprint(stranger.accessToken(), challengeId, "111111", "fp-stranger")
+                .andExpect(status().isUnauthorized());
+
+        verifyDevice(owner.accessToken(), challengeId)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("VALIDATION_ERROR"));
+
+        assertThat(dsl.select(OTP_CHALLENGES.STATUS)
+                .from(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.ID.eq(UUID.fromString(challengeId)))
+                .fetchOne(OTP_CHALLENGES.STATUS)).isEqualTo("PENDING");
+    }
+
+    @Test
+    void onboardingPhoneChallengeWrongOtpConsumesAttempt() throws Exception {
+        AnonymousSession session = anonymousSession();
+        String phone = "0937%07d".formatted(SEQUENCE.incrementAndGet());
+        String challengeId = createOnboardingPhoneChallenge(session.sessionId(), phone);
+
+        verifyDeviceWithFingerprint(session.accessToken(), challengeId, "000000", "fp-wrong-otp")
+                .andExpect(status().isUnauthorized());
+
+        var challenge = dsl.selectFrom(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.ID.eq(UUID.fromString(challengeId)))
+                .fetchOne();
+        assertThat(challenge.get(OTP_CHALLENGES.ATTEMPT_COUNT)).isEqualTo(1);
+        assertThat(challenge.get(OTP_CHALLENGES.STATUS)).isEqualTo("PENDING");
+        assertThat(challenge.get(OTP_CHALLENGES.DEVICE_FINGERPRINT)).isNull();
+    }
+
+    private AnonymousSession anonymousSession() throws Exception {
+        String response = anonymousLogin("REGISTER")
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String accessToken = objectMapper.readTree(response).path("data").path("accessToken").asText();
+        String sessionId = com.nimbusds.jwt.SignedJWT.parse(accessToken).getJWTClaimsSet().getSubject();
+        return new AnonymousSession(sessionId, accessToken);
+    }
+
+    private String createOnboardingPhoneChallenge(String sessionId, String phone) throws Exception {
+        String response = mockMvc.perform(post("/internal/v1/iam/otp-challenge/create")
+                        .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "onboardingSessionId": "%s",
+                                  "phoneNumber": "%s"
+                                }
+                                """.formatted(sessionId, phone)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper.readTree(response).path("data").path("challengeId").asText();
+    }
+
+    private ResultActions verifyDeviceWithFingerprint(
+            String token,
+            String challengeId,
+            String otpCode,
+            String fingerprint
+    ) throws Exception {
+        return mockMvc.perform(post("/api/v1/iam/device-verify")
+                .header("Authorization", "Bearer " + token)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-onboarding-verify",
+                            "account": null,
+                            "os": null,
+                            "app": null,
+                            "device": {
+                              "deviceId": "pwa-device",
+                              "model": "PWA",
+                              "fingerprint": "%s"
+                            },
+                            "network": null
+                          },
+                          "data": {
+                            "challengeId": "%s",
+                            "otpCode": "%s"
+                          }
+                        }
+                        """.formatted(fingerprint, challengeId, otpCode)));
+    }
+
+    private record AnonymousSession(String sessionId, String accessToken) {
+    }
+
     private ResultActions anonymousLogin(String reason) throws Exception {
         return mockMvc.perform(post("/api/v1/iam/login")
                 .contentType("application/json")

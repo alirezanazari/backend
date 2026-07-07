@@ -30,6 +30,7 @@ public class OtpChallengeRepository {
                 .set(OTP_CHALLENGES.DEVICE_ID, challenge.deviceId())
                 .set(OTP_CHALLENGES.ONBOARDING_SESSION_ID, challenge.onboardingSessionId())
                 .set(OTP_CHALLENGES.PHONE_NUMBER, challenge.phoneNumber())
+                .set(OTP_CHALLENGES.DEVICE_FINGERPRINT, challenge.deviceFingerprint())
                 .set(OTP_CHALLENGES.OTP_HASH, challenge.otpHash())
                 .set(OTP_CHALLENGES.PURPOSE, challenge.purpose().name())
                 .set(OTP_CHALLENGES.EXPIRES_AT, toOffsetDateTime(challenge.expiresAt()))
@@ -115,6 +116,25 @@ public class OtpChallengeRepository {
         );
     }
 
+    public void markVerifiedWithFingerprint(UUID id, String deviceFingerprint, Instant updatedAt) {
+        dsl.update(OTP_CHALLENGES)
+                .set(OTP_CHALLENGES.STATUS, OtpChallengeStatus.VERIFIED.name())
+                .set(OTP_CHALLENGES.DEVICE_FINGERPRINT, deviceFingerprint)
+                .set(OTP_CHALLENGES.UPDATED_AT, toOffsetDateTime(updatedAt))
+                .where(OTP_CHALLENGES.ID.eq(id))
+                .execute();
+    }
+
+    public Optional<OtpChallengeRecord> findLatestVerifiedPhoneChallengeBySession(UUID onboardingSessionId) {
+        return dsl.selectFrom(OTP_CHALLENGES)
+                .where(OTP_CHALLENGES.ONBOARDING_SESSION_ID.eq(onboardingSessionId))
+                .and(OTP_CHALLENGES.PURPOSE.eq(OtpPurpose.PHONE_VERIFICATION.name()))
+                .and(OTP_CHALLENGES.STATUS.eq(OtpChallengeStatus.VERIFIED.name()))
+                .orderBy(OTP_CHALLENGES.UPDATED_AT.desc())
+                .limit(1)
+                .fetchOptional(this::map);
+    }
+
     public void markStatus(UUID id, OtpChallengeStatus status, Instant updatedAt) {
         dsl.update(OTP_CHALLENGES)
                 .set(OTP_CHALLENGES.STATUS, status.name())
@@ -144,6 +164,7 @@ public class OtpChallengeRepository {
                 record.get(OTP_CHALLENGES.DEVICE_ID),
                 record.get(OTP_CHALLENGES.ONBOARDING_SESSION_ID),
                 record.get(OTP_CHALLENGES.PHONE_NUMBER),
+                record.get(OTP_CHALLENGES.DEVICE_FINGERPRINT),
                 record.get(OTP_CHALLENGES.OTP_HASH),
                 OtpPurpose.valueOf(record.get(OTP_CHALLENGES.PURPOSE)),
                 record.get(OTP_CHALLENGES.EXPIRES_AT).toInstant(),

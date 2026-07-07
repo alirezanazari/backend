@@ -70,6 +70,7 @@ public class PhoneOtpChallengeService {
                 null,
                 onboardingSessionId,
                 phoneNumber,
+                null,
                 otpService.generateOtpHash(),
                 OtpPurpose.PHONE_VERIFICATION,
                 now.plusSeconds(otpService.ttlSeconds()),

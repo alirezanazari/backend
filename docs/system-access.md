@@ -137,7 +137,7 @@ Rules:
 | Gateway | `POST /api/v1/security/key-exchange` | `PUBLIC` | Gateway-only app-level key exchange. |
 | IAM | `POST /api/v1/iam/register` | `PUBLIC` | Creates user identity and limited onboarding token. |
 | IAM | `POST /api/v1/iam/login` | `PUBLIC` | Returns user token, device verification requirement, or anonymous onboarding token when `reason=REGISTER`. |
-| IAM | `POST /api/v1/iam/device-verify` | `ONBOARDING` | Requires limited token or login challenge context. |
+| IAM | `POST /api/v1/iam/device-verify` | `ONBOARDING` | Requires limited token or login challenge context; also accepts the anonymous onboarding token for phone challenges from `kyc/phone/set`. |
 | IAM | `POST /api/v1/iam/logout` | `USER` | Ends current client session/audit state. |
 | Account | `POST /api/v1/account/register` | `ONBOARDING` | Creates personal profile and default saving account. |
 | Account | `POST /api/v1/account/close` | `USER` | User can close only owned accounts. |

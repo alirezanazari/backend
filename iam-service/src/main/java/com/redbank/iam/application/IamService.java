@@ -205,11 +205,15 @@ public class IamService {
     }
 
     @Transactional(noRollbackFor = IamUnauthorizedException.class)
-    public DeviceVerifyResponse verifyDevice(String authorizationHeader, DeviceVerifyRequest request) {
+    public DeviceVerifyResponse verifyDevice(RequestContext context, String authorizationHeader, DeviceVerifyRequest request) {
         VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_DEVICE_VERIFY);
         UUID challengeId = parseChallengeId(request.challengeId());
         OtpChallengeRecord challenge = otpChallengeRepository.findById(challengeId)
                 .orElseThrow(() -> new IamBusinessRuleException("OTP challenge was not found"));
+
+        if (challenge.purpose() == OtpPurpose.PHONE_VERIFICATION) {
+            return verifyOnboardingPhoneChallenge(context, token, challenge, request.otpCode());
+        }
 
         if (!challenge.userId().equals(token.userId())) {
             throw new IamUnauthorizedException("Unauthorized");
@@ -217,7 +221,7 @@ public class IamService {
         if (token.deviceId() == null || !challenge.deviceId().equals(token.deviceId())) {
             throw new IamUnauthorizedException("Unauthorized");
         }
-        validateChallengeCanBeUsed(challenge);
+        validateChallengeCanBeUsed(challenge, "verify_device");
 
         Instant now = clock.instant();
         if (!otpService.matches(request.otpCode(), challenge.otpHash())) {
@@ -242,6 +246,40 @@ public class IamService {
                 userToken.tokenType(),
                 userToken.expiresAt(),
                 completion.accountCompletionStatus()
+        );
+    }
+
+    private DeviceVerifyResponse verifyOnboardingPhoneChallenge(
+            RequestContext context,
+            VerifiedToken token,
+            OtpChallengeRecord challenge,
+            String otpCode
+    ) {
+        if (challenge.onboardingSessionId() == null || !challenge.onboardingSessionId().equals(token.userId())) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+        String fingerprint = deviceContextValidator.requireFingerprint(context);
+        validateChallengeCanBeUsed(challenge, "verify_phone");
+
+        Instant now = clock.instant();
+        if (!otpService.matches(otpCode, challenge.otpHash())) {
+            otpChallengeRepository.recordFailedAttempt(challenge.id(), now);
+            recordAuth("verify_phone", "rejected");
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+
+        otpChallengeRepository.markVerifiedWithFingerprint(challenge.id(), fingerprint, now);
+        recordAuth("verify_phone", "success");
+
+        // No user or device exists yet: the verified phone + fingerprint stay bound to the
+        // onboarding session, and iam/register adopts them. The client keeps its anonymous token.
+        return new DeviceVerifyResponse(
+                null,
+                DeviceStatus.VERIFIED.name(),
+                null,
+                null,
+                null,
+                AccountCompletionStatus.ONBOARDING
         );
     }
 
@@ -306,6 +344,7 @@ public class IamService {
                 deviceId,
                 null,
                 null,
+                null,
                 otpService.generateOtpHash(),
                 OtpPurpose.DEVICE_VERIFICATION,
                 now.plusSeconds(otpService.ttlSeconds()),
@@ -319,20 +358,20 @@ public class IamService {
         return challenge;
     }
 
-    private void validateChallengeCanBeUsed(OtpChallengeRecord challenge) {
+    private void validateChallengeCanBeUsed(OtpChallengeRecord challenge, String operation) {
         Instant now = clock.instant();
         if (challenge.status() != OtpChallengeStatus.PENDING) {
-            recordAuth("verify_device", "invalid_status");
+            recordAuth(operation, "invalid_status");
             throw new IamBusinessRuleException("OTP challenge is not pending");
         }
         if (!challenge.expiresAt().isAfter(now)) {
             otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.EXPIRED, now);
-            recordAuth("verify_device", "expired");
+            recordAuth(operation, "expired");
             throw new IamUnauthorizedException("Unauthorized");
         }
         if (challenge.attemptCount() >= challenge.maxAttempts()) {
             otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.FAILED, now);
-            recordAuth("verify_device", "max_attempts");
+            recordAuth(operation, "max_attempts");
             throw new IamUnauthorizedException("Unauthorized");
         }
     }

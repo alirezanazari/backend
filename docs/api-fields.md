@@ -438,19 +438,21 @@ Request:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `challengeId` | `String` | Yes | OTP challenge ID. |
+| `challengeId` | `String` | Yes | OTP challenge ID from login (device challenge) or from `kyc/phone/set` (onboarding phone challenge). |
 | `otpCode` | `String` | Yes | Six-digit OTP. In develop only, `111111` can be allowed by config. |
+
+For onboarding phone challenges, the request must be sent with the anonymous onboarding token and `context.device.fingerprint` is required — the fingerprint is bound to the onboarding session as the verified device.
 
 Response:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `deviceId` | `String` | Yes | Verified device ID. |
+| `deviceId` | `String` | Conditional | Verified device ID. `null` for onboarding phone verification; the device record is created at `iam/register`. |
 | `deviceStatus` | `String` | Yes | Device status after verification. |
-| `accessToken` | `String` | No | Token if verification completes login flow. |
+| `accessToken` | `String` | No | Token if verification completes login flow. `null` for onboarding phone verification; the client keeps its anonymous onboarding token. |
 | `tokenType` | `String` | No | Usually `Bearer`. |
 | `expiresAt` | `Instant` | No | Token expiration. |
-| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Current completion state. |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Current completion state. `ONBOARDING` for onboarding phone verification; the wizard continues to `iam/register`. |
 
 ### POST /api/v1/iam/logout
 

@@ -314,6 +314,27 @@ Important rules:
 - Successful verification registers or activates the device for the user.
 - High-risk operations should require a verified device.
 
+Onboarding phone verification rules:
+
+- The endpoint also accepts the `challengeId` returned by `POST /api/v1/kyc/phone/set`
+  under the **anonymous onboarding token** (the challenge must belong to the token's
+  onboarding session; other sessions get `401`).
+- `context.device.fingerprint` is required on this path; no user or device record exists
+  yet, so on success the verified phone and device fingerprint are bound to the
+  onboarding session for `POST /api/v1/iam/register` to adopt.
+- The response returns `deviceId=null`, `deviceStatus=VERIFIED`, no new token
+  (the client keeps its anonymous onboarding token), and
+  `accountCompletionStatus=ONBOARDING`.
+- Mock OTP `111111` works on this path in develop when
+  `REDBANK_DEBUG_MOCK_OTP_ENABLED=true`.
+- The classic flow (login-issued device challenge with a limited user token) is unchanged.
+
+Expected next step in the registration wizard:
+
+```text
+POST /api/v1/iam/register with the same anonymous onboarding token
+```
+
 ### POST /api/v1/iam/logout
 
 Fields: [See fields](./api-fields.md#post-apiv1iamlogout)

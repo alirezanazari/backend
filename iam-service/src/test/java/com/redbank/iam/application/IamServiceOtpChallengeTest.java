@@ -123,6 +123,7 @@ class IamServiceOtpChallengeTest {
         when(otpService.matches("000000", "otp-hash")).thenReturn(false);
 
         assertThatThrownBy(() -> iamService.verifyDevice(
+                context(),
                 "Bearer device-token",
                 new DeviceVerifyRequest(challengeId.toString(), "000000")
         )).isInstanceOf(IamUnauthorizedException.class);
@@ -133,7 +134,7 @@ class IamServiceOtpChallengeTest {
     @Test
     void deviceVerificationUnauthorizedResponsesDoNotRollbackAttemptUpdates() throws NoSuchMethodException {
         Transactional transactional = IamService.class
-                .getMethod("verifyDevice", String.class, DeviceVerifyRequest.class)
+                .getMethod("verifyDevice", RequestContext.class, String.class, DeviceVerifyRequest.class)
                 .getAnnotation(Transactional.class);
 
         assertThat(Arrays.asList(transactional.noRollbackFor())).contains(IamUnauthorizedException.class);
@@ -202,6 +203,7 @@ class IamServiceOtpChallengeTest {
                 challengeId,
                 userId,
                 deviceId,
+                null,
                 null,
                 null,
                 "otp-hash",
