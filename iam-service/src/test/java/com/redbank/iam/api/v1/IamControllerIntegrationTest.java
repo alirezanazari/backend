@@ -32,6 +32,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static com.redbank.iam.jooq.tables.Credentials.CREDENTIALS;
+import static com.redbank.iam.jooq.tables.Devices.DEVICES;
 import static com.redbank.iam.jooq.tables.OtpChallenges.OTP_CHALLENGES;
 import static com.redbank.iam.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -398,6 +399,131 @@ class IamControllerIntegrationTest {
         assertThat(challenge.get(OTP_CHALLENGES.ATTEMPT_COUNT)).isEqualTo(1);
         assertThat(challenge.get(OTP_CHALLENGES.STATUS)).isEqualTo("PENDING");
         assertThat(challenge.get(OTP_CHALLENGES.DEVICE_FINGERPRINT)).isNull();
+    }
+
+    @Test
+    void registerWithVerifiedOnboardingSessionAdoptsDeviceAndSkipsSecondOtp() throws Exception {
+        RegistrationData data = registrationData();
+        AnonymousSession session = anonymousSession();
+        String fingerprint = "fp-wizard-" + data.sequence();
+        String challengeId = createOnboardingPhoneChallenge(session.sessionId(), data.phoneNumber());
+        verifyDeviceWithFingerprint(session.accessToken(), challengeId, "111111", fingerprint)
+                .andExpect(status().isOk());
+
+        String response = registerWithToken(session.accessToken(), data, data.phoneNumber())
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.context.status.code").value("CREATED"))
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ACCOUNT_REQUIRED"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        UUID userId = UUID.fromString(objectMapper.readTree(response).path("data").path("userId").asText());
+
+        var device = dsl.selectFrom(DEVICES)
+                .where(DEVICES.USER_ID.eq(userId))
+                .fetchOne();
+        assertThat(device).isNotNull();
+        assertThat(device.get(DEVICES.DEVICE_FINGERPRINT)).isEqualTo(fingerprint);
+        assertThat(device.get(DEVICES.STATUS)).isEqualTo("VERIFIED");
+        assertThat(device.get(DEVICES.VERIFIED_AT)).isNotNull();
+        assertThat(dsl.fetchCount(
+                OUTBOX_EVENTS,
+                OUTBOX_EVENTS.AGGREGATE_ID.eq(device.get(DEVICES.ID).toString())
+                        .and(OUTBOX_EVENTS.EVENT_TYPE.eq("DEVICE_VERIFIED"))
+        )).isEqualTo(1);
+
+        // The adopted device is already trusted: no second OTP at login.
+        login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.deviceVerificationRequired").value(false))
+                .andExpect(jsonPath("$.data.challengeId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
+    }
+
+    @Test
+    void registerWithMismatchedPhoneAgainstVerifiedSessionFails() throws Exception {
+        RegistrationData data = registrationData();
+        AnonymousSession session = anonymousSession();
+        String verifiedPhone = "0938%07d".formatted(SEQUENCE.incrementAndGet());
+        String challengeId = createOnboardingPhoneChallenge(session.sessionId(), verifiedPhone);
+        verifyDeviceWithFingerprint(session.accessToken(), challengeId, "111111", "fp-mismatch-" + data.sequence())
+                .andExpect(status().isOk());
+
+        registerWithToken(session.accessToken(), data, data.phoneNumber())
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.context.status.code").value("BUSINESS_RULE_VIOLATION"));
+
+        assertThat(dsl.fetchCount(
+                com.redbank.iam.jooq.tables.Users.USERS,
+                com.redbank.iam.jooq.tables.Users.USERS.USERNAME.eq(data.username())
+        )).isZero();
+    }
+
+    @Test
+    void registerWithUnverifiedOnboardingSessionSkipsAdoption() throws Exception {
+        RegistrationData data = registrationData();
+        AnonymousSession session = anonymousSession();
+
+        String response = registerWithToken(session.accessToken(), data, data.phoneNumber())
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        UUID userId = UUID.fromString(objectMapper.readTree(response).path("data").path("userId").asText());
+
+        assertThat(dsl.fetchCount(DEVICES, DEVICES.USER_ID.eq(userId))).isZero();
+    }
+
+    @Test
+    void registerRejectsInvalidBearerToken() throws Exception {
+        RegistrationData data = registrationData();
+
+        registerWithToken("not-a-real-token", data, data.phoneNumber())
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.context.status.code").value("UNAUTHORIZED"));
+    }
+
+    private ResultActions registerWithToken(String token, RegistrationData data, String phoneNumber) throws Exception {
+        return mockMvc.perform(post("/api/v1/iam/register")
+                .header("Authorization", "Bearer " + token)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "context": {
+                            "requestId": "req-wizard-register-%s",
+                            "account": null,
+                            "os": {
+                              "name": "Web",
+                              "version": "1"
+                            },
+                            "app": null,
+                            "device": {
+                              "deviceId": "pwa-device",
+                              "model": "PWA",
+                              "fingerprint": "context-fingerprint-%s"
+                            },
+                            "network": null
+                          },
+                          "data": {
+                            "nationalId": "%s",
+                            "phoneNumber": "%s",
+                            "username": "%s",
+                            "password": "%s",
+                            "firstName": "Wizard",
+                            "lastName": "User",
+                            "location": null,
+                            "jobId": "job-engineer"
+                          }
+                        }
+                        """.formatted(
+                        data.sequence(),
+                        data.sequence(),
+                        data.nationalId(),
+                        phoneNumber,
+                        data.username(),
+                        data.password()
+                )));
     }
 
     private AnonymousSession anonymousSession() throws Exception {

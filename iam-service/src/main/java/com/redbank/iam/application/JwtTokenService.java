@@ -42,7 +42,11 @@ public class JwtTokenService {
     }
 
     public TokenResult createAccountRequiredToken(UUID userId) {
-        return createToken(userId, null, List.of("ONBOARDING"), List.of(SCOPE_ACCOUNT_REGISTER),
+        return createAccountRequiredToken(userId, null);
+    }
+
+    public TokenResult createAccountRequiredToken(UUID userId, UUID deviceId) {
+        return createToken(userId, deviceId, List.of("ONBOARDING"), List.of(SCOPE_ACCOUNT_REGISTER),
                 jwtProperties.onboardingTokenTtlSeconds());
     }
 

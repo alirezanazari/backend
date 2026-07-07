@@ -86,8 +86,14 @@ public class IamService {
     }
 
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
+    public RegisterResponse register(RequestContext context, String authorizationHeader, RegisterRequest request) {
         registrationValidator.validate(request);
+
+        OtpChallengeRecord onboardingSession = resolveVerifiedOnboardingChallenge(authorizationHeader);
+        if (onboardingSession != null && !onboardingSession.phoneNumber().equals(request.phoneNumber())) {
+            recordAuth("register", "phone_mismatch");
+            throw new IamBusinessRuleException("Phone number does not match the verified onboarding phone");
+        }
 
         String username = normalizeUsername(request.username());
         ensureUniqueRegistration(username, request.phoneNumber(), request.nationalId());
@@ -138,7 +144,13 @@ public class IamService {
         iamOutboxService.enqueueUserRegistered(user);
         recordAuth("register", "success");
 
-        TokenResult token = jwtTokenService.createAccountRequiredToken(user.id());
+        UUID adoptedDeviceId = null;
+        if (onboardingSession != null && onboardingSession.deviceFingerprint() != null) {
+            DeviceRecord device = adoptVerifiedDevice(context, user.id(), onboardingSession, now);
+            adoptedDeviceId = device.id();
+        }
+
+        TokenResult token = jwtTokenService.createAccountRequiredToken(user.id(), adoptedDeviceId);
         return new RegisterResponse(
                 user.id().toString(),
                 token.accessToken(),
@@ -146,6 +158,38 @@ public class IamService {
                 token.expiresAt(),
                 AccountCompletionStatus.ACCOUNT_REQUIRED
         );
+    }
+
+    private OtpChallengeRecord resolveVerifiedOnboardingChallenge(String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            return null;
+        }
+        VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_IAM_REGISTER);
+        return otpChallengeRepository.findLatestVerifiedPhoneChallengeBySession(token.userId()).orElse(null);
+    }
+
+    private DeviceRecord adoptVerifiedDevice(
+            RequestContext context,
+            UUID userId,
+            OtpChallengeRecord onboardingSession,
+            Instant now
+    ) {
+        DeviceRecord device = new DeviceRecord(
+                UUID.randomUUID(),
+                userId,
+                onboardingSession.deviceFingerprint(),
+                context == null || context.device() == null ? null : context.device().model(),
+                context == null || context.os() == null ? null : context.os().name(),
+                context == null || context.app() == null ? null : context.app().version(),
+                DeviceStatus.VERIFIED,
+                now,
+                now,
+                now
+        );
+        deviceRepository.save(device);
+        iamOutboxService.enqueueDeviceVerified(device);
+        recordAuth("register", "onboarding_device_adopted");
+        return device;
     }
 
     @Transactional

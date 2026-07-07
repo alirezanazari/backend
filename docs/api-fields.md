@@ -383,17 +383,24 @@ Response:
 
 Request: [See request details](./api-requests.md#post-apiv1iamregister)
 
+Optionally authenticated: when the request carries the **anonymous onboarding token**
+(registration wizard), the verified onboarding phone and device are adopted — the
+registered `phoneNumber` must equal the session's verified phone, and the verified
+device is created for the new user so no second OTP is required. Without a token the
+classic public flow (register first, verify at login) is unchanged. An invalid or
+mis-scoped token returns `401`.
+
 Request:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `nationalId` | `String` | Yes | User national ID. |
-| `phoneNumber` | `String` | Yes | User phone number. |
+| `phoneNumber` | `String` | Yes | User phone number. With an anonymous onboarding token, must equal the session's verified phone; mismatch returns `BUSINESS_RULE_VIOLATION`. |
 | `username` | `String` | Yes | Unique username. |
 | `password` | `String` | Yes | Raw value after gateway decryption. IAM hashes it. |
 | `firstName` | `String` | Yes | First name. |
 | `lastName` | `String` | Yes | Last name. |
-| `location` | `Location` | Yes | Registered location. |
+| `location` | `Location` | No | Registered location. Optional: send `null` or omit when not collected yet. When the object is present, `province`, `city`, and `address` must be non-blank (do not send empty strings). |
 | `jobId` | `String` | Yes | Selected job from KYC jobs list. |
 
 Response:
@@ -401,10 +408,10 @@ Response:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `userId` | `String` | Yes | Created user ID. |
-| `accessToken` | `String` | Yes | Limited onboarding token. |
+| `accessToken` | `String` | Yes | Limited onboarding token. Carries the adopted verified device when the wizard path is used. |
 | `tokenType` | `String` | Yes | Usually `Bearer`. |
 | `expiresAt` | `Instant` | Yes | Token expiration. |
-| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Next onboarding state. |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Next onboarding state. `ACCOUNT_REQUIRED` — with device adoption there is no `DEVICE_VERIFICATION_REQUIRED` step after wizard registration. |
 
 ### POST /api/v1/iam/login
 

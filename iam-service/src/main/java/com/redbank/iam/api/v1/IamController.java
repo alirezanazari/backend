@@ -30,9 +30,10 @@ public class IamController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<RegisterRequest> request
     ) {
-        RegisterResponse response = iamService.register(request.data());
+        RegisterResponse response = iamService.register(request.context(), authorizationHeader, request.data());
 
         return ResponseEntity.status(201)
                 .body(ApiResponse.created(request.context().requestId(), null, response));

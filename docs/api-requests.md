@@ -204,7 +204,8 @@ public
 
 Important rules:
 
-- User registers with national ID, phone number, username, password, name, and location.
+- User registers with national ID, phone number, username, password, name, and optionally location.
+- `location` may be null/omitted; when present, `province`, `city`, and `address` must be non-blank.
 - Registration includes `jobId` selected from `POST /api/v1/kyc/jobs/list`.
 - Username must be unique.
 - Phone number must be unique.
@@ -214,6 +215,22 @@ Important rules:
 - Initial account completion status should guide the client to the next step.
 - Registration does not create bank account data directly inside IAM.
 - IAM does not own job catalog data; `jobId` is carried into account/profile creation.
+
+Onboarding wizard rules (optional Authorization):
+
+- When the request carries the anonymous onboarding token from
+  `POST /api/v1/iam/login` with `reason=REGISTER`, and that session already verified a
+  phone through `kyc/phone/set` + `iam/device-verify`:
+  - the registered `phoneNumber` must equal the session's verified phone;
+    a mismatch is rejected with `BUSINESS_RULE_VIOLATION`;
+  - the verified device is adopted for the new user (created as `VERIFIED`), so the
+    flow goes straight to `ACCOUNT_REQUIRED` with no second OTP after registration;
+  - the returned limited token carries the adopted device.
+- A present but invalid or mis-scoped bearer token returns `401 Unauthorized`.
+- An onboarding token whose session has no verified phone registers without adoption
+  (device verification then happens at login, like the classic flow).
+- Without a token, the classic public flow (register first, verify device at login)
+  is unchanged for API/tooling clients.
 
 Expected next step:
 
