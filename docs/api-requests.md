@@ -59,6 +59,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Transfer | `POST /api/v1/transfers/methods/list` | Required | List available transfer methods. |
 | Transfer | `POST /api/v1/transfers/recent/list` | Required | List successful recent transfers. |
 | IAM | `POST /internal/v1/iam/otp-challenge/create` | Internal | Create a phone-verification OTP challenge for an onboarding session. |
+| KYC | `POST /internal/v1/kyc/completion/get` | Internal | Resolve a user's KYC-derived account completion status for login. |
 | Ledger | `POST /internal/v1/ledger/account/create` | Internal | Create ledger account. |
 | Ledger | `POST /internal/v1/ledger/account/close` | Internal | Close a zero-balance ledger account. |
 | Ledger | `POST /internal/v1/ledger/account/reopen` | Internal | Reopen a closed ledger account. |
@@ -298,6 +299,13 @@ Returned business concepts:
 - Active profile
 - Access token
 - Device verification state
+
+Account completion status is authoritative for the whole onboarding state. account-service
+reports account/device readiness (up to `KYC_REQUIRED`); once the user has an account,
+iam-service refines that with the KYC-owned status via
+`POST /internal/v1/kyc/completion/get`, so the login response returns `KYC_PENDING` /
+`COMPLETED` as KYC progresses. This lets the web client route onboarding on the login
+response alone without looping back into steps that are already done.
 
 ### POST /api/v1/iam/device-verify
 
@@ -1584,6 +1592,43 @@ Important rules:
 - Resend cooldown is enforced per phone number, including across different onboarding sessions.
 - Challenges per phone number are capped per hour to limit SMS bombing.
 - OTP is stored hashed, expires quickly, and is attempt-limited.
+
+## Internal KYC Requests
+
+These APIs are internal service APIs. They should not be directly exposed to mobile/web clients.
+
+### POST /internal/v1/kyc/completion/get
+
+Fields: [See fields](./api-fields.md#post-internalv1kyccompletionget)
+
+Owner:
+
+```text
+kyc-service
+```
+
+Purpose:
+
+```text
+resolve the KYC-derived account completion status for a user during login
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- Called by iam-service during `login` / `device-verify` after account-service reports
+  `KYC_REQUIRED`, so the login response reflects real KYC progress
+  (`KYC_REQUIRED` → `KYC_PENDING` → `COMPLETED`).
+- Maps KYC status to completion: `NOT_STARTED`/`IN_PROGRESS`/`REJECTED` → `KYC_REQUIRED`,
+  `PENDING_REVIEW` → `KYC_PENDING`, `APPROVED` → `COMPLETED`.
+- TODO(kyc-panel): while `redbank.kyc.auto-approve-enabled` is true (develop default),
+  a user with no KYC case is lazily auto-approved so onboarding can complete without an
+  admin review panel. Production defaults this off; approvals will come from the panel.
 
 ## Internal Ledger Requests
 

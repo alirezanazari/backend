@@ -62,6 +62,7 @@ class IamServiceOtpChallengeTest {
             new LoginValidator(),
             new DeviceContextValidator(),
             accountCompletionClient,
+            mock(KycCompletionClient.class),
             mock(IamOutboxService.class),
             Clock.fixed(NOW, ZoneOffset.UTC),
             new SimpleMeterRegistry()

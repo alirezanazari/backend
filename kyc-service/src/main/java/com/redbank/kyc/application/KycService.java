@@ -6,6 +6,8 @@ import com.redbank.contracts.identity.AccountCompletionStatus;
 import com.redbank.contracts.kyc.KycStatus;
 import com.redbank.kyc.api.v1.dto.CompleteKycRequest;
 import com.redbank.kyc.api.v1.dto.CompleteKycResponse;
+import com.redbank.kyc.api.internal.dto.GetKycCompletionRequest;
+import com.redbank.kyc.api.internal.dto.GetKycCompletionResponse;
 import com.redbank.kyc.api.v1.dto.GetKycStatusRequest;
 import com.redbank.kyc.api.v1.dto.GetKycStatusResponse;
 import com.redbank.kyc.api.v1.dto.JobSummary;
@@ -44,6 +46,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class KycService {
     private static final String REFERRAL_REWARD_FLAG = "referral.reward.enabled";
     private static final int REFERRAL_CODE_GENERATION_ATTEMPTS = 5;
+    // Sentinel actor for system-driven KYC history entries (auto-approve until the admin panel exists).
+    private static final UUID SYSTEM_ACTOR_ID = new UUID(0L, 0L);
     // Same rule as iam/register so the wizard fails fast on phones register would reject.
     private static final Pattern PHONE_NUMBER = Pattern.compile("^\\+?[0-9]{10,15}$");
 
@@ -173,22 +177,65 @@ public class KycService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public GetKycStatusResponse getStatus(
             String authorizationHeader,
             GetKycStatusRequest request
     ) {
         VerifiedToken token = jwtTokenService.verifyUserOrAdminToken(authorizationHeader);
         UUID targetUserId = targetUserId(token, request.userId());
-        return kycCaseRepository.findByUserId(targetUserId)
-                .map(this::toStatusResponse)
-                .orElseGet(() -> new GetKycStatusResponse(
-                        null,
-                        KycStatus.NOT_STARTED,
-                        AccountCompletionStatus.KYC_REQUIRED,
-                        null,
-                        null
-                ));
+        KycCaseRecord kycCase = resolveCase(targetUserId);
+        if (kycCase == null) {
+            return new GetKycStatusResponse(
+                    null,
+                    KycStatus.NOT_STARTED,
+                    AccountCompletionStatus.KYC_REQUIRED,
+                    null,
+                    null
+            );
+        }
+        return toStatusResponse(kycCase);
+    }
+
+    @Transactional
+    public GetKycCompletionResponse getCompletion(GetKycCompletionRequest request) {
+        UUID userId = parseUuid(request.userId(), "userId", "USER_ID_UUID");
+        KycCaseRecord kycCase = resolveCase(userId);
+        KycStatus status = kycCase == null ? KycStatus.NOT_STARTED : kycCase.status();
+        return new GetKycCompletionResponse(status, completionStatus(status));
+    }
+
+    /**
+     * Returns the user's KYC case, lazily creating an auto-approved case when no case exists
+     * and auto-approve is enabled.
+     * <p>
+     * TODO(kyc-panel): auto-approval is a temporary stand-in until the admin KYC review panel and
+     * approval flow exist. Once operators can approve KYC, disable {@code redbank.kyc.auto-approve-enabled}
+     * and remove this lazy creation so cases start at NOT_STARTED and are approved by a human.
+     */
+    private KycCaseRecord resolveCase(UUID userId) {
+        KycCaseRecord existing = kycCaseRepository.findByUserId(userId).orElse(null);
+        if (existing != null || !kycProperties.autoApproveEnabled()) {
+            return existing;
+        }
+        Instant now = clock.instant();
+        KycCaseRecord approved = new KycCaseRecord(
+                UUID.randomUUID(),
+                userId,
+                KycStatus.APPROVED,
+                null,
+                now,
+                now,
+                now
+        );
+        try {
+            kycCaseRepository.save(approved);
+            saveHistory(approved.id(), null, KycStatus.APPROVED, "auto-approved (no KYC panel)", SYSTEM_ACTOR_ID, now);
+            return approved;
+        } catch (DataIntegrityViolationException raced) {
+            // Another concurrent request created the case first; use the persisted one.
+            return kycCaseRepository.findByUserId(userId).orElse(null);
+        }
     }
 
     public CompleteKycResponse complete(String authorizationHeader, CompleteKycRequest request) {

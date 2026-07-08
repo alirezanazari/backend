@@ -1310,6 +1310,27 @@ Response:
 | `expiresAt` | `Instant` | Yes | Challenge expiration. |
 | `resendAvailableAt` | `Instant` | Yes | Earliest accepted resend time for this phone number. |
 
+## Internal KYC
+
+### POST /internal/v1/kyc/completion/get
+
+Request: [See request details](./api-requests.md#post-internalv1kyccompletionget)
+
+Internal endpoints use plain request bodies (no client envelope); responses use the standard envelope.
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `userId` | `String` | Yes | User UUID whose KYC-derived completion status is resolved. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kycStatus` | `KycStatus` | Yes | Current KYC status (`NOT_STARTED` when no case and auto-approve is off). |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | `KYC_REQUIRED` / `KYC_PENDING` / `COMPLETED` derived from `kycStatus`. |
+
 ## Internal Ledger
 
 ### POST /internal/v1/ledger/account/create

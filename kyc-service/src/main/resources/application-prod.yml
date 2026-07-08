@@ -9,3 +9,6 @@ logging:
 redbank:
   debug:
     enabled: false
+  kyc:
+    # Production must not auto-approve KYC; approvals go through the admin panel.
+    auto-approve-enabled: ${REDBANK_KYC_AUTO_APPROVE_ENABLED:false}

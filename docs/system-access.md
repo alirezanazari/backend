@@ -159,6 +159,7 @@ Rules:
 | KYC | `POST /api/v1/kyc/jobs/list` | `PUBLIC` | Public job catalog for registration. |
 | KYC | `POST /api/v1/kyc/phone/set` | `ONBOARDING` | Anonymous onboarding token with `ONBOARDING_PHONE_SET` scope only. |
 | IAM | `POST /internal/v1/iam/otp-challenge/create` | `INTERNAL_SERVICE` | kyc-service delegates phone OTP challenge creation. |
+| KYC | `POST /internal/v1/kyc/completion/get` | `INTERNAL_SERVICE` | iam-service refines login completion status with KYC state. |
 | KYC | `POST /api/v1/kyc/referral/set` | `ONBOARDING` | During registration flow only. |
 | KYC | `POST /api/v1/kyc/status/get` | `USER` | User gets own KYC status. |
 | KYC | `POST /api/v1/kyc/complete` | `ADMIN` | Admin/system approval action. |

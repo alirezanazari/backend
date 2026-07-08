@@ -70,11 +70,15 @@ class IamControllerIntegrationTest {
     private MutableAccountCompletionClient accountCompletionClient;
 
     @Autowired
+    private MutableKycCompletionClient kycCompletionClient;
+
+    @Autowired
     private OutboxEventRepository outboxEventRepository;
 
     @BeforeEach
     void resetAccountCompletion() {
         accountCompletionClient.result(new AccountCompletionResult(AccountCompletionStatus.ACCOUNT_REQUIRED, null));
+        kycCompletionClient.status(AccountCompletionStatus.KYC_REQUIRED);
     }
 
     @Test
@@ -270,6 +274,57 @@ class IamControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.activeProfile.profileId").value(profileId))
                 .andExpect(jsonPath("$.data.deviceVerificationRequired").value(false))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
+    }
+
+    @Test
+    void loginRefinesKycRequiredWithKycStatusSoOnboardingCanComplete() throws Exception {
+        RegistrationData data = registrationData();
+        String fingerprint = "fingerprint-kyc-aware-" + data.sequence();
+        register(data).andExpect(status().isCreated());
+
+        JsonNode firstLogin = objectMapper.readTree(login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        verifyDevice(firstLogin.path("data").path("accessToken").asText(), firstLogin.path("data").path("challengeId").asText())
+                .andExpect(status().isOk());
+
+        // Account exists (account-service reports KYC_REQUIRED); KYC ownership decides the real state.
+        accountCompletionClient.result(new AccountCompletionResult(AccountCompletionStatus.KYC_REQUIRED, null));
+
+        kycCompletionClient.status(AccountCompletionStatus.KYC_PENDING);
+        login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_PENDING"));
+
+        kycCompletionClient.status(AccountCompletionStatus.COMPLETED);
+        login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("COMPLETED"));
+    }
+
+    @Test
+    void loginDoesNotConsultKycBeforeAccountExists() throws Exception {
+        RegistrationData data = registrationData();
+        String fingerprint = "fingerprint-no-account-" + data.sequence();
+        register(data).andExpect(status().isCreated());
+
+        JsonNode firstLogin = objectMapper.readTree(login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        verifyDevice(firstLogin.path("data").path("accessToken").asText(), firstLogin.path("data").path("challengeId").asText())
+                .andExpect(status().isOk());
+
+        // No account yet: account-service says ACCOUNT_REQUIRED and KYC must not override it.
+        accountCompletionClient.result(new AccountCompletionResult(AccountCompletionStatus.ACCOUNT_REQUIRED, null));
+        kycCompletionClient.status(AccountCompletionStatus.COMPLETED);
+
+        login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("ACCOUNT_REQUIRED"));
     }
 
     @Test
@@ -773,6 +828,12 @@ class IamControllerIntegrationTest {
         MutableAccountCompletionClient mutableAccountCompletionClient() {
             return new MutableAccountCompletionClient();
         }
+
+        @Bean
+        @Primary
+        MutableKycCompletionClient mutableKycCompletionClient() {
+            return new MutableKycCompletionClient();
+        }
     }
 
     static class MutableAccountCompletionClient implements AccountCompletionClient {
@@ -785,6 +846,19 @@ class IamControllerIntegrationTest {
         @Override
         public AccountCompletionResult getCompletion(UUID userId) {
             return result;
+        }
+    }
+
+    static class MutableKycCompletionClient implements com.redbank.iam.application.KycCompletionClient {
+        private AccountCompletionStatus status = AccountCompletionStatus.KYC_REQUIRED;
+
+        void status(AccountCompletionStatus status) {
+            this.status = status;
+        }
+
+        @Override
+        public AccountCompletionStatus getCompletionStatus(UUID userId) {
+            return status;
         }
     }
     private ResultActions register(RegisterRequest request) throws Exception {

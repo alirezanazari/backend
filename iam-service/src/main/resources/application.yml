@@ -58,6 +58,9 @@ redbank:
   account-client:
     base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
     internal-service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  kyc-client:
+    base-url: ${KYC_SERVICE_URL:http://localhost:8085}
+    completion-get-token-secret: ${REDBANK_KYC_COMPLETION_GET_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
   internal:
     service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
     otp-challenge-create-token-secret: ${REDBANK_IAM_OTP_CHALLENGE_CREATE_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}

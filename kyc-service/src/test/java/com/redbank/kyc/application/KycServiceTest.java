@@ -99,7 +99,7 @@ class KycServiceTest {
                 referralRewardClient,
                 featureFlagClient,
                 otpChallengeClient,
-                new KycProperties(new BigDecimal("500000"), "IRR", true),
+                new KycProperties(new BigDecimal("500000"), "IRR", true, false),
                 transactionTemplate,
                 Clock.fixed(NOW, ZoneOffset.UTC)
         );

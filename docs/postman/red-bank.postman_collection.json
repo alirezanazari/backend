@@ -1494,6 +1494,37 @@
       ]
     },
     {
+      "name": "Internal KYC",
+      "item": [
+        {
+          "name": "Get KYC Completion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-Service-Token",
+                "value": "{{internalServiceToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\":\"{{userId}}\"}"
+            },
+            "url": "{{kycBaseUrl}}/internal/v1/kyc/completion/get",
+            "description": "Internal endpoint iam-service calls during login/device-verify (after account-service reports KYC_REQUIRED) to resolve the KYC-derived completion status: KYC_REQUIRED / KYC_PENDING / COMPLETED. TODO(kyc-panel): with redbank.kyc.auto-approve-enabled=true (develop default), a user with no KYC case is auto-approved and returns COMPLETED."
+          }
+        }
+      ]
+    },
+    {
       "name": "Internal Account",
       "description": "Direct account-service internal endpoints. They are not routed through the API gateway.",
       "item": [

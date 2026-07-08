@@ -49,6 +49,7 @@ public class IamService {
     private final LoginValidator loginValidator;
     private final DeviceContextValidator deviceContextValidator;
     private final AccountCompletionClient accountCompletionClient;
+    private final KycCompletionClient kycCompletionClient;
     private final IamOutboxService iamOutboxService;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
@@ -65,6 +66,7 @@ public class IamService {
             LoginValidator loginValidator,
             DeviceContextValidator deviceContextValidator,
             AccountCompletionClient accountCompletionClient,
+            KycCompletionClient kycCompletionClient,
             IamOutboxService iamOutboxService,
             Clock clock,
             MeterRegistry meterRegistry
@@ -80,6 +82,7 @@ public class IamService {
         this.loginValidator = loginValidator;
         this.deviceContextValidator = deviceContextValidator;
         this.accountCompletionClient = accountCompletionClient;
+        this.kycCompletionClient = kycCompletionClient;
         this.iamOutboxService = iamOutboxService;
         this.clock = clock;
         this.meterRegistry = meterRegistry;
@@ -220,7 +223,7 @@ public class IamService {
             throw new IamBusinessRuleException("Device is not allowed");
         }
         if (device.status() == DeviceStatus.VERIFIED) {
-            AccountCompletionResult completion = accountCompletionClient.getCompletion(user.id());
+            AccountCompletionResult completion = resolveCompletion(user.id());
             TokenResult token = jwtTokenService.createUserToken(user.id(), device.id(), completion.activeProfileId());
             recordAuth("login", "authenticated");
             return new LoginResponse(
@@ -276,7 +279,7 @@ public class IamService {
 
         otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.VERIFIED, now);
         deviceRepository.markVerified(challenge.deviceId(), now);
-        AccountCompletionResult completion = accountCompletionClient.getCompletion(challenge.userId());
+        AccountCompletionResult completion = resolveCompletion(challenge.userId());
         TokenResult userToken = jwtTokenService.createUserToken(challenge.userId(), challenge.deviceId(), completion.activeProfileId());
         DeviceRecord device = deviceRepository.findById(challenge.deviceId())
                 .orElseThrow(() -> new IamBusinessRuleException("Device was not found"));
@@ -339,6 +342,15 @@ public class IamService {
                 false,
                 null
         );
+    }
+
+    private AccountCompletionResult resolveCompletion(UUID userId) {
+        AccountCompletionResult accountResult = accountCompletionClient.getCompletion(userId);
+        if (accountResult.accountCompletionStatus() != AccountCompletionStatus.KYC_REQUIRED) {
+            return accountResult;
+        }
+        AccountCompletionStatus kycStatus = kycCompletionClient.getCompletionStatus(userId);
+        return new AccountCompletionResult(kycStatus, accountResult.activeProfile());
     }
 
     private void ensureUniqueRegistration(String username, String phoneNumber, String nationalId) {

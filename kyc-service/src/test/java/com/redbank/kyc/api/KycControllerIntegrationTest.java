@@ -55,7 +55,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
         "redbank.referrer-account-client.enabled=true",
-        "redbank.referral-reward-client.enabled=true"
+        "redbank.referral-reward-client.enabled=true",
+        "redbank.kyc.auto-approve-enabled=false"
 })
 @ActiveProfiles("develop")
 @AutoConfigureMockMvc
@@ -116,6 +117,37 @@ class KycControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.kycCaseId").doesNotExist())
                 .andExpect(jsonPath("$.data.status").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_REQUIRED"));
+    }
+
+    @Test
+    void internalCompletionReturnsKycRequiredWhenNoCaseAndAutoApproveOff() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post("/internal/v1/kyc/completion/get")
+                        .header("X-Internal-Service-Token", "local-develop-internal-service-token-change-me")
+                        .contentType("application/json")
+                        .content("{\"userId\":\"%s\"}".formatted(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.kycStatus").value("NOT_STARTED"))
+                .andExpect(jsonPath("$.data.accountCompletionStatus").value("KYC_REQUIRED"));
+
+        assertThat(dsl.fetchCount(KYC_CASES)).isZero();
+    }
+
+    @Test
+    void internalCompletionRejectsMissingOrWrongServiceToken() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String body = "{\"userId\":\"%s\"}".formatted(userId);
+
+        mockMvc.perform(post("/internal/v1/kyc/completion/get")
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/internal/v1/kyc/completion/get")
+                        .header("X-Internal-Service-Token", "wrong-token")
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
