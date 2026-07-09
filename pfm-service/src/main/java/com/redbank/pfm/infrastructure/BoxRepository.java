@@ -38,6 +38,7 @@ public class BoxRepository {
                 .set(BOXES.STATUS, box.status().name())
                 .set(BOXES.CREATED_AT, toOffsetDateTime(box.createdAt()))
                 .set(BOXES.UPDATED_AT, toOffsetDateTime(box.updatedAt()))
+                .set(BOXES.CLOSED_AT, toOffsetDateTime(box.closedAt()))
                 .execute();
     }
 
@@ -106,8 +107,23 @@ public class BoxRepository {
                 ),
                 BoxStatus.valueOf(record.get(BOXES.STATUS)),
                 record.get(BOXES.CREATED_AT).toInstant(),
-                record.get(BOXES.UPDATED_AT).toInstant()
+                record.get(BOXES.UPDATED_AT).toInstant(),
+                record.get(BOXES.CLOSED_AT) == null
+                        ? null
+                        : record.get(BOXES.CLOSED_AT).toInstant()
         );
+    }
+    public boolean updateStatus(BoxRecord box) {
+        int updated = dsl.update(BOXES)
+                .set(BOXES.STATUS, box.status().name())
+                .set(BOXES.UPDATED_AT, toOffsetDateTime(box.updatedAt()))
+                .set(BOXES.CLOSED_AT, toOffsetDateTime(box.closedAt()))
+                .where(BOXES.ID.eq(box.id()))
+                .and(BOXES.USER_ID.eq(box.userId()))
+                .and(BOXES.PROFILE_ID.eq(box.profileId()))
+                .execute();
+
+        return updated == 1;
     }
 
     private String lightUrl(Image image) {

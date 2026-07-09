@@ -11,16 +11,7 @@ import com.redbank.contracts.pfm.BoxPresetSummary;
 import com.redbank.contracts.pfm.BoxStatus;
 import com.redbank.contracts.pfm.BoxSummary;
 import com.redbank.contracts.pfm.PfmTransactionSummary;
-import com.redbank.pfm.api.v1.dto.CreateBoxRequest;
-import com.redbank.pfm.api.v1.dto.CreateBoxResponse;
-import com.redbank.pfm.api.v1.dto.EditBoxRequest;
-import com.redbank.pfm.api.v1.dto.EditBoxResponse;
-import com.redbank.pfm.api.v1.dto.ListBoxPresetsRequest;
-import com.redbank.pfm.api.v1.dto.ListBoxPresetsResponse;
-import com.redbank.pfm.api.v1.dto.ListBoxesRequest;
-import com.redbank.pfm.api.v1.dto.ListBoxesResponse;
-import com.redbank.pfm.api.v1.dto.ListPfmTransactionsRequest;
-import com.redbank.pfm.api.v1.dto.ListPfmTransactionsResponse;
+import com.redbank.pfm.api.v1.dto.*;
 import com.redbank.pfm.config.PfmProperties;
 import com.redbank.pfm.domain.BoxPresetRecord;
 import com.redbank.pfm.domain.BoxRecord;
@@ -117,7 +108,8 @@ public class PfmService {
                 image,
                 BoxStatus.ACTIVE,
                 now,
-                now
+                now,
+                null
         );
         try {
             boxRepository.save(box);
@@ -156,7 +148,47 @@ public class PfmService {
                 ))
                 .toList());
     }
+    @Transactional
+    public CloseBoxResponse closeBox(
+            String authorizationHeader,
+            RequestContext context,
+            CloseBoxRequest request){
+        //Auth
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        UUID profileId = resolveProfileId(token, context);
 
+        UUID boxId = parseUuid(request.boxId(), "data.boxId", "BOX_ID_FORMAT");
+        BoxRecord box = boxRepository.findByIdAndOwner(boxId, token.userId(), profileId)
+                .orElseThrow(() -> new PfmNotFoundException("Box was not found"));
+        if (box.status() == BoxStatus.INACTIVE) {
+            throw new PfmBusinessRuleException("Box is already Inactive.");
+        }
+
+        Instant now = clock.instant();
+        BoxRecord closeBox = new BoxRecord(
+                box.id(),
+                box.userId(),
+                box.profileId(),
+                box.accountNumber(),
+                box.title(),
+                box.presetId(),
+                box.image(),
+                BoxStatus.INACTIVE,
+                box.createdAt(),
+                now,
+                now
+        );
+        if (!boxRepository.updateStatus(closeBox)) {
+            throw new PfmConflictException("Box changed while it was being closed");
+        }
+        return new CloseBoxResponse(
+                closeBox.id(),
+                closeBox.status(),
+                closeBox.closedAt()
+        );
+
+
+    }
     @Transactional
     public EditBoxResponse editBox(
             String authorizationHeader,

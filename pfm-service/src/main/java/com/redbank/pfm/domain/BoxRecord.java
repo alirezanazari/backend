@@ -15,7 +15,8 @@ public record BoxRecord(
         Image image,
         BoxStatus status,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Instant closedAt
 ) {
     public BoxRecord withDisplayMetadata(
             String title,
@@ -33,7 +34,8 @@ public record BoxRecord(
                 image,
                 status,
                 createdAt,
-                updatedAt
+                updatedAt,
+                closedAt
         );
     }
 }
