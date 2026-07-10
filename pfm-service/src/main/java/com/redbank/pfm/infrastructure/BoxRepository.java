@@ -139,6 +139,8 @@ public class BoxRepository {
     }
 
     private OffsetDateTime toOffsetDateTime(Instant instant) {
-        return instant.atOffset(ZoneOffset.UTC);
+        return instant == null
+                ? null
+                : instant.atOffset(ZoneOffset.UTC);
     }
 }
