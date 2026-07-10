@@ -507,7 +507,7 @@ class PfmControllerIntegrationTest {
                 .set(BOXES.STATUS, status.name())
                 .set(BOXES.CREATED_AT, now)
                 .set(BOXES.UPDATED_AT, now)
-                .set(BOXES.CLOSED_AT, null)
+                .set(BOXES.CLOSED_AT, (OffsetDateTime)null)
                 .execute();
         return boxId;
     }
