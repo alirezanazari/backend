@@ -1,0 +1,58 @@
+POST /register
+
+↓
+
+Create User
+
+↓
+
+Create Credentials
+
+↓
+
+Insert USER_REGISTERED into OUTBOX_EVENTS
+
+↓
+
+Return response
+
+It does not send Kafka directly.
+It only inserts into the outbox table.
+Later another service/process publishes it.
+User registers
+      │
+      ▼
++---------------------+
+| Database Transaction|
++---------------------+
+| Save User           |
+| Save Credentials    |
+| Save Outbox Event   |
++---------------------+
+      │
+      ▼
+Registration successful
+      │
+      ▼
+OUTBOX_EVENTS
+---------------------------------
+USER_REGISTERED
+status = PENDING
+      │
+      ▼
+Outbox Publisher
+      │
+      ▼
+Kafka / RabbitMQ / Other Services
+      │
+      ▼
+status = SENT
+**********************************************
+What is Flyway?
+
+Flyway is a database migration tool.
+
+Instead of manually changing the database, you create a migration file. When the application starts (or during CI), Flyway runs that SQL and updates the database
+
+*******************************************************
+

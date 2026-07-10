@@ -2,16 +2,7 @@ package com.redbank.pfm.api.v1;
 
 import com.redbank.contracts.envelope.ApiRequest;
 import com.redbank.contracts.envelope.ApiResponse;
-import com.redbank.pfm.api.v1.dto.CreateBoxRequest;
-import com.redbank.pfm.api.v1.dto.CreateBoxResponse;
-import com.redbank.pfm.api.v1.dto.EditBoxRequest;
-import com.redbank.pfm.api.v1.dto.EditBoxResponse;
-import com.redbank.pfm.api.v1.dto.ListBoxPresetsRequest;
-import com.redbank.pfm.api.v1.dto.ListBoxPresetsResponse;
-import com.redbank.pfm.api.v1.dto.ListBoxesRequest;
-import com.redbank.pfm.api.v1.dto.ListBoxesResponse;
-import com.redbank.pfm.api.v1.dto.ListPfmTransactionsRequest;
-import com.redbank.pfm.api.v1.dto.ListPfmTransactionsResponse;
+import com.redbank.pfm.api.v1.dto.*;
 import com.redbank.pfm.application.PfmService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -87,6 +78,22 @@ public class PfmController {
             @Valid @RequestBody ApiRequest<EditBoxRequest> request
     ) {
         EditBoxResponse response = pfmService.editBox(
+                authorizationHeader,
+                request.context(),
+                request.data()
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+                request.context().requestId(),
+                profileId(request),
+                response
+        ));
+    }
+    @PostMapping("/boxes/close")
+    public ResponseEntity<ApiResponse<CloseBoxResponse>> closeBox(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<CloseBoxRequest> request
+    ) {
+        CloseBoxResponse response = pfmService.closeBox(
                 authorizationHeader,
                 request.context(),
                 request.data()
