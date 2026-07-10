@@ -472,7 +472,7 @@ class PfmControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.closedAt", notNullValue()));
 
     }
-}
+
 
     private org.springframework.test.web.servlet.ResultActions api(
             String path,
