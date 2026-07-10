@@ -17,6 +17,8 @@ import com.redbank.pfm.domain.BoxPresetRecord;
 import com.redbank.pfm.domain.BoxRecord;
 import com.redbank.pfm.infrastructure.BoxPresetRepository;
 import com.redbank.pfm.infrastructure.BoxRepository;
+
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -163,7 +165,10 @@ public class PfmService {
         if (box.status() == BoxStatus.INACTIVE) {
             throw new PfmBusinessRuleException("Box is already Inactive.");
         }
-
+        BalanceSummary balance = ledgerPfmClient.getBalance(box.accountNumber());
+        if (balance.availableBalance().amount().compareTo(BigDecimal.ZERO) != 0) {
+            throw new PfmBusinessRuleException("Box must be empty before closing.");
+        }
         Instant now = clock.instant();
         BoxRecord closeBox = new BoxRecord(
                 box.id(),
