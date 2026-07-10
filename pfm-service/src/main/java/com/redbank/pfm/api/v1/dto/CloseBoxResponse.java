@@ -4,8 +4,8 @@ import com.redbank.contracts.pfm.BoxStatus;
 import java.util.UUID;
 import java.time.Instant;
 
-public record CloseBoxResponse (    UUID id,
-                                    BoxStatus status,
-                                    Instant closedAt
+public record CloseBoxResponse (UUID id,
+                                BoxStatus status,
+                                Instant closedAt
 ) {
 }

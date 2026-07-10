@@ -10,6 +10,6 @@ public record CloseBoxRequest (@NotBlank @Size(max = 120) String title,
                               String presetId,
                               @Valid Image image,
                               @Size(min = 3, max = 3) String currency
-){
+) {
 }
 
