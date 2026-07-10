@@ -39,9 +39,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import static org.hamcrest.Matchers.notNullValue;
 
 import static com.redbank.pfm.jooq.tables.Boxes.BOXES;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -442,6 +444,35 @@ class PfmControllerIntegrationTest {
 
         verify(ledgerPfmClient, never()).listEntries(anyString(), any(), any(), any());
     }
+
+    @Test
+    void changeBoxToClose() throws Exception{
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.ACTIVE
+        );
+        api(
+                "/api/v1/pfm/boxes/close",
+                token(userId, profileId),
+                profileId,
+                """
+                {"boxId":"%s"}
+                """.formatted(boxId)
+
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("OK"))
+                .andExpect(jsonPath("$.data.id").value(boxId.toString()))
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"))
+                .andExpect(jsonPath("$.data.closedAt", notNullValue()));
+
+    }
+}
 
     private org.springframework.test.web.servlet.ResultActions api(
             String path,
