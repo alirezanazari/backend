@@ -474,7 +474,7 @@ class PfmControllerIntegrationTest {
 
         )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.context.status.code").value("ok"))
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.id").value(boxId.toString()))
                 .andExpect(jsonPath("$.data.status").value("INACTIVE"))
                 .andExpect(jsonPath("$.data.closedAt", notNullValue()));
