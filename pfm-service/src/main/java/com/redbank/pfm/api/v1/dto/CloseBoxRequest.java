@@ -5,10 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record CloseBoxRequest (String boxId,
-                              String presetId,
-                              @Valid Image image,
-                              @Size(min = 3, max = 3) String currency
+public record CloseBoxRequest (String boxId
 ) {
 }
 

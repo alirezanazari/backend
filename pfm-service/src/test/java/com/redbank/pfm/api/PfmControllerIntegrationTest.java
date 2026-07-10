@@ -446,7 +446,7 @@ class PfmControllerIntegrationTest {
     }
 
     @Test
-    void changeBoxToClose() throws Exception{
+    void closeBoxWhenBalanceIsZeroShouldChangeStatusToInactive() throws Exception{
         UUID userId = UUID.randomUUID();
         UUID profileId = UUID.randomUUID();
         UUID boxId = insertBox(
@@ -456,6 +456,14 @@ class PfmControllerIntegrationTest {
                 "Archived",
                 BoxStatus.ACTIVE
         );
+        when(ledgerPfmClient.getBalance(VAULT_ACCOUNT))
+                .thenReturn(
+                        new BalanceSummary(
+                                new Money(BigDecimal.ZERO, "AZN"),
+                                new Money(BigDecimal.ZERO, "AZN"),
+                                Instant.now()
+                        )
+                );
         api(
                 "/api/v1/pfm/boxes/close",
                 token(userId, profileId),
