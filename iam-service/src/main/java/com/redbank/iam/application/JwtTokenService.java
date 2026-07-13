@@ -105,12 +105,15 @@ public class JwtTokenService {
         String token = extractBearerToken(authorizationHeader);
         JWTClaimsSet claims = verify(token);
 
+        String jti = claims.getJWTID();
+        Instant expiresAt = claims.getExpirationTime().toInstant();
         UUID userId = parseUuid(claims.getSubject());
         UUID deviceId = parseNullableUuid(stringClaim(claims, "device_id"));
         List<String> scopes = stringListClaim(claims, "scope");
         List<String> roles = stringListClaim(claims, "roles");
 
-        VerifiedToken verifiedToken = new VerifiedToken(userId, deviceId, roles, scopes);
+
+        VerifiedToken verifiedToken = new VerifiedToken(jti, expiresAt, userId, deviceId, roles, scopes);
         if (!verifiedToken.hasScope(requiredScope)) {
             throw new IamUnauthorizedException("Unauthorized");
         }
