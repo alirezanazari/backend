@@ -125,6 +125,7 @@ class IamServiceOtpChallengeTest {
         iamService.logout("Bearer device-token");
 
         verify(redisService).blacklistToken(eq(jti), eq(Duration.ofSeconds(300)));
+        verify(jwtTokenService).verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_DEVICE_VERIFY);
 
     }
 
