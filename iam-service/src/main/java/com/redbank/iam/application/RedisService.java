@@ -19,4 +19,8 @@ public class RedisService {
         redisTemplate.opsForValue().set(key,value);
         redisTemplate.expire(key,ttl);
     }
+    public Boolean isBlacklisted(String jti){
+        String key = "blacklist:" + jti;
+        return redisTemplate.hasKey(key);
+    }
 }

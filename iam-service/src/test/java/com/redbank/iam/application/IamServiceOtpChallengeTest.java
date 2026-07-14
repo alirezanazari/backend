@@ -29,6 +29,7 @@ import com.redbank.iam.infrastructure.OtpChallengeRepository;
 import com.redbank.iam.infrastructure.UserRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -110,6 +111,21 @@ class IamServiceOtpChallengeTest {
                 NOW
         );
         verify(otpChallengeRepository, times(1)).save(any(OtpChallengeRecord.class));
+    }
+    @Test
+    public void logoutAddsTokenToBlacklist(){
+        String jti = UUID.randomUUID().toString();
+        Instant expiresAt = NOW.plusSeconds(300);
+        UUID userId = UUID.randomUUID();
+        UUID deviceId = UUID.randomUUID();
+
+        when(jwtTokenService.verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_DEVICE_VERIFY))
+                .thenReturn(new VerifiedToken(jti, expiresAt, userId, deviceId, java.util.List.of("ONBOARDING"), java.util.List.of(JwtTokenService.SCOPE_DEVICE_VERIFY)));
+
+        iamService.logout("Bearer device-token");
+
+        verify(redisService).blacklistToken(eq(jti), eq(Duration.ofSeconds(300)));
+
     }
 
     @Test

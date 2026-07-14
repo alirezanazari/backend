@@ -33,10 +33,12 @@ public class JwtTokenService {
 
     private final JwtProperties jwtProperties;
     private final Clock clock;
+    private final RedisService redisService;
 
-    public JwtTokenService(JwtProperties jwtProperties, Clock clock) {
+    public JwtTokenService(JwtProperties jwtProperties, Clock clock, RedisService redisService) {
         this.jwtProperties = jwtProperties;
         this.clock = clock;
+        this.redisService = redisService;
     }
 
     public TokenResult createAccountRequiredToken(UUID userId) {
@@ -106,6 +108,9 @@ public class JwtTokenService {
         JWTClaimsSet claims = verify(token);
 
         String jti = claims.getJWTID();
+        if(redisService.isBlacklisted(jti)){
+            throw new IamUnauthorizedException("token already is in blacklist");
+        }
         Instant expiresAt = claims.getExpirationTime().toInstant();
         UUID userId = parseUuid(claims.getSubject());
         UUID deviceId = parseNullableUuid(stringClaim(claims, "device_id"));
