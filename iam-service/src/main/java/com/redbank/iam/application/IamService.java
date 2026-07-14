@@ -36,7 +36,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import static jdk.internal.classfile.impl.verifier.VerifierImpl.verify;
+
 
 @Service
 public class IamService {
