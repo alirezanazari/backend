@@ -8,6 +8,7 @@ import com.redbank.contracts.identity.AccountCompletionStatus;
 import com.redbank.iam.api.v1.dto.RegisterRequest;
 import com.redbank.iam.application.AccountCompletionClient;
 import com.redbank.iam.application.AccountCompletionResult;
+import com.redbank.iam.application.RedisService;
 import com.redbank.iam.domain.OutboxEventRecord;
 import com.redbank.iam.domain.OutboxEventStatus;
 import com.redbank.iam.infrastructure.OutboxEventRepository;
@@ -30,14 +31,16 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
 import static com.redbank.iam.jooq.tables.Credentials.CREDENTIALS;
 import static com.redbank.iam.jooq.tables.OtpChallenges.OTP_CHALLENGES;
 import static com.redbank.iam.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties = {
         "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
@@ -71,8 +74,13 @@ class IamControllerIntegrationTest {
     @Autowired
     private OutboxEventRepository outboxEventRepository;
 
+    @MockitoBean
+    private RedisService redisService;
+
     @BeforeEach
     void resetAccountCompletion() {
+        when(redisService.isBlacklisted(anyString()))
+                .thenReturn(false);
         accountCompletionClient.result(new AccountCompletionResult(AccountCompletionStatus.ACCOUNT_REQUIRED, null));
     }
 
