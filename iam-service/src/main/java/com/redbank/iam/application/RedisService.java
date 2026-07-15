@@ -1,14 +1,15 @@
 package com.redbank.iam.application;
 
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
 @Service
 public class RedisService {
-    private final RedisTemplate<String, Object> redisTemplate;
-    public RedisService(RedisTemplate<String, Object> redisTemplate) {
+    private final StringRedisTemplate redisTemplate;
+    public RedisService(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 
