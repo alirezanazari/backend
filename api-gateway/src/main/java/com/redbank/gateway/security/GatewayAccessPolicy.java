@@ -71,6 +71,7 @@ public class GatewayAccessPolicy {
     private boolean isExactGatewayPath(String path) {
         return path.equals("/api/v1/iam/register")
                 || path.equals("/api/v1/iam/login")
+                || path.equals("/api/v1/iam/logout")
                 || path.equals("/api/v1/kyc/jobs/list")
                 || path.equals("/api/v1/security/key-exchange")
                 || path.equals("/api/v1/iam/device-verify")
