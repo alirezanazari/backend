@@ -52,6 +52,7 @@ public class IamController {
     }
     @PostMapping("/logout")
     public void logout(@RequestHeader(name = "Authorization", required = false) String  authorizationHeader){
+        System.out.println("######## LOGOUT CALLED ########");
         iamService.logout(authorizationHeader);
     }
 
