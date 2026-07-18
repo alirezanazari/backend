@@ -17,8 +17,7 @@ public class RedisService {
     public void blacklistToken(String jti, Duration ttl){
         String key = "blacklist:" + jti;
         String value = "revoked";
-        redisTemplate.opsForValue().set(key,value);
-        redisTemplate.expire(key,ttl);
+        redisTemplate.opsForValue().set(key, "revoked", ttl);
     }
     public Boolean isBlacklisted(String jti){
         String key = "blacklist:" + jti;
