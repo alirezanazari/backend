@@ -1120,6 +1120,24 @@ Response:
 | --- | --- | --- | --- |
 | `box` | `BoxSummary` | Yes | Updated box. |
 
+### POST /api/v1/pfm/boxes/close
+
+Request: [See request details](./api-requests.md#post-apiv1pfmboxesclose)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `boxId` | `String` | Yes | ID of the owned box to close. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `UUID` | Yes | Closed box ID. |
+| `status` | `BoxStatus` | Yes | New box status; `INACTIVE` on success. |
+| `closedAt` | `Instant` | Yes | Time at which the box was closed. |
+
 PFM shared response models:
 
 ```text

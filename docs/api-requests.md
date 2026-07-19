@@ -55,6 +55,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | PFM | `POST /api/v1/pfm/boxes/create` | Required | Create a new vault-backed box. |
 | PFM | `POST /api/v1/pfm/box-presets/list` | Required | List box creation presets. |
 | PFM | `POST /api/v1/pfm/boxes/edit` | Required | Edit box display metadata. |
+| PFM | `POST /api/v1/pfm/boxes/close` | Required | Close an empty box. |
 | Transfer | `POST /api/v1/transfers/create` | Required | Create a money transfer. |
 | Transfer | `POST /api/v1/transfers/methods/list` | Required | List available transfer methods. |
 | Transfer | `POST /api/v1/transfers/recent/list` | Required | List successful recent transfers. |
@@ -1341,6 +1342,35 @@ Important rules:
 - User can edit only their own box.
 - Edit should affect PFM metadata only.
 - Financial account state must not be changed by metadata edit.
+
+### POST /api/v1/pfm/boxes/close
+
+Fields: [See fields](./api-fields.md#post-apiv1pfmboxesclose)
+
+Owner:
+
+```text
+pfm-service
+```
+
+Purpose:
+
+```text
+close an empty box
+```
+
+Authentication:
+
+```text
+required
+```
+
+Important rules:
+
+- User can close only their own box in the active profile.
+- The box must be active and its ledger available balance must be zero.
+- Closing sets the PFM box status to `INACTIVE` and records `closedAt`.
+- Repeated close attempts are rejected as a business-rule violation.
 
 ## Transfer Requests
 
