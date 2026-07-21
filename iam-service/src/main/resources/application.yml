@@ -51,12 +51,21 @@ redbank:
     audience: ${REDBANK_JWT_AUDIENCE:red-bank-api}
     access-token-ttl-seconds: ${REDBANK_JWT_ACCESS_TOKEN_TTL_SECONDS:900}
     onboarding-token-ttl-seconds: ${REDBANK_JWT_ONBOARDING_TOKEN_TTL_SECONDS:300}
+    anonymous-token-ttl-seconds: ${REDBANK_JWT_ANONYMOUS_TOKEN_TTL_SECONDS:900}
     signing-secret: ${REDBANK_JWT_SIGNING_SECRET:${REDBANK_DEBUG_JWT_SECRET:local-develop-debug-secret-change-me-32bytes}}
     signing-private-key: ${REDBANK_JWT_PRIVATE_KEY:}
     verification-public-key: ${REDBANK_JWT_PUBLIC_KEY:}
   account-client:
     base-url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
     internal-service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+  kyc-client:
+    base-url: ${KYC_SERVICE_URL:http://localhost:8085}
+    completion-get-token-secret: ${REDBANK_KYC_COMPLETION_GET_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
+  internal:
+    service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    otp-challenge-create-token-secret: ${REDBANK_IAM_OTP_CHALLENGE_CREATE_TOKEN_SECRET:${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}}
   otp:
     ttl-seconds: ${REDBANK_OTP_TTL_SECONDS:300}
     max-attempts: ${REDBANK_OTP_MAX_ATTEMPTS:5}
+    resend-cooldown-seconds: ${REDBANK_OTP_RESEND_COOLDOWN_SECONDS:45}
+    max-per-phone-per-hour: ${REDBANK_OTP_MAX_PER_PHONE_PER_HOUR:5}

@@ -5,6 +5,7 @@ import com.redbank.contracts.common.Location;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.identity.AccountCompletionStatus;
+import com.redbank.contracts.identity.LoginReason;
 import com.redbank.iam.api.v1.dto.DeviceVerifyRequest;
 import com.redbank.iam.api.v1.dto.DeviceVerifyResponse;
 import com.redbank.iam.api.v1.dto.LoginRequest;
@@ -50,8 +51,10 @@ public class IamService {
     private final JwtTokenService jwtTokenService;
     private final OtpService otpService;
     private final RegistrationValidator registrationValidator;
+    private final LoginValidator loginValidator;
     private final DeviceContextValidator deviceContextValidator;
     private final AccountCompletionClient accountCompletionClient;
+    private final KycCompletionClient kycCompletionClient;
     private final IamOutboxService iamOutboxService;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
@@ -66,8 +69,10 @@ public class IamService {
             JwtTokenService jwtTokenService,
             OtpService otpService,
             RegistrationValidator registrationValidator,
+            LoginValidator loginValidator,
             DeviceContextValidator deviceContextValidator,
             AccountCompletionClient accountCompletionClient,
+            KycCompletionClient kycCompletionClient,
             IamOutboxService iamOutboxService,
             Clock clock,
             MeterRegistry meterRegistry,
@@ -81,8 +86,10 @@ public class IamService {
         this.jwtTokenService = jwtTokenService;
         this.otpService = otpService;
         this.registrationValidator = registrationValidator;
+        this.loginValidator = loginValidator;
         this.deviceContextValidator = deviceContextValidator;
         this.accountCompletionClient = accountCompletionClient;
+        this.kycCompletionClient = kycCompletionClient;
         this.iamOutboxService = iamOutboxService;
         this.clock = clock;
         this.meterRegistry = meterRegistry;
@@ -90,8 +97,14 @@ public class IamService {
     }
 
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
+    public RegisterResponse register(RequestContext context, String authorizationHeader, RegisterRequest request) {
         registrationValidator.validate(request);
+
+        OtpChallengeRecord onboardingSession = resolveVerifiedOnboardingChallenge(authorizationHeader);
+        if (onboardingSession != null && !onboardingSession.phoneNumber().equals(request.phoneNumber())) {
+            recordAuth("register", "phone_mismatch");
+            throw new IamBusinessRuleException("Phone number does not match the verified onboarding phone");
+        }
 
         String username = normalizeUsername(request.username());
         ensureUniqueRegistration(username, request.phoneNumber(), request.nationalId());
@@ -142,7 +155,13 @@ public class IamService {
         iamOutboxService.enqueueUserRegistered(user);
         recordAuth("register", "success");
 
-        TokenResult token = jwtTokenService.createAccountRequiredToken(user.id());
+        UUID adoptedDeviceId = null;
+        if (onboardingSession != null && onboardingSession.deviceFingerprint() != null) {
+            DeviceRecord device = adoptVerifiedDevice(context, user.id(), onboardingSession, now);
+            adoptedDeviceId = device.id();
+        }
+
+        TokenResult token = jwtTokenService.createAccountRequiredToken(user.id(), adoptedDeviceId);
         return new RegisterResponse(
                 user.id().toString(),
                 token.accessToken(),
@@ -152,9 +171,49 @@ public class IamService {
         );
     }
 
+    private OtpChallengeRecord resolveVerifiedOnboardingChallenge(String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            return null;
+        }
+        VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_IAM_REGISTER);
+        return otpChallengeRepository.findLatestVerifiedPhoneChallengeBySession(token.userId()).orElse(null);
+    }
+
+    private DeviceRecord adoptVerifiedDevice(
+            RequestContext context,
+            UUID userId,
+            OtpChallengeRecord onboardingSession,
+            Instant now
+    ) {
+        DeviceRecord device = new DeviceRecord(
+                UUID.randomUUID(),
+                userId,
+                onboardingSession.deviceFingerprint(),
+                context == null || context.device() == null ? null : context.device().model(),
+                context == null || context.os() == null ? null : context.os().name(),
+                context == null || context.app() == null ? null : context.app().version(),
+                DeviceStatus.VERIFIED,
+                now,
+                now,
+                now
+        );
+        deviceRepository.save(device);
+        iamOutboxService.enqueueDeviceVerified(device);
+        recordAuth("register", "onboarding_device_adopted");
+        return device;
+    }
+
     @Transactional
     public LoginResponse login(RequestContext context, LoginRequest request) {
+        loginValidator.validate(request);
+        if (request.reason() == LoginReason.RECOVERY) {
+            recordAuth("login", "recovery_unsupported");
+            throw new IamBusinessRuleException("Login reason RECOVERY is not supported yet");
+        }
         String fingerprint = deviceContextValidator.requireFingerprint(context);
+        if (request.reason() == LoginReason.REGISTER) {
+            return anonymousOnboardingLogin();
+        }
         String username = normalizeUsername(request.username());
         UserRecord user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IamUnauthorizedException("Unauthorized"));
@@ -172,7 +231,7 @@ public class IamService {
             throw new IamBusinessRuleException("Device is not allowed");
         }
         if (device.status() == DeviceStatus.VERIFIED) {
-            AccountCompletionResult completion = accountCompletionClient.getCompletion(user.id());
+            AccountCompletionResult completion = resolveCompletion(user.id());
             TokenResult token = jwtTokenService.createUserToken(user.id(), device.id(), completion.activeProfileId());
             recordAuth("login", "authenticated");
             return new LoginResponse(
@@ -213,11 +272,15 @@ public class IamService {
     }
 
     @Transactional(noRollbackFor = IamUnauthorizedException.class)
-    public DeviceVerifyResponse verifyDevice(String authorizationHeader, DeviceVerifyRequest request) {
+    public DeviceVerifyResponse verifyDevice(RequestContext context, String authorizationHeader, DeviceVerifyRequest request) {
         VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_DEVICE_VERIFY);
         UUID challengeId = parseChallengeId(request.challengeId());
         OtpChallengeRecord challenge = otpChallengeRepository.findById(challengeId)
                 .orElseThrow(() -> new IamBusinessRuleException("OTP challenge was not found"));
+
+        if (challenge.purpose() == OtpPurpose.PHONE_VERIFICATION) {
+            return verifyOnboardingPhoneChallenge(context, token, challenge, request.otpCode());
+        }
 
         if (!challenge.userId().equals(token.userId())) {
             throw new IamUnauthorizedException("Unauthorized");
@@ -225,7 +288,7 @@ public class IamService {
         if (token.deviceId() == null || !challenge.deviceId().equals(token.deviceId())) {
             throw new IamUnauthorizedException("Unauthorized");
         }
-        validateChallengeCanBeUsed(challenge);
+        validateChallengeCanBeUsed(challenge, "verify_device");
 
         Instant now = clock.instant();
         if (!otpService.matches(request.otpCode(), challenge.otpHash())) {
@@ -236,7 +299,7 @@ public class IamService {
 
         otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.VERIFIED, now);
         deviceRepository.markVerified(challenge.deviceId(), now);
-        AccountCompletionResult completion = accountCompletionClient.getCompletion(challenge.userId());
+        AccountCompletionResult completion = resolveCompletion(challenge.userId());
         TokenResult userToken = jwtTokenService.createUserToken(challenge.userId(), challenge.deviceId(), completion.activeProfileId());
         DeviceRecord device = deviceRepository.findById(challenge.deviceId())
                 .orElseThrow(() -> new IamBusinessRuleException("Device was not found"));
@@ -251,6 +314,63 @@ public class IamService {
                 userToken.expiresAt(),
                 completion.accountCompletionStatus()
         );
+    }
+
+    private DeviceVerifyResponse verifyOnboardingPhoneChallenge(
+            RequestContext context,
+            VerifiedToken token,
+            OtpChallengeRecord challenge,
+            String otpCode
+    ) {
+        if (challenge.onboardingSessionId() == null || !challenge.onboardingSessionId().equals(token.userId())) {
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+        String fingerprint = deviceContextValidator.requireFingerprint(context);
+        validateChallengeCanBeUsed(challenge, "verify_phone");
+
+        Instant now = clock.instant();
+        if (!otpService.matches(otpCode, challenge.otpHash())) {
+            otpChallengeRepository.recordFailedAttempt(challenge.id(), now);
+            recordAuth("verify_phone", "rejected");
+            throw new IamUnauthorizedException("Unauthorized");
+        }
+
+        otpChallengeRepository.markVerifiedWithFingerprint(challenge.id(), fingerprint, now);
+        recordAuth("verify_phone", "success");
+
+        // No user or device exists yet: the verified phone + fingerprint stay bound to the
+        // onboarding session, and iam/register adopts them. The client keeps its anonymous token.
+        return new DeviceVerifyResponse(
+                null,
+                DeviceStatus.VERIFIED.name(),
+                null,
+                null,
+                null,
+                AccountCompletionStatus.ONBOARDING
+        );
+    }
+
+    private LoginResponse anonymousOnboardingLogin() {
+        TokenResult token = jwtTokenService.createAnonymousOnboardingToken(UUID.randomUUID());
+        recordAuth("login", "anonymous_onboarding");
+        return new LoginResponse(
+                token.accessToken(),
+                token.tokenType(),
+                token.expiresAt(),
+                AccountCompletionStatus.ONBOARDING,
+                null,
+                false,
+                null
+        );
+    }
+
+    private AccountCompletionResult resolveCompletion(UUID userId) {
+        AccountCompletionResult accountResult = accountCompletionClient.getCompletion(userId);
+        if (accountResult.accountCompletionStatus() != AccountCompletionStatus.KYC_REQUIRED) {
+            return accountResult;
+        }
+        AccountCompletionStatus kycStatus = kycCompletionClient.getCompletionStatus(userId);
+        return new AccountCompletionResult(kycStatus, accountResult.activeProfile());
     }
 
     private void ensureUniqueRegistration(String username, String phoneNumber, String nationalId) {
@@ -298,6 +418,9 @@ public class IamService {
                 UUID.randomUUID(),
                 userId,
                 deviceId,
+                null,
+                null,
+                null,
                 otpService.generateOtpHash(),
                 OtpPurpose.DEVICE_VERIFICATION,
                 now.plusSeconds(otpService.ttlSeconds()),
@@ -311,20 +434,20 @@ public class IamService {
         return challenge;
     }
 
-    private void validateChallengeCanBeUsed(OtpChallengeRecord challenge) {
+    private void validateChallengeCanBeUsed(OtpChallengeRecord challenge, String operation) {
         Instant now = clock.instant();
         if (challenge.status() != OtpChallengeStatus.PENDING) {
-            recordAuth("verify_device", "invalid_status");
+            recordAuth(operation, "invalid_status");
             throw new IamBusinessRuleException("OTP challenge is not pending");
         }
         if (!challenge.expiresAt().isAfter(now)) {
             otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.EXPIRED, now);
-            recordAuth("verify_device", "expired");
+            recordAuth(operation, "expired");
             throw new IamUnauthorizedException("Unauthorized");
         }
         if (challenge.attemptCount() >= challenge.maxAttempts()) {
             otpChallengeRepository.markStatus(challenge.id(), OtpChallengeStatus.FAILED, now);
-            recordAuth("verify_device", "max_attempts");
+            recordAuth(operation, "max_attempts");
             throw new IamUnauthorizedException("Unauthorized");
         }
     }

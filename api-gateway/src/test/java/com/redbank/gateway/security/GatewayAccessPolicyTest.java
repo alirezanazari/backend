@@ -15,6 +15,8 @@ class GatewayAccessPolicyTest {
                 .isEqualTo(GatewayAccessPolicy.Access.PUBLIC);
         assertThat(policy.access(HttpMethod.POST, "/api/v1/account/register"))
                 .isEqualTo(GatewayAccessPolicy.Access.ONBOARDING_ACCOUNT);
+        assertThat(policy.access(HttpMethod.POST, "/api/v1/kyc/phone/set"))
+                .isEqualTo(GatewayAccessPolicy.Access.ONBOARDING_PHONE);
         assertThat(policy.access(HttpMethod.POST, "/api/v1/card/unblock"))
                 .isEqualTo(GatewayAccessPolicy.Access.ADMIN);
         assertThat(policy.access(HttpMethod.POST, "/api/v1/pfm/boxes/list"))
@@ -45,6 +47,29 @@ class GatewayAccessPolicyTest {
         assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_DEVICE, onboarding)).isFalse();
         assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_REFERRAL, user)).isFalse();
         assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_REFERRAL, referralOnboarding)).isTrue();
+    }
+
+    @Test
+    void anonymousOnboardingTokenIsLimitedToItsScopes() {
+        GatewayToken anonymous = token(
+                List.of("ONBOARDING"),
+                List.of(
+                        GatewayAccessPolicy.PHONE_SET_SCOPE,
+                        GatewayAccessPolicy.DEVICE_VERIFY_SCOPE,
+                        GatewayAccessPolicy.IAM_REGISTER_SCOPE
+                )
+        );
+
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_DEVICE, anonymous)).isTrue();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_PHONE, anonymous)).isTrue();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.USER, anonymous)).isFalse();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ADMIN, anonymous)).isFalse();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_ACCOUNT, anonymous)).isFalse();
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_REFERRAL, anonymous)).isFalse();
+
+        // A full user token must not reach the anonymous-only phone/set route.
+        GatewayToken user = token(List.of("USER"), List.of("USER"));
+        assertThat(policy.permits(GatewayAccessPolicy.Access.ONBOARDING_PHONE, user)).isFalse();
     }
 
     private GatewayToken token(List<String> roles, List<String> scopes) {

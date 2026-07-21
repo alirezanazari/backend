@@ -87,7 +87,26 @@ Suggested scopes:
 ONBOARDING_ACCOUNT_REGISTER
 ONBOARDING_DEVICE_VERIFY
 ONBOARDING_REFERRAL_SET
+ONBOARDING_PHONE_SET
+ONBOARDING_IAM_REGISTER
 ```
+
+### Anonymous Onboarding Token
+
+A special limited onboarding token issued by `POST /api/v1/iam/login` with
+`reason=REGISTER`, before any user exists.
+
+Rules:
+
+- Short TTL (default 15 minutes, `REDBANK_JWT_ANONYMOUS_TOKEN_TTL_SECONDS`).
+- Subject is a synthetic onboarding-session UUID, not a user ID.
+- Role is `ONBOARDING`.
+- Scopes are exactly `ONBOARDING_PHONE_SET`, `ONBOARDING_DEVICE_VERIFY`,
+  and `ONBOARDING_IAM_REGISTER`.
+- Must not grant access to any account, card, PFM, or transfer API;
+  the gateway returns `403 Forbidden` for those routes.
+- The login route is rate-limited more strictly at the gateway because these
+  tokens are minted without credentials.
 
 ### Admin Token
 
@@ -116,9 +135,9 @@ Rules:
 | Area | Request | Access Level | Notes |
 | --- | --- | --- | --- |
 | Gateway | `POST /api/v1/security/key-exchange` | `PUBLIC` | Gateway-only app-level key exchange. |
-| IAM | `POST /api/v1/iam/register` | `PUBLIC` | Creates user identity and limited onboarding token. |
-| IAM | `POST /api/v1/iam/login` | `PUBLIC` | Returns user token or device verification requirement. |
-| IAM | `POST /api/v1/iam/device-verify` | `ONBOARDING` | Requires limited token or login challenge context. |
+| IAM | `POST /api/v1/iam/register` | `PUBLIC` | Creates user identity and limited onboarding token. Optionally accepts the anonymous onboarding token to adopt the session's verified phone and device. |
+| IAM | `POST /api/v1/iam/login` | `PUBLIC` | Returns user token, device verification requirement, or anonymous onboarding token when `reason=REGISTER`. |
+| IAM | `POST /api/v1/iam/device-verify` | `ONBOARDING` | Requires limited token or login challenge context; also accepts the anonymous onboarding token for phone challenges from `kyc/phone/set`. |
 | IAM | `POST /api/v1/iam/logout` | `USER` | Ends current client session/audit state. |
 | Account | `POST /api/v1/account/register` | `ONBOARDING` | Creates personal profile and default saving account. |
 | Account | `POST /api/v1/account/close` | `USER` | User can close only owned accounts. |
@@ -138,6 +157,9 @@ Rules:
 | Card | `POST /api/v1/card/unblock` | `ADMIN` | Admin/system action. |
 | Card | `POST /api/v1/card/expire` | `ADMIN` | Admin/system action. |
 | KYC | `POST /api/v1/kyc/jobs/list` | `PUBLIC` | Public job catalog for registration. |
+| KYC | `POST /api/v1/kyc/phone/set` | `ONBOARDING` | Anonymous onboarding token with `ONBOARDING_PHONE_SET` scope only. |
+| IAM | `POST /internal/v1/iam/otp-challenge/create` | `INTERNAL_SERVICE` | kyc-service delegates phone OTP challenge creation. |
+| KYC | `POST /internal/v1/kyc/completion/get` | `INTERNAL_SERVICE` | iam-service refines login completion status with KYC state. |
 | KYC | `POST /api/v1/kyc/referral/set` | `ONBOARDING` | During registration flow only. |
 | KYC | `POST /api/v1/kyc/status/get` | `USER` | User gets own KYC status. |
 | KYC | `POST /api/v1/kyc/complete` | `ADMIN` | Admin/system approval action. |

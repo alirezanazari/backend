@@ -88,6 +88,72 @@ class GatewayAuthenticationWebFilterTest {
                 .isFalse();
     }
 
+    @Test
+    void anonymousOnboardingTokenCannotReachAccountCardPfmOrTransferRoutes() {
+        GatewayToken anonymous = new GatewayToken(
+                "onboarding-session-1",
+                null,
+                null,
+                "token-1",
+                List.of("ONBOARDING"),
+                List.of(
+                        GatewayAccessPolicy.PHONE_SET_SCOPE,
+                        GatewayAccessPolicy.DEVICE_VERIFY_SCOPE,
+                        GatewayAccessPolicy.IAM_REGISTER_SCOPE
+                )
+        );
+        GatewayAuthenticationWebFilter filter = filter(new FixedJwtService(anonymous));
+
+        for (String path : List.of(
+                "/api/v1/account/list",
+                "/api/v1/account/register",
+                "/api/v1/account/balance/get",
+                "/api/v1/card/list",
+                "/api/v1/pfm/boxes/list",
+                "/api/v1/transfers/create"
+        )) {
+            ServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.post(path)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer anonymous-token")
+                            .build()
+            );
+
+            StepVerifier.create(filter.filter(exchange, ignored -> Mono.empty())).verifyComplete();
+
+            assertThat(exchange.getResponse().getStatusCode())
+                    .as("anonymous onboarding token must be forbidden on %s", path)
+                    .isEqualTo(HttpStatus.FORBIDDEN);
+        }
+    }
+
+    @Test
+    void anonymousOnboardingTokenPassesDeviceVerifyRoute() {
+        GatewayToken anonymous = new GatewayToken(
+                "onboarding-session-1",
+                null,
+                null,
+                "token-1",
+                List.of("ONBOARDING"),
+                List.of(GatewayAccessPolicy.PHONE_SET_SCOPE, GatewayAccessPolicy.DEVICE_VERIFY_SCOPE)
+        );
+        GatewayAuthenticationWebFilter filter = filter(new FixedJwtService(anonymous));
+        ServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/v1/iam/device-verify")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer anonymous-token")
+                        .build()
+        );
+        AtomicReference<HttpHeaders> forwarded = new AtomicReference<>();
+
+        StepVerifier.create(filter.filter(exchange, current -> {
+            forwarded.set(current.getRequest().getHeaders());
+            return Mono.empty();
+        })).verifyComplete();
+
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+        assertThat(forwarded.get().getFirst(GatewayAuthenticationWebFilter.USER_ID_HEADER))
+                .isEqualTo("onboarding-session-1");
+    }
+
     private GatewayAuthenticationWebFilter filter(GatewayJwtService jwtService) {
         return new GatewayAuthenticationWebFilter(
                 jwtService,

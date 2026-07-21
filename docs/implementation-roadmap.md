@@ -452,6 +452,7 @@ Tasks:
 - Implement box create
 - Implement box list
 - Implement box edit
+- Implement box close
 - Implement transaction list
 
 Small steps:
@@ -468,9 +469,10 @@ Small steps:
 10. Store box metadata.
 11. Implement `POST /api/v1/pfm/boxes/list`.
 12. Implement `POST /api/v1/pfm/boxes/edit`.
-13. Implement `POST /api/v1/pfm/transactions/list`.
-14. Read transaction information from ledger or a read model.
-15. Add tests for box-account relation.
+13. Implement `POST /api/v1/pfm/boxes/close` with a zero-balance check.
+14. Implement `POST /api/v1/pfm/transactions/list`.
+15. Read transaction information from ledger or a read model.
+16. Add tests for box-account relation.
 
 Engineering focus:
 

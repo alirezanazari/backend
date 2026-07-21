@@ -16,6 +16,7 @@ GATEWAY_BASE_URL="${GATEWAY_BASE_URL:-http://localhost:8080}"
 IAM_BASE_URL="${IAM_BASE_URL:-http://localhost:8081}"
 ACCOUNT_BASE_URL="${ACCOUNT_BASE_URL:-http://localhost:8082}"
 LEDGER_BASE_URL="${LEDGER_BASE_URL:-http://localhost:8083}"
+KYC_BASE_URL="${KYC_BASE_URL:-http://localhost:8085}"
 FEATURE_FLAG_BASE_URL="${FEATURE_FLAG_BASE_URL:-http://localhost:8086}"
 TRANSFER_BASE_URL="${TRANSFER_BASE_URL:-http://localhost:8087}"
 INTERNAL_SERVICE_TOKEN="${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:-local-develop-internal-service-token-change-me}"
@@ -31,6 +32,7 @@ for health_url in \
   "$IAM_BASE_URL/actuator/health" \
   "$ACCOUNT_BASE_URL/actuator/health" \
   "$LEDGER_BASE_URL/actuator/health" \
+  "$KYC_BASE_URL/actuator/health" \
   "$FEATURE_FLAG_BASE_URL/actuator/health" \
   "$TRANSFER_BASE_URL/actuator/health"; do
   if ! curl --fail --silent --show-error "$health_url" >/dev/null; then

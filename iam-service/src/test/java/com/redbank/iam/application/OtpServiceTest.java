@@ -13,7 +13,7 @@ class OtpServiceTest {
     void acceptsMockOtpOnlyWhenEnabledInDevelopProfile() {
         OtpService service = new OtpService(
                 new BCryptPasswordEncoder(),
-                new OtpProperties(300, 5),
+                new OtpProperties(300, 5, 45, 5),
                 new DebugProperties(false, new DebugProperties.MockOtp(true)),
                 environment("develop")
         );
@@ -25,7 +25,7 @@ class OtpServiceTest {
     void rejectsMockOtpWhenProfileIsNotDevelop() {
         OtpService service = new OtpService(
                 new BCryptPasswordEncoder(),
-                new OtpProperties(300, 5),
+                new OtpProperties(300, 5, 45, 5),
                 new DebugProperties(false, new DebugProperties.MockOtp(true)),
                 environment("test")
         );
@@ -38,7 +38,7 @@ class OtpServiceTest {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         OtpService service = new OtpService(
                 encoder,
-                new OtpProperties(300, 5),
+                new OtpProperties(300, 5, 45, 5),
                 new DebugProperties(false, new DebugProperties.MockOtp(false)),
                 new MockEnvironment()
         );
