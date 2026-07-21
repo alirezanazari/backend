@@ -41,6 +41,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 
 @SpringBootTest(properties = {
         "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
@@ -89,6 +90,7 @@ class IamControllerIntegrationTest {
         RegistrationData data = registrationData();
 
         String response = register(data)
+                .andDo(print())
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.context.status.code").value("CREATED"))
                 .andExpect(jsonPath("$.data.userId").isNotEmpty())
