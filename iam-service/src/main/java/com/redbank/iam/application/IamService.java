@@ -203,7 +203,7 @@ public class IamService {
     public void logout(String authorizationHeader) {
 
 
-        VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_DEVICE_VERIFY);
+        VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_USER);
         String jti = token.jti();
         Instant expiresAt = token.expiresAt();
         Instant now = clock.instant();

@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 public class JwtTokenService {
     public static final String SCOPE_ACCOUNT_REGISTER = "ONBOARDING_ACCOUNT_REGISTER";
     public static final String SCOPE_DEVICE_VERIFY = "ONBOARDING_DEVICE_VERIFY";
+    public static final String SCOPE_USER = "USER";
 
     private final JwtProperties jwtProperties;
     private final Clock clock;
