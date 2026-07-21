@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 public class JwtTokenService {
     private static final String DEBUG_ISSUER = "red-bank-debug";
     private static final String REFERRAL_SCOPE = "ONBOARDING_REFERRAL_SET";
+    private static final String PHONE_SET_SCOPE = "ONBOARDING_PHONE_SET";
 
     private final JwtProperties jwtProperties;
     private final DebugProperties debugProperties;
@@ -48,6 +49,14 @@ public class JwtTokenService {
     public VerifiedToken verifyReferralToken(String authorizationHeader) {
         VerifiedToken token = verifyBearerToken(authorizationHeader);
         if (!token.hasScope(REFERRAL_SCOPE)) {
+            throw new KycUnauthorizedException("Unauthorized");
+        }
+        return token;
+    }
+
+    public VerifiedToken verifyPhoneSetToken(String authorizationHeader) {
+        VerifiedToken token = verifyBearerToken(authorizationHeader);
+        if (!token.hasScope(PHONE_SET_SCOPE)) {
             throw new KycUnauthorizedException("Unauthorized");
         }
         return token;

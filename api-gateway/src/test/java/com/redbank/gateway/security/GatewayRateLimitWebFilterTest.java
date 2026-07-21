@@ -23,7 +23,7 @@ class GatewayRateLimitWebFilterTest {
 
     @Test
     void rejectsGatewayRequestsAfterBucketIsExhausted() {
-        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 2, 2, 60, 100));
+        GatewayRateLimitWebFilter filter = filter(properties(2, 2, 100));
         MockServerWebExchange first = exchange("10.0.0.1");
         MockServerWebExchange second = exchange("10.0.0.1");
         MockServerWebExchange third = exchange("10.0.0.1");
@@ -40,7 +40,7 @@ class GatewayRateLimitWebFilterTest {
 
     @Test
     void refillsBucketOverTime() {
-        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 1, 1, 60, 100));
+        GatewayRateLimitWebFilter filter = filter(properties(1, 1, 100));
         MockServerWebExchange first = exchange("10.0.0.2");
         MockServerWebExchange blocked = exchange("10.0.0.2");
         MockServerWebExchange afterRefill = exchange("10.0.0.2");
@@ -56,7 +56,7 @@ class GatewayRateLimitWebFilterTest {
 
     @Test
     void unverifiedBearerValuesUseTheSameClientBucket() {
-        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 1, 1, 60, 100));
+        GatewayRateLimitWebFilter filter = filter(properties(1, 1, 100));
         MockServerWebExchange first = bearerExchange("/api/v1/account/list", "10.0.0.3", "invalid-token-a");
         MockServerWebExchange second = bearerExchange("/api/v1/account/list", "10.0.0.3", "invalid-token-b");
 
@@ -69,7 +69,7 @@ class GatewayRateLimitWebFilterTest {
 
     @Test
     void spoofedForwardedForHeadersDoNotSplitClientBuckets() {
-        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 1, 1, 60, 100));
+        GatewayRateLimitWebFilter filter = filter(properties(1, 1, 100));
         MockServerWebExchange first = exchange("/api/v1/iam/login", "10.0.0.4", "198.51.100.1");
         MockServerWebExchange second = exchange("/api/v1/iam/login", "10.0.0.4", "198.51.100.2");
 
@@ -82,7 +82,7 @@ class GatewayRateLimitWebFilterTest {
 
     @Test
     void wildcardServicePathsUseBoundedRouteBuckets() {
-        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 1, 1, 60, 100));
+        GatewayRateLimitWebFilter filter = filter(properties(1, 1, 100));
         MockServerWebExchange first = bearerExchange("/api/v1/account/random-a", "10.0.0.5", "invalid-token-a");
         MockServerWebExchange second = bearerExchange("/api/v1/account/random-b", "10.0.0.5", "invalid-token-b");
 
@@ -95,7 +95,7 @@ class GatewayRateLimitWebFilterTest {
 
     @Test
     void maxBucketsIsAHardLimitForNewClientBuckets() {
-        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(true, 2, 2, 60, 1));
+        GatewayRateLimitWebFilter filter = filter(properties(2, 2, 1));
         MockServerWebExchange firstClient = exchange("10.0.0.6");
         MockServerWebExchange sameClient = exchange("10.0.0.6");
         MockServerWebExchange secondClient = exchange("10.0.0.7");
@@ -110,8 +110,47 @@ class GatewayRateLimitWebFilterTest {
     }
 
     @Test
+    void loginRouteUsesStricterLoginLimit() {
+        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(
+                true, 100, 100, 60, 100, new GatewayRateLimitProperties.Limit(1, 1, 60), null
+        ));
+        MockServerWebExchange firstLogin = exchange("/api/v1/iam/login", "10.0.0.8", null);
+        MockServerWebExchange blockedLogin = exchange("/api/v1/iam/login", "10.0.0.8", null);
+        MockServerWebExchange publicRegister = exchange("/api/v1/iam/register", "10.0.0.8", null);
+        MockServerWebExchange secondPublicRegister = exchange("/api/v1/iam/register", "10.0.0.8", null);
+
+        StepVerifier.create(filter.filter(firstLogin, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(blockedLogin, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(publicRegister, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(secondPublicRegister, chain())).verifyComplete();
+
+        assertThat(firstLogin.getResponse().getStatusCode()).isNull();
+        assertThat(blockedLogin.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(publicRegister.getResponse().getStatusCode()).isNull();
+        assertThat(secondPublicRegister.getResponse().getStatusCode()).isNull();
+    }
+
+    @Test
+    void phoneSetRouteUsesStricterPhoneSetLimit() {
+        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(
+                true, 100, 100, 60, 100, null, new GatewayRateLimitProperties.Limit(1, 1, 60)
+        ));
+        MockServerWebExchange firstPhoneSet = exchange("/api/v1/kyc/phone/set", "10.0.0.9", null);
+        MockServerWebExchange blockedPhoneSet = exchange("/api/v1/kyc/phone/set", "10.0.0.9", null);
+        MockServerWebExchange otherKycRoute = exchange("/api/v1/kyc/jobs/list", "10.0.0.9", null);
+
+        StepVerifier.create(filter.filter(firstPhoneSet, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(blockedPhoneSet, chain())).verifyComplete();
+        StepVerifier.create(filter.filter(otherKycRoute, chain())).verifyComplete();
+
+        assertThat(firstPhoneSet.getResponse().getStatusCode()).isNull();
+        assertThat(blockedPhoneSet.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(otherKycRoute.getResponse().getStatusCode()).isNull();
+    }
+
+    @Test
     void disabledLimiterPassesThrough() {
-        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(false, 1, 1, 60, 100));
+        GatewayRateLimitWebFilter filter = filter(new GatewayRateLimitProperties(false, 1, 1, 60, 100, null, null));
         AtomicInteger calls = new AtomicInteger();
 
         StepVerifier.create(filter.filter(exchange("10.0.0.4"), current -> {
@@ -124,6 +163,19 @@ class GatewayRateLimitWebFilterTest {
         })).verifyComplete();
 
         assertThat(calls).hasValue(2);
+    }
+
+    private GatewayRateLimitProperties properties(int capacity, int refillTokens, int maxBuckets) {
+        // Default exchanges in this test target the login route, so mirror the global limit there.
+        return new GatewayRateLimitProperties(
+                true,
+                capacity,
+                refillTokens,
+                60,
+                maxBuckets,
+                new GatewayRateLimitProperties.Limit(capacity, refillTokens, 60),
+                null
+        );
     }
 
     private GatewayRateLimitWebFilter filter(GatewayRateLimitProperties properties) {

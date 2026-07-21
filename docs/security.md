@@ -145,6 +145,15 @@ Production rate-limit thresholds are configured through
 a shared ingress or infrastructure limiter when strict global limits are
 required.
 
+`POST /api/v1/iam/login` uses a stricter dedicated per-client limit
+(`REDBANK_GATEWAY_RATE_LIMIT_LOGIN_*`, default 10 per minute) because anonymous
+onboarding logins mint tokens without credentials.
+
+`POST /api/v1/kyc/phone/set` uses an even stricter per-client limit
+(`REDBANK_GATEWAY_RATE_LIMIT_PHONE_SET_*`, default 5 per minute) because every
+request can trigger an SMS. iam-service additionally enforces a server-side
+resend cooldown and an hourly cap per phone number.
+
 ## Login
 
 Login input:
@@ -233,6 +242,7 @@ secret keys
 Suggested enum:
 
 ```text
+ONBOARDING
 REGISTERED
 DEVICE_VERIFICATION_REQUIRED
 ACCOUNT_REQUIRED
@@ -244,6 +254,10 @@ SUSPENDED
 ```
 
 This status tells the client what screen to show next.
+
+`ONBOARDING` is returned only for anonymous onboarding sessions created by
+`POST /api/v1/iam/login` with `reason=REGISTER`; the client continues the
+registration wizard from there.
 
 ## Device Verification
 
@@ -258,9 +272,14 @@ Security rules:
 - OTP expires quickly.
 - OTP is stored hashed.
 - Attempt count is limited.
+- Resend cooldown is enforced server-side (default 45 seconds).
+- OTP challenges per phone number are capped per hour.
 - Device info is recorded.
 - Verified devices can receive normal access.
 - Unverified devices receive limited access.
+
+The same OTP rules apply to onboarding phone-verification challenges created by
+`POST /api/v1/kyc/phone/set` through the internal iam-service endpoint.
 
 Device info examples:
 

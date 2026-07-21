@@ -8,7 +8,9 @@ public record GatewayRateLimitProperties(
         int capacity,
         int refillTokens,
         long refillPeriodSeconds,
-        int maxBuckets
+        int maxBuckets,
+        Limit login,
+        Limit phoneSet
 ) {
     public GatewayRateLimitProperties {
         if (enabled == null) {
@@ -25,6 +27,25 @@ public record GatewayRateLimitProperties(
         }
         if (maxBuckets <= 0) {
             maxBuckets = 50_000;
+        }
+        login = login == null
+                ? new Limit(10, 10, 60)
+                : login.withDefaults(10, 60);
+        phoneSet = phoneSet == null
+                ? new Limit(5, 5, 60)
+                : phoneSet.withDefaults(5, 60);
+    }
+
+    public Limit defaultLimit() {
+        return new Limit(capacity, refillTokens, refillPeriodSeconds);
+    }
+
+    public record Limit(int capacity, int refillTokens, long refillPeriodSeconds) {
+        Limit withDefaults(int defaultCapacity, long defaultRefillPeriodSeconds) {
+            int effectiveCapacity = capacity > 0 ? capacity : defaultCapacity;
+            int effectiveRefillTokens = refillTokens > 0 ? refillTokens : effectiveCapacity;
+            long effectivePeriod = refillPeriodSeconds > 0 ? refillPeriodSeconds : defaultRefillPeriodSeconds;
+            return new Limit(effectiveCapacity, effectiveRefillTokens, effectivePeriod);
         }
     }
 }

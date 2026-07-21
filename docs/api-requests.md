@@ -16,7 +16,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | --- | --- | --- | --- |
 | Gateway | `POST /api/v1/security/key-exchange` | Public | Create temporary app-level encryption session with gateway. |
 | IAM | `POST /api/v1/iam/register` | Public | Register user identity and initial credentials. |
-| IAM | `POST /api/v1/iam/login` | Public | Authenticate user with username and password. |
+| IAM | `POST /api/v1/iam/login` | Public | Authenticate user with username and password, or start an anonymous onboarding session with `reason`. |
 | IAM | `POST /api/v1/iam/device-verify` | Conditional | Verify device using 6-digit OTP. |
 | IAM | `POST /api/v1/iam/logout` | Required | End current client login session. |
 | Account | `POST /api/v1/account/register` | Required | Create personal profile and default saving account. |
@@ -41,6 +41,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | Card | `POST /api/v1/card/expire` | Admin/Internal | Mark card as expired. |
 | Card | `POST /internal/v1/card/transfer/resolve` | Internal | Resolve an active transfer card and optionally verify ownership. |
 | KYC | `POST /api/v1/kyc/jobs/list` | Public | List active jobs for registration. |
+| KYC | `POST /api/v1/kyc/phone/set` | Onboarding | Verify onboarding phone by creating an OTP challenge. |
 | KYC | `POST /api/v1/kyc/referral/set` | Required/Limited | Save referral during registration flow. |
 | KYC | `POST /api/v1/kyc/status/get` | Required | Get current user's KYC status. |
 | KYC | `POST /api/v1/kyc/complete` | Admin/Internal | Complete or approve KYC case. |
@@ -54,9 +55,12 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | PFM | `POST /api/v1/pfm/boxes/create` | Required | Create a new vault-backed box. |
 | PFM | `POST /api/v1/pfm/box-presets/list` | Required | List box creation presets. |
 | PFM | `POST /api/v1/pfm/boxes/edit` | Required | Edit box display metadata. |
+| PFM | `POST /api/v1/pfm/boxes/close` | Required | Close an empty box. |
 | Transfer | `POST /api/v1/transfers/create` | Required | Create a money transfer. |
 | Transfer | `POST /api/v1/transfers/methods/list` | Required | List available transfer methods. |
 | Transfer | `POST /api/v1/transfers/recent/list` | Required | List successful recent transfers. |
+| IAM | `POST /internal/v1/iam/otp-challenge/create` | Internal | Create a phone-verification OTP challenge for an onboarding session. |
+| KYC | `POST /internal/v1/kyc/completion/get` | Internal | Resolve a user's KYC-derived account completion status for login. |
 | Ledger | `POST /internal/v1/ledger/account/create` | Internal | Create ledger account. |
 | Ledger | `POST /internal/v1/ledger/account/close` | Internal | Close a zero-balance ledger account. |
 | Ledger | `POST /internal/v1/ledger/account/reopen` | Internal | Reopen a closed ledger account. |
@@ -125,6 +129,7 @@ Public unauthenticated APIs:
 Conditionally authenticated APIs:
 
 - `POST /api/v1/iam/device-verify`
+- `POST /api/v1/kyc/phone/set` (anonymous onboarding token only)
 
 Authenticated APIs:
 
@@ -201,7 +206,8 @@ public
 
 Important rules:
 
-- User registers with national ID, phone number, username, password, name, and location.
+- User registers with national ID, phone number, username, password, name, and optionally location.
+- `location` may be null/omitted; when present, `province`, `city`, and `address` must be non-blank.
 - Registration includes `jobId` selected from `POST /api/v1/kyc/jobs/list`.
 - Username must be unique.
 - Phone number must be unique.
@@ -211,6 +217,22 @@ Important rules:
 - Initial account completion status should guide the client to the next step.
 - Registration does not create bank account data directly inside IAM.
 - IAM does not own job catalog data; `jobId` is carried into account/profile creation.
+
+Onboarding wizard rules (optional Authorization):
+
+- When the request carries the anonymous onboarding token from
+  `POST /api/v1/iam/login` with `reason=REGISTER`, and that session already verified a
+  phone through `kyc/phone/set` + `iam/device-verify`:
+  - the registered `phoneNumber` must equal the session's verified phone;
+    a mismatch is rejected with `BUSINESS_RULE_VIOLATION`;
+  - the verified device is adopted for the new user (created as `VERIFIED`), so the
+    flow goes straight to `ACCOUNT_REQUIRED` with no second OTP after registration;
+  - the returned limited token carries the adopted device.
+- A present but invalid or mis-scoped bearer token returns `401 Unauthorized`.
+- An onboarding token whose session has no verified phone registers without adoption
+  (device verification then happens at login, like the classic flow).
+- Without a token, the classic public flow (register first, verify device at login)
+  is unchanged for API/tooling clients.
 
 Expected next step:
 
@@ -231,7 +253,7 @@ iam-service
 Purpose:
 
 ```text
-authenticate user by username and password
+authenticate user by username and password, or start an anonymous onboarding session
 ```
 
 Authentication:
@@ -251,12 +273,40 @@ Important rules:
 - There is no refresh token.
 - Expired access token requires login again.
 
+Anonymous onboarding rules:
+
+- `data.reason` is optional. When absent, credentials are required and behavior is unchanged.
+- `reason=REGISTER` starts an anonymous onboarding session for the registration wizard:
+  `username` and `password` may be null or empty.
+- The response is an **anonymous onboarding token**: short TTL (default 15 minutes,
+  `REDBANK_JWT_ANONYMOUS_TOKEN_TTL_SECONDS`), a synthetic onboarding-session subject
+  (no user identity exists yet), role `ONBOARDING`, and exactly these scopes:
+  `ONBOARDING_PHONE_SET`, `ONBOARDING_DEVICE_VERIFY`, `ONBOARDING_IAM_REGISTER`.
+- The anonymous token must not grant access to any account, card, PFM, or transfer API.
+  The gateway rejects those routes with `403 Forbidden` (or `401` without a token).
+- Anonymous responses return `accountCompletionStatus=ONBOARDING`,
+  `deviceVerificationRequired=false`, and no `challengeId`; the client continues the
+  KYC wizard (`kyc/phone/set` next).
+- `context.device.fingerprint` is still required, like credential login.
+- The gateway rate-limits the login route more strictly than other routes because
+  anonymous logins mint tokens without credentials
+  (`REDBANK_GATEWAY_RATE_LIMIT_LOGIN_*`).
+- `reason=RECOVERY` is reserved for the future account recovery flow. It is rejected
+  with `BUSINESS_RULE_VIOLATION` until that flow exists.
+
 Returned business concepts:
 
 - Account completion status
 - Active profile
 - Access token
 - Device verification state
+
+Account completion status is authoritative for the whole onboarding state. account-service
+reports account/device readiness (up to `KYC_REQUIRED`); once the user has an account,
+iam-service refines that with the KYC-owned status via
+`POST /internal/v1/kyc/completion/get`, so the login response returns `KYC_PENDING` /
+`COMPLETED` as KYC progresses. This lets the web client route onboarding on the login
+response alone without looping back into steps that are already done.
 
 ### POST /api/v1/iam/device-verify
 
@@ -289,6 +339,27 @@ Important rules:
 - Attempt count must be limited.
 - Successful verification registers or activates the device for the user.
 - High-risk operations should require a verified device.
+
+Onboarding phone verification rules:
+
+- The endpoint also accepts the `challengeId` returned by `POST /api/v1/kyc/phone/set`
+  under the **anonymous onboarding token** (the challenge must belong to the token's
+  onboarding session; other sessions get `401`).
+- `context.device.fingerprint` is required on this path; no user or device record exists
+  yet, so on success the verified phone and device fingerprint are bound to the
+  onboarding session for `POST /api/v1/iam/register` to adopt.
+- The response returns `deviceId=null`, `deviceStatus=VERIFIED`, no new token
+  (the client keeps its anonymous onboarding token), and
+  `accountCompletionStatus=ONBOARDING`.
+- Mock OTP `111111` works on this path in develop when
+  `REDBANK_DEBUG_MOCK_OTP_ENABLED=true`.
+- The classic flow (login-issued device challenge with a limited user token) is unchanged.
+
+Expected next step in the registration wizard:
+
+```text
+POST /api/v1/iam/register with the same anonymous onboarding token
+```
 
 ### POST /api/v1/iam/logout
 
@@ -879,6 +950,52 @@ Important rules:
 - Selected `jobId` must be saved during user account/profile creation.
 - `jobId` must be validated against active jobs.
 
+### POST /api/v1/kyc/phone/set
+
+Fields: [See fields](./api-fields.md#post-apiv1kycphoneset)
+
+Owner:
+
+```text
+kyc-service
+```
+
+Purpose:
+
+```text
+verify the onboarding phone number by creating a 6-digit OTP challenge
+```
+
+Authentication:
+
+```text
+anonymous onboarding token only (scope ONBOARDING_PHONE_SET); not public, not full user token
+```
+
+Important rules:
+
+- First wizard step after the anonymous login (`POST /api/v1/iam/login` with `reason=REGISTER`).
+- Phone number format uses the same rule as `iam/register`: 10-15 digits, optional leading `+`.
+- Phone uniqueness is checked here to fail fast; an already registered phone returns `CONFLICT`.
+- kyc-service does not store OTP or phone state. It delegates challenge creation to
+  `POST /internal/v1/iam/otp-challenge/create` because OTP/device state is owned by iam-service.
+- The response returns `challengeId`, `expiresAt`, and `resendAvailableAt`; the client shows a
+  45-second resend timer based on `resendAvailableAt`.
+- Resend cooldown (default 45s, `REDBANK_OTP_RESEND_COOLDOWN_SECONDS`) is enforced server-side
+  per phone number; violations return `LIMIT_EXCEEDED`.
+- Per phone number, challenges are capped per hour (default 5, `REDBANK_OTP_MAX_PER_PHONE_PER_HOUR`).
+- The gateway rate-limits this route per client address (`REDBANK_GATEWAY_RATE_LIMIT_PHONE_SET_*`,
+  default 5 per minute) because every request can trigger an SMS.
+- The OTP is stored hashed, expires quickly, and is attempt-limited per [Security Design](./security.md).
+- Mock OTP `111111` works against the created challenge in develop when
+  `REDBANK_DEBUG_MOCK_OTP_ENABLED=true`.
+
+Expected next step:
+
+```text
+POST /api/v1/iam/device-verify with the returned challengeId
+```
+
 ### POST /api/v1/kyc/referral/set
 
 Fields: [See fields](./api-fields.md#post-apiv1kycreferralset)
@@ -1226,6 +1343,35 @@ Important rules:
 - Edit should affect PFM metadata only.
 - Financial account state must not be changed by metadata edit.
 
+### POST /api/v1/pfm/boxes/close
+
+Fields: [See fields](./api-fields.md#post-apiv1pfmboxesclose)
+
+Owner:
+
+```text
+pfm-service
+```
+
+Purpose:
+
+```text
+close an empty box
+```
+
+Authentication:
+
+```text
+required
+```
+
+Important rules:
+
+- User can close only their own box in the active profile.
+- The box must be active and its ledger available balance must be zero.
+- Closing sets the PFM box status to `INACTIVE` and records `closedAt`.
+- Repeated close attempts are rejected as a business-rule violation.
+
 ## Transfer Requests
 
 ### POST /api/v1/transfers/create
@@ -1439,6 +1585,80 @@ Important rules:
 - Ambiguous masked PAN matches return `CONFLICT`.
 - When ownership is required, user ID and profile ID must both match the card.
 - Raw PAN is never stored or returned.
+
+## Internal IAM Requests
+
+These APIs are internal service APIs. They should not be directly exposed to mobile/web clients.
+
+### POST /internal/v1/iam/otp-challenge/create
+
+Fields: [See fields](./api-fields.md#post-internalv1iamotp-challengecreate)
+
+Owner:
+
+```text
+iam-service
+```
+
+Purpose:
+
+```text
+create a phone-verification OTP challenge for an anonymous onboarding session
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- Called by kyc-service for `POST /api/v1/kyc/phone/set`; OTP/device state is owned by iam-service.
+- The challenge is bound to the onboarding session ID (anonymous token subject) and the phone number;
+  no user or device exists yet.
+- An already registered phone number returns `CONFLICT`.
+- Only one pending challenge per onboarding session; a new challenge supersedes the previous one.
+- Resend cooldown is enforced per phone number, including across different onboarding sessions.
+- Challenges per phone number are capped per hour to limit SMS bombing.
+- OTP is stored hashed, expires quickly, and is attempt-limited.
+
+## Internal KYC Requests
+
+These APIs are internal service APIs. They should not be directly exposed to mobile/web clients.
+
+### POST /internal/v1/kyc/completion/get
+
+Fields: [See fields](./api-fields.md#post-internalv1kyccompletionget)
+
+Owner:
+
+```text
+kyc-service
+```
+
+Purpose:
+
+```text
+resolve the KYC-derived account completion status for a user during login
+```
+
+Authentication:
+
+```text
+internal service authentication required
+```
+
+Important rules:
+
+- Called by iam-service during `login` / `device-verify` after account-service reports
+  `KYC_REQUIRED`, so the login response reflects real KYC progress
+  (`KYC_REQUIRED` → `KYC_PENDING` → `COMPLETED`).
+- Maps KYC status to completion: `NOT_STARTED`/`IN_PROGRESS`/`REJECTED` → `KYC_REQUIRED`,
+  `PENDING_REVIEW` → `KYC_PENDING`, `APPROVED` → `COMPLETED`.
+- TODO(kyc-panel): while `redbank.kyc.auto-approve-enabled` is true (develop default),
+  a user with no KYC case is lazily auto-approved so onboarding can complete without an
+  admin review panel. Production defaults this off; approvals will come from the panel.
 
 ## Internal Ledger Requests
 

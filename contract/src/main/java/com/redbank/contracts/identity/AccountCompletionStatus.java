@@ -1,6 +1,7 @@
 package com.redbank.contracts.identity;
 
 public enum AccountCompletionStatus {
+    ONBOARDING,
     REGISTERED,
     DEVICE_VERIFICATION_REQUIRED,
     ACCOUNT_REQUIRED,

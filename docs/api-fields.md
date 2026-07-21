@@ -288,6 +288,7 @@ These enum names should be shared and reused consistently.
 
 ```text
 AccountCompletionStatus:
+ONBOARDING
 REGISTERED
 DEVICE_VERIFICATION_REQUIRED
 ACCOUNT_REQUIRED
@@ -296,6 +297,10 @@ KYC_REQUIRED
 KYC_PENDING
 COMPLETED
 SUSPENDED
+
+LoginReason:
+REGISTER
+RECOVERY
 
 ProfileType:
 PERSONAL
@@ -378,17 +383,24 @@ Response:
 
 Request: [See request details](./api-requests.md#post-apiv1iamregister)
 
+Optionally authenticated: when the request carries the **anonymous onboarding token**
+(registration wizard), the verified onboarding phone and device are adopted — the
+registered `phoneNumber` must equal the session's verified phone, and the verified
+device is created for the new user so no second OTP is required. Without a token the
+classic public flow (register first, verify at login) is unchanged. An invalid or
+mis-scoped token returns `401`.
+
 Request:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `nationalId` | `String` | Yes | User national ID. |
-| `phoneNumber` | `String` | Yes | User phone number. |
+| `phoneNumber` | `String` | Yes | User phone number. With an anonymous onboarding token, must equal the session's verified phone; mismatch returns `BUSINESS_RULE_VIOLATION`. |
 | `username` | `String` | Yes | Unique username. |
 | `password` | `String` | Yes | Raw value after gateway decryption. IAM hashes it. |
 | `firstName` | `String` | Yes | First name. |
 | `lastName` | `String` | Yes | Last name. |
-| `location` | `Location` | Yes | Registered location. |
+| `location` | `Location` | No | Registered location. Optional: send `null` or omit when not collected yet. When the object is present, `province`, `city`, and `address` must be non-blank (do not send empty strings). |
 | `jobId` | `String` | Yes | Selected job from KYC jobs list. |
 
 Response:
@@ -396,10 +408,10 @@ Response:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `userId` | `String` | Yes | Created user ID. |
-| `accessToken` | `String` | Yes | Limited onboarding token. |
+| `accessToken` | `String` | Yes | Limited onboarding token. Carries the adopted verified device when the wizard path is used. |
 | `tokenType` | `String` | Yes | Usually `Bearer`. |
 | `expiresAt` | `Instant` | Yes | Token expiration. |
-| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Next onboarding state. |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Next onboarding state. `ACCOUNT_REQUIRED` — with device adoption there is no `DEVICE_VERIFICATION_REQUIRED` step after wizard registration. |
 
 ### POST /api/v1/iam/login
 
@@ -409,20 +421,21 @@ Request:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `username` | `String` | Yes | Username. |
-| `password` | `String` | Yes | Raw value after gateway decryption. |
+| `username` | `String` | Conditional | Username. Required when `reason` is absent. May be null/empty when `reason` is present. |
+| `password` | `String` | Conditional | Raw value after gateway decryption. Required when `reason` is absent. May be null/empty when `reason` is present. |
+| `reason` | `LoginReason` | No | Optional login reason. `REGISTER` starts an anonymous onboarding session. `RECOVERY` is reserved and currently rejected with `BUSINESS_RULE_VIOLATION`. |
 
 Response:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `accessToken` | `String` | Conditional | Present when login can continue. |
+| `accessToken` | `String` | Conditional | Present when login can continue. For `reason=REGISTER` this is the anonymous onboarding token (~15 min TTL, scopes `ONBOARDING_PHONE_SET`, `ONBOARDING_DEVICE_VERIFY`, `ONBOARDING_IAM_REGISTER` only). |
 | `tokenType` | `String` | Conditional | Usually `Bearer`. |
 | `expiresAt` | `Instant` | Conditional | Token expiration. |
-| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | User onboarding/completion state. |
-| `activeProfile` | `ProfileSummary` | No | Active profile if available. |
-| `deviceVerificationRequired` | `Boolean` | Yes | Whether device verify is required. |
-| `challengeId` | `String` | No | OTP challenge ID when verification is required. |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | User onboarding/completion state. Anonymous sessions always return `ONBOARDING`; the client routes to the KYC wizard (`kyc/phone/set` next). |
+| `activeProfile` | `ProfileSummary` | No | Active profile if available. Always null for anonymous sessions. |
+| `deviceVerificationRequired` | `Boolean` | Yes | Whether device verify is required. Always `false` for anonymous sessions; the wizard's OTP challenge is created later by `kyc/phone/set`. |
+| `challengeId` | `String` | No | OTP challenge ID when verification is required. Always null for anonymous sessions. |
 
 ### POST /api/v1/iam/device-verify
 
@@ -432,19 +445,21 @@ Request:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `challengeId` | `String` | Yes | OTP challenge ID. |
+| `challengeId` | `String` | Yes | OTP challenge ID from login (device challenge) or from `kyc/phone/set` (onboarding phone challenge). |
 | `otpCode` | `String` | Yes | Six-digit OTP. In develop only, `111111` can be allowed by config. |
+
+For onboarding phone challenges, the request must be sent with the anonymous onboarding token and `context.device.fingerprint` is required — the fingerprint is bound to the onboarding session as the verified device.
 
 Response:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `deviceId` | `String` | Yes | Verified device ID. |
+| `deviceId` | `String` | Conditional | Verified device ID. `null` for onboarding phone verification; the device record is created at `iam/register`. |
 | `deviceStatus` | `String` | Yes | Device status after verification. |
-| `accessToken` | `String` | No | Token if verification completes login flow. |
+| `accessToken` | `String` | No | Token if verification completes login flow. `null` for onboarding phone verification; the client keeps its anonymous onboarding token. |
 | `tokenType` | `String` | No | Usually `Bearer`. |
 | `expiresAt` | `Instant` | No | Token expiration. |
-| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Current completion state. |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | Current completion state. `ONBOARDING` for onboarding phone verification; the wizard continues to `iam/register`. |
 
 ### POST /api/v1/iam/logout
 
@@ -817,6 +832,26 @@ JobSummary:
 | `code` | `String` | Yes | Job code. |
 | `title` | `String` | Yes | Display title. |
 
+### POST /api/v1/kyc/phone/set
+
+Request: [See request details](./api-requests.md#post-apiv1kycphoneset)
+
+Auth: anonymous onboarding token (scope `ONBOARDING_PHONE_SET`). Public and full user tokens are rejected.
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `phoneNumber` | `String` | Yes | Phone number to verify. Same rule as `iam/register`: 10-15 digits, optional leading `+`. Must not belong to an existing user (`CONFLICT` otherwise). |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `challengeId` | `String` | Yes | OTP challenge ID for `POST /api/v1/iam/device-verify`. |
+| `expiresAt` | `Instant` | Yes | Challenge expiration. |
+| `resendAvailableAt` | `Instant` | Yes | Earliest time a resend is accepted (default 45s). The client shows the resend timer from this value; earlier resends return `LIMIT_EXCEEDED`. |
+
 ### POST /api/v1/kyc/referral/set
 
 Request: [See request details](./api-requests.md#post-apiv1kycreferralset)
@@ -1085,6 +1120,24 @@ Response:
 | --- | --- | --- | --- |
 | `box` | `BoxSummary` | Yes | Updated box. |
 
+### POST /api/v1/pfm/boxes/close
+
+Request: [See request details](./api-requests.md#post-apiv1pfmboxesclose)
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `boxId` | `String` | Yes | ID of the owned box to close. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | `UUID` | Yes | Closed box ID. |
+| `status` | `BoxStatus` | Yes | New box status; `INACTIVE` on success. |
+| `closedAt` | `Instant` | Yes | Time at which the box was closed. |
+
 PFM shared response models:
 
 ```text
@@ -1251,6 +1304,50 @@ Response:
 | `profileId` | `String` | Yes | Owner profile UUID. |
 | `accountNumber` | `String` | Yes | Linked 18-digit account number. |
 | `maskedCardNumber` | `String` | Yes | Non-sensitive masked PAN. |
+
+## Internal IAM
+
+### POST /internal/v1/iam/otp-challenge/create
+
+Request: [See request details](./api-requests.md#post-internalv1iamotp-challengecreate)
+
+Internal endpoints use plain request bodies (no client envelope); responses use the standard envelope.
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `onboardingSessionId` | `String` | Yes | Anonymous onboarding session UUID (anonymous token subject). |
+| `phoneNumber` | `String` | Yes | Phone number to verify. Must not belong to an existing user. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `challengeId` | `String` | Yes | Created OTP challenge ID. |
+| `expiresAt` | `Instant` | Yes | Challenge expiration. |
+| `resendAvailableAt` | `Instant` | Yes | Earliest accepted resend time for this phone number. |
+
+## Internal KYC
+
+### POST /internal/v1/kyc/completion/get
+
+Request: [See request details](./api-requests.md#post-internalv1kyccompletionget)
+
+Internal endpoints use plain request bodies (no client envelope); responses use the standard envelope.
+
+Request:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `userId` | `String` | Yes | User UUID whose KYC-derived completion status is resolved. |
+
+Response:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kycStatus` | `KycStatus` | Yes | Current KYC status (`NOT_STARTED` when no case and auto-approve is off). |
+| `accountCompletionStatus` | `AccountCompletionStatus` | Yes | `KYC_REQUIRED` / `KYC_PENDING` / `COMPLETED` derived from `kycStatus`. |
 
 ## Internal Ledger
 

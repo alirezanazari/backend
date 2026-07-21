@@ -3,35 +3,44 @@ package com.redbank.kyc.infrastructure;
 import com.redbank.contracts.common.Money;
 import com.redbank.kyc.application.ActiveReferrerAccount;
 import com.redbank.kyc.application.FeatureFlagSubject;
+import com.redbank.kyc.application.KycConflictException;
+import com.redbank.kyc.application.KycLimitExceededException;
+import com.redbank.kyc.application.PhoneOtpChallenge;
 import com.redbank.kyc.application.ReferralRewardCommand;
 import com.redbank.kyc.application.ReferralRewardResult;
 import com.redbank.kyc.config.FeatureFlagClientProperties;
+import com.redbank.kyc.config.IamClientProperties;
 import com.redbank.kyc.config.ReferralRewardClientProperties;
 import com.redbank.kyc.config.ReferrerAccountClientProperties;
 import com.redbank.kyc.infrastructure.account.HttpReferrerAccountClient;
 import com.redbank.kyc.infrastructure.featureflag.HttpFeatureFlagClient;
+import com.redbank.kyc.infrastructure.iam.HttpOtpChallengeClient;
 import com.redbank.kyc.infrastructure.ledger.HttpReferralRewardClient;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withResourceNotFound;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class KycHttpClientsTest {
     private static final String SERVICE_TOKEN = "test-internal-service-token";
     private static final String REFERRAL_REWARD_ACCOUNT_GET_TOKEN = "test-referral-reward-account-get-token";
     private static final String REFERRAL_REWARD_TOKEN = "test-referral-reward-token";
+    private static final String OTP_CHALLENGE_CREATE_TOKEN = "test-otp-challenge-create-token";
 
     @Test
     void accountClientReturnsCurrencyMatchedActiveAccount() {
@@ -168,6 +177,97 @@ class KycHttpClientsTest {
         ReferralRewardResult result = client.requestReward(command);
 
         assertThat(result).isEqualTo(new ReferralRewardResult("ledger-456", "POSTED"));
+        server.verify();
+    }
+
+    @Test
+    void otpChallengeClientCreatesPhoneChallenge() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        UUID sessionId = UUID.randomUUID();
+        HttpOtpChallengeClient client = new HttpOtpChallengeClient(
+                builder,
+                new IamClientProperties(true, "http://iam.test", OTP_CHALLENGE_CREATE_TOKEN)
+        );
+
+        server.expect(once(), requestTo("http://iam.test/internal/v1/iam/otp-challenge/create"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Internal-Service-Token", OTP_CHALLENGE_CREATE_TOKEN))
+                .andExpect(jsonPath("$.onboardingSessionId").value(sessionId.toString()))
+                .andExpect(jsonPath("$.phoneNumber").value("09121234567"))
+                .andRespond(withSuccess("""
+                        {
+                          "context": null,
+                          "data": {
+                            "challengeId": "challenge-1",
+                            "expiresAt": "2026-07-07T10:05:00Z",
+                            "resendAvailableAt": "2026-07-07T10:00:45Z"
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        PhoneOtpChallenge challenge = client.createPhoneChallenge(sessionId, "09121234567");
+
+        assertThat(challenge).isEqualTo(new PhoneOtpChallenge(
+                "challenge-1",
+                java.time.Instant.parse("2026-07-07T10:05:00Z"),
+                java.time.Instant.parse("2026-07-07T10:00:45Z")
+        ));
+        server.verify();
+    }
+
+    @Test
+    void otpChallengeClientMapsConflictAndLimitResponses() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpOtpChallengeClient client = new HttpOtpChallengeClient(
+                builder,
+                new IamClientProperties(true, "http://iam.test", OTP_CHALLENGE_CREATE_TOKEN)
+        );
+
+        server.expect(once(), requestTo("http://iam.test/internal/v1/iam/otp-challenge/create"))
+                .andRespond(withStatus(HttpStatus.CONFLICT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {
+                                  "context": {
+                                    "requestId": "internal",
+                                    "correlationId": null,
+                                    "profileId": null,
+                                    "status": {
+                                      "code": "CONFLICT",
+                                      "message": "Phone number already exists",
+                                      "httpStatus": 409,
+                                      "details": []
+                                    }
+                                  },
+                                  "data": null
+                                }
+                                """));
+        server.expect(once(), requestTo("http://iam.test/internal/v1/iam/otp-challenge/create"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {
+                                  "context": {
+                                    "requestId": "internal",
+                                    "correlationId": null,
+                                    "profileId": null,
+                                    "status": {
+                                      "code": "LIMIT_EXCEEDED",
+                                      "message": "OTP resend is not available yet",
+                                      "httpStatus": 400,
+                                      "details": []
+                                    }
+                                  },
+                                  "data": null
+                                }
+                                """));
+
+        assertThatThrownBy(() -> client.createPhoneChallenge(UUID.randomUUID(), "09121234567"))
+                .isInstanceOf(KycConflictException.class);
+        assertThatThrownBy(() -> client.createPhoneChallenge(UUID.randomUUID(), "09121234567"))
+                .isInstanceOf(KycLimitExceededException.class);
         server.verify();
     }
 }

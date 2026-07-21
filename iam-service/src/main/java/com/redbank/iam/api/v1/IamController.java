@@ -30,9 +30,10 @@ public class IamController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<RegisterRequest> request
     ) {
-        RegisterResponse response = iamService.register(request.data());
+        RegisterResponse response = iamService.register(request.context(), authorizationHeader, request.data());
 
         return ResponseEntity.status(201)
                 .body(ApiResponse.created(request.context().requestId(), null, response));
@@ -61,7 +62,7 @@ public class IamController {
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<DeviceVerifyRequest> request
     ) {
-        DeviceVerifyResponse response = iamService.verifyDevice(authorizationHeader, request.data());
+        DeviceVerifyResponse response = iamService.verifyDevice(request.context(), authorizationHeader, request.data());
         return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), null, response));
     }
 }

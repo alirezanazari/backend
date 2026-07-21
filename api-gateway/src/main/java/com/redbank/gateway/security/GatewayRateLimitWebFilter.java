@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -28,6 +29,10 @@ public class GatewayRateLimitWebFilter implements WebFilter {
             429,
             List.of()
     );
+    // Login mints tokens without credentials (anonymous onboarding), so it gets a stricter bucket.
+    private static final String LOGIN_PATH = "/api/v1/iam/login";
+    // Phone/set triggers an SMS per request, so it gets an even stricter bucket per client.
+    private static final String PHONE_SET_PATH = "/api/v1/kyc/phone/set";
 
     private final GatewayRateLimitProperties properties;
     private final GatewayAccessPolicy accessPolicy;
@@ -71,12 +76,27 @@ public class GatewayRateLimitWebFilter implements WebFilter {
         }
 
         String key = rateLimitKey(exchange.getRequest(), access);
+        GatewayRateLimitProperties.Limit limit = limitFor(exchange.getRequest());
         long nowMillis = clock.millis();
-        Bucket bucket = bucketFor(key, nowMillis);
-        if (bucket == null || !bucket.tryConsume(properties, nowMillis)) {
-            return tooManyRequests(exchange);
+        Bucket bucket = bucketFor(key, limit, nowMillis);
+        if (bucket == null || !bucket.tryConsume(nowMillis)) {
+            return tooManyRequests(exchange, limit);
         }
         return chain.filter(exchange);
+    }
+
+    private GatewayRateLimitProperties.Limit limitFor(ServerHttpRequest request) {
+        if (!HttpMethod.POST.equals(request.getMethod())) {
+            return properties.defaultLimit();
+        }
+        String path = request.getPath().value();
+        if (LOGIN_PATH.equals(path)) {
+            return properties.login();
+        }
+        if (PHONE_SET_PATH.equals(path)) {
+            return properties.phoneSet();
+        }
+        return properties.defaultLimit();
     }
 
     private String rateLimitKey(ServerHttpRequest request, GatewayAccessPolicy.Access access) {
@@ -92,13 +112,13 @@ public class GatewayRateLimitWebFilter implements WebFilter {
         return remoteAddress.getAddress().getHostAddress();
     }
 
-    private Mono<Void> tooManyRequests(ServerWebExchange exchange) {
+    private Mono<Void> tooManyRequests(ServerWebExchange exchange, GatewayRateLimitProperties.Limit limit) {
         exchange.getResponse().getHeaders()
-                .set(HttpHeaders.RETRY_AFTER, Long.toString(properties.refillPeriodSeconds()));
+                .set(HttpHeaders.RETRY_AFTER, Long.toString(limit.refillPeriodSeconds()));
         return responseWriter.write(exchange, TOO_MANY_REQUESTS);
     }
 
-    private Bucket bucketFor(String key, long nowMillis) {
+    private Bucket bucketFor(String key, GatewayRateLimitProperties.Limit limit, long nowMillis) {
         Bucket existing = buckets.get(key);
         if (existing != null) {
             return existing;
@@ -112,27 +132,29 @@ public class GatewayRateLimitWebFilter implements WebFilter {
             if (buckets.size() >= properties.maxBuckets()) {
                 return null;
             }
-            Bucket created = new Bucket(properties.capacity(), nowMillis);
+            Bucket created = new Bucket(limit, nowMillis);
             buckets.put(key, created);
             return created;
         }
     }
 
     private void trimBuckets(long nowMillis) {
-        buckets.entrySet().removeIf(entry -> entry.getValue().isFull(properties, nowMillis));
+        buckets.entrySet().removeIf(entry -> entry.getValue().isFull(nowMillis));
     }
 
     private static final class Bucket {
+        private final GatewayRateLimitProperties.Limit limit;
         private double tokens;
         private long updatedAtMillis;
 
-        private Bucket(int capacity, long nowMillis) {
-            this.tokens = capacity;
+        private Bucket(GatewayRateLimitProperties.Limit limit, long nowMillis) {
+            this.limit = limit;
+            this.tokens = limit.capacity();
             this.updatedAtMillis = nowMillis;
         }
 
-        private synchronized boolean tryConsume(GatewayRateLimitProperties properties, long nowMillis) {
-            refill(properties, nowMillis);
+        private synchronized boolean tryConsume(long nowMillis) {
+            refill(nowMillis);
             if (tokens < 1.0d) {
                 return false;
             }
@@ -140,18 +162,18 @@ public class GatewayRateLimitWebFilter implements WebFilter {
             return true;
         }
 
-        private synchronized boolean isFull(GatewayRateLimitProperties properties, long nowMillis) {
-            refill(properties, nowMillis);
-            return tokens >= properties.capacity();
+        private synchronized boolean isFull(long nowMillis) {
+            refill(nowMillis);
+            return tokens >= limit.capacity();
         }
 
-        private void refill(GatewayRateLimitProperties properties, long nowMillis) {
+        private void refill(long nowMillis) {
             long elapsedMillis = Math.max(0, nowMillis - updatedAtMillis);
             if (elapsedMillis == 0) {
                 return;
             }
-            double periods = elapsedMillis / (properties.refillPeriodSeconds() * 1000.0d);
-            tokens = Math.min(properties.capacity(), tokens + periods * properties.refillTokens());
+            double periods = elapsedMillis / (limit.refillPeriodSeconds() * 1000.0d);
+            tokens = Math.min(limit.capacity(), tokens + periods * limit.refillTokens());
             updatedAtMillis = nowMillis;
         }
     }
