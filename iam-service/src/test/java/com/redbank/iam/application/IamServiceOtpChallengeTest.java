@@ -33,6 +33,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -119,13 +120,20 @@ class IamServiceOtpChallengeTest {
         UUID userId = UUID.randomUUID();
         UUID deviceId = UUID.randomUUID();
 
-        when(jwtTokenService.verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_DEVICE_VERIFY))
-                .thenReturn(new VerifiedToken(jti, expiresAt, userId, deviceId, java.util.List.of("ONBOARDING"), java.util.List.of(JwtTokenService.SCOPE_DEVICE_VERIFY)));
+        when(jwtTokenService.verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_USER))
+                .thenReturn(new VerifiedToken(
+                                jti,
+                                expiresAt,
+                                userId,
+                                deviceId,
+                                List.of("USER"),
+                                List.of(JwtTokenService.SCOPE_USER)
+                        ));
 
         iamService.logout("Bearer device-token");
 
         verify(redisService).blacklistToken(eq(jti), eq(Duration.ofSeconds(300)));
-        verify(jwtTokenService).verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_DEVICE_VERIFY);
+        verify(jwtTokenService).verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_USER);
 
     }
 
