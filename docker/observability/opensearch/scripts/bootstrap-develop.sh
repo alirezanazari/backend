@@ -94,11 +94,37 @@ index_exists() {
     -I "$OPENSEARCH_URL/$1" >/dev/null 2>&1
 }
 
+alias_exists() {
+  curl -fsSk \
+    -u "$OPENSEARCH_USERNAME:$OPENSEARCH_PASSWORD" \
+    -I "$OPENSEARCH_URL/_alias/$1" >/dev/null 2>&1
+}
+
 create_write_alias() {
   alias_name=$1
   index_name="${alias_name}-000001"
 
+  if alias_exists "$alias_name"; then
+    return
+  fi
+
   if index_exists "$index_name"; then
+    tmp_file="/tmp/${index_name}-alias.json"
+    cat > "$tmp_file" <<EOF
+{
+  "actions": [
+    {
+      "add": {
+        "index": "$index_name",
+        "alias": "$alias_name",
+        "is_write_index": true
+      }
+    }
+  ]
+}
+EOF
+    curl_os POST "/_aliases" "$tmp_file" >/dev/null
+    rm -f "$tmp_file"
     return
   fi
 

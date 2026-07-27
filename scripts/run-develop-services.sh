@@ -518,12 +518,14 @@ if [[ "$START_DOCKER" == true ]]; then
     echo "Starting Docker infrastructure with observability..."
     docker compose "${COMPOSE_ARGS[@]}" --profile observability up -d
     wait_for_container_health redbank-postgres 120
+    wait_for_container_health redbank-redis 120
     wait_for_opensearch
     wait_for_url "Data Prepper" "http://localhost:${REDBANK_DATA_PREPPER_INGEST_PORT:-2021}/health" 180
   else
-    echo "Starting Docker PostgreSQL..."
-    docker compose "${COMPOSE_ARGS[@]}" up -d postgres
+    echo "Starting Docker PostgreSQL and Redis..."
+    docker compose "${COMPOSE_ARGS[@]}" up -d postgres redis
     wait_for_container_health redbank-postgres 120
+    wait_for_container_health redbank-redis 120
   fi
 fi
 
