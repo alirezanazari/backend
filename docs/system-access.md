@@ -138,7 +138,7 @@ Rules:
 | IAM | `POST /api/v1/iam/register` | `PUBLIC` | Creates user identity and limited onboarding token. Optionally accepts the anonymous onboarding token to adopt the session's verified phone and device. |
 | IAM | `POST /api/v1/iam/login` | `PUBLIC` | Returns user token, device verification requirement, or anonymous onboarding token when `reason=REGISTER`. |
 | IAM | `POST /api/v1/iam/device-verify` | `ONBOARDING` | Requires limited token or login challenge context; also accepts the anonymous onboarding token for phone challenges from `kyc/phone/set`. |
-| IAM | `POST /api/v1/iam/logout` | `USER` | Ends current client session/audit state. |
+| IAM | `POST /api/v1/iam/logout` | `USER` | Revokes only the bearer token used for the request. |
 | Account | `POST /api/v1/account/register` | `ONBOARDING` | Creates personal profile and default saving account. |
 | Account | `POST /api/v1/account/close` | `USER` | User can close only owned accounts. |
 | Account | `POST /api/v1/account/open` | `USER` | User can reopen only own closed account/profile. |

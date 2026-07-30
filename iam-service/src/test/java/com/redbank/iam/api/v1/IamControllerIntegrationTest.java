@@ -13,6 +13,7 @@ import com.redbank.iam.domain.OutboxEventRecord;
 import com.redbank.iam.domain.OutboxEventStatus;
 import com.redbank.iam.infrastructure.OutboxEventRepository;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +37,9 @@ import static com.redbank.iam.jooq.tables.Devices.DEVICES;
 import static com.redbank.iam.jooq.tables.OtpChallenges.OTP_CHALLENGES;
 import static com.redbank.iam.jooq.tables.OutboxEvents.OUTBOX_EVENTS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -221,6 +224,50 @@ class IamControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.deviceVerificationRequired").value(false))
                 .andExpect(jsonPath("$.data.challengeId").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
+    }
+
+    @Test
+    void logoutReturnsSuccessEnvelopeAndRevokesCurrentToken() throws Exception {
+        RegistrationData data = registrationData();
+        String fingerprint = "fingerprint-logout-" + data.sequence();
+        register(data).andExpect(status().isCreated());
+
+        JsonNode login = objectMapper.readTree(login(data, fingerprint)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String limitedToken = login.path("data").path("accessToken").asText();
+        String challengeId = login.path("data").path("challengeId").asText();
+
+        JsonNode verification = objectMapper.readTree(verifyDevice(limitedToken, challengeId)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+        String userToken = verification.path("data").path("accessToken").asText();
+
+        mockMvc.perform(post("/api/v1/iam/logout")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "context": {
+                                    "requestId": "req-logout",
+                                    "account": null,
+                                    "os": null,
+                                    "app": null,
+                                    "device": null,
+                                    "network": null
+                                  },
+                                  "data": {}
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.context.status.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data").value(org.hamcrest.Matchers.nullValue()));
+
+        verify(redisService).blacklistToken(anyString(), any(Duration.class));
     }
 
     @Test
@@ -908,4 +955,3 @@ class IamControllerIntegrationTest {
     }
 
 }
-
