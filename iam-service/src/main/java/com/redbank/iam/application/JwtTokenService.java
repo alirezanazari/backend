@@ -30,15 +30,18 @@ import org.springframework.stereotype.Service;
 public class JwtTokenService {
     public static final String SCOPE_ACCOUNT_REGISTER = "ONBOARDING_ACCOUNT_REGISTER";
     public static final String SCOPE_DEVICE_VERIFY = "ONBOARDING_DEVICE_VERIFY";
+    public static final String SCOPE_USER = "USER";
     public static final String SCOPE_PHONE_SET = "ONBOARDING_PHONE_SET";
     public static final String SCOPE_IAM_REGISTER = "ONBOARDING_IAM_REGISTER";
 
     private final JwtProperties jwtProperties;
     private final Clock clock;
+    private final RedisService redisService;
 
-    public JwtTokenService(JwtProperties jwtProperties, Clock clock) {
+    public JwtTokenService(JwtProperties jwtProperties, Clock clock, RedisService redisService) {
         this.jwtProperties = jwtProperties;
         this.clock = clock;
+        this.redisService = redisService;
     }
 
     public TokenResult createAccountRequiredToken(UUID userId) {
@@ -121,12 +124,18 @@ public class JwtTokenService {
         String token = extractBearerToken(authorizationHeader);
         JWTClaimsSet claims = verify(token);
 
+        String jti = claims.getJWTID();
+        if(redisService.isBlacklisted(jti)){
+            throw new IamUnauthorizedException("token already is in blacklist");
+        }
+        Instant expiresAt = claims.getExpirationTime().toInstant();
         UUID userId = parseUuid(claims.getSubject());
         UUID deviceId = parseNullableUuid(stringClaim(claims, "device_id"));
         List<String> scopes = stringListClaim(claims, "scope");
         List<String> roles = stringListClaim(claims, "roles");
 
-        VerifiedToken verifiedToken = new VerifiedToken(userId, deviceId, roles, scopes);
+
+        VerifiedToken verifiedToken = new VerifiedToken(jti, expiresAt, userId, deviceId, roles, scopes);
         if (!verifiedToken.hasScope(requiredScope)) {
             throw new IamUnauthorizedException("Unauthorized");
         }

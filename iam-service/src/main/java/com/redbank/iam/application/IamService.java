@@ -1,5 +1,6 @@
 package com.redbank.iam.application;
 
+import com.nimbusds.jwt.JWTClaimsSet;
 import com.redbank.contracts.common.Location;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.envelope.StatusDetail;
@@ -24,7 +25,9 @@ import com.redbank.iam.infrastructure.DeviceRepository;
 import com.redbank.iam.infrastructure.OtpChallengeRepository;
 import com.redbank.iam.infrastructure.UserRepository;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -33,6 +36,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+
 
 @Service
 public class IamService {
@@ -53,6 +58,7 @@ public class IamService {
     private final IamOutboxService iamOutboxService;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
+    private final RedisService redisService;
 
     public IamService(
             UserRepository userRepository,
@@ -69,7 +75,8 @@ public class IamService {
             KycCompletionClient kycCompletionClient,
             IamOutboxService iamOutboxService,
             Clock clock,
-            MeterRegistry meterRegistry
+            MeterRegistry meterRegistry,
+            RedisService redisService
     ) {
         this.userRepository = userRepository;
         this.credentialRepository = credentialRepository;
@@ -86,6 +93,7 @@ public class IamService {
         this.iamOutboxService = iamOutboxService;
         this.clock = clock;
         this.meterRegistry = meterRegistry;
+        this.redisService = redisService;
     }
 
     @Transactional
@@ -249,6 +257,18 @@ public class IamService {
                 true,
                 challenge.id().toString()
         );
+    }
+    @Transactional
+    public void logout(String authorizationHeader) {
+
+
+        VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_USER);
+        String jti = token.jti();
+        Instant expiresAt = token.expiresAt();
+        Instant now = clock.instant();
+        Duration ttl = Duration.between(now, expiresAt);
+        redisService.blacklistToken(jti, ttl);
+
     }
 
     @Transactional(noRollbackFor = IamUnauthorizedException.class)

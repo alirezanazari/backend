@@ -25,6 +25,7 @@ public class GatewayAuthenticationWebFilter implements WebFilter {
     public static final String ROLES_HEADER = "X-Authenticated-Roles";
     public static final String SCOPES_HEADER = "X-Authenticated-Scopes";
     public static final String INTERNAL_SERVICE_TOKEN_HEADER = "X-Internal-Service-Token";
+    private final TokenRevocationService tokenRevocationService;
 
     private static final List<String> UNTRUSTED_HEADERS = List.of(
             USER_ID_HEADER,
@@ -43,11 +44,13 @@ public class GatewayAuthenticationWebFilter implements WebFilter {
     public GatewayAuthenticationWebFilter(
             GatewayJwtService jwtService,
             GatewayAccessPolicy accessPolicy,
-            GatewayResponseWriter responseWriter
+            GatewayResponseWriter responseWriter,
+            TokenRevocationService tokenRevocationService
     ) {
         this.jwtService = jwtService;
         this.accessPolicy = accessPolicy;
         this.responseWriter = responseWriter;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @Override
@@ -71,15 +74,40 @@ public class GatewayAuthenticationWebFilter implements WebFilter {
         } catch (GatewayTokenException exception) {
             return responseWriter.write(sanitizedExchange, Status.unauthorized());
         }
-        if (!accessPolicy.permits(access, token)) {
-            Status forbidden = new Status(StatusCode.FORBIDDEN, "Forbidden", 403, List.of());
-            return responseWriter.write(sanitizedExchange, forbidden);
-        }
+        return tokenRevocationService.isRevoked(token.tokenId())
+                .flatMap(revoked -> {
 
-        ServerHttpRequest trustedRequest = sanitizedRequest.mutate()
-                .headers(headers -> addTrustedHeaders(headers, token))
-                .build();
-        return chain.filter(sanitizedExchange.mutate().request(trustedRequest).build());
+                    if (Boolean.TRUE.equals(revoked)) {
+                        return responseWriter.write(
+                                sanitizedExchange,
+                                Status.unauthorized()
+                        );
+                    }
+
+                    if (!accessPolicy.permits(access, token)) {
+                        Status forbidden = new Status(
+                                StatusCode.FORBIDDEN,
+                                "Forbidden",
+                                403,
+                                List.of()
+                        );
+
+                        return responseWriter.write(
+                                sanitizedExchange,
+                                forbidden
+                        );
+                    }
+
+                    ServerHttpRequest trustedRequest = sanitizedRequest.mutate()
+                            .headers(headers -> addTrustedHeaders(headers, token))
+                            .build();
+
+                    return chain.filter(
+                            sanitizedExchange.mutate()
+                                    .request(trustedRequest)
+                                    .build()
+                    );
+                });
     }
 
     private ServerHttpRequest sanitize(ServerHttpRequest request) {

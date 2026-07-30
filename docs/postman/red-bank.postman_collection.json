@@ -503,6 +503,32 @@
             "url": "{{gatewayBaseUrl}}/api/v1/iam/device-verify",
             "description": "Verifies the phoneChallengeId created by KYC Set Phone under the anonymous onboarding token. context.device.fingerprint is required: on success the verified phone and fingerprint bind to the onboarding session and Register (Onboarding Wizard) adopts them. Returns deviceId=null, no new token, accountCompletionStatus=ONBOARDING. In develop, otpCode=111111 works only when REDBANK_DEBUG_MOCK_OTP_ENABLED=true."
           }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{}}"
+            },
+            "url": "{{gatewayBaseUrl}}/api/v1/iam/logout",
+            "description": "Revokes the current bearer token used in the Authorization header. Run after Device Verify or Login has stored accessToken."
+          }
         }
       ]
     },

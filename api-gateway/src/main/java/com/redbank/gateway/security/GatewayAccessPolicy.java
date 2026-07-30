@@ -43,6 +43,9 @@ public class GatewayAccessPolicy {
                 || path.equals("/api/v1/feature-flags/targeting/update")) {
             return Access.ADMIN;
         }
+        if (path.equals("/api/v1/iam/logout")) {
+            return Access.AUTHENTICATED;
+        }
         if (isPublicServicePath(path)) {
             return Access.USER;
         }
@@ -65,6 +68,7 @@ public class GatewayAccessPolicy {
     public boolean permits(Access access, GatewayToken token) {
         return switch (access) {
             case PUBLIC, NOT_GATEWAY_API -> true;
+            case AUTHENTICATED -> true;
             case USER -> token.hasRole("USER");
             case ADMIN -> token.hasRole("ADMIN") || token.hasRole("SYSTEM");
             case ONBOARDING_ACCOUNT ->
@@ -78,6 +82,7 @@ public class GatewayAccessPolicy {
     private boolean isExactGatewayPath(String path) {
         return path.equals("/api/v1/iam/register")
                 || path.equals("/api/v1/iam/login")
+                || path.equals("/api/v1/iam/logout")
                 || path.equals("/api/v1/kyc/jobs/list")
                 || path.equals("/api/v1/security/key-exchange")
                 || path.equals("/api/v1/iam/device-verify")
@@ -120,6 +125,7 @@ public class GatewayAccessPolicy {
     public enum Access {
         NOT_GATEWAY_API,
         PUBLIC,
+        AUTHENTICATED,
         ONBOARDING_ACCOUNT,
         ONBOARDING_DEVICE,
         ONBOARDING_PHONE,

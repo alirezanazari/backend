@@ -51,6 +51,11 @@ public class IamController {
         return ResponseEntity.status(status.httpStatus())
                 .body(new ApiResponse<>(new ResponseContext(request.context().requestId(), null, status), response));
     }
+    @PostMapping("/logout")
+    public void logout(@RequestHeader(name = "Authorization", required = false) String  authorizationHeader){
+        System.out.println("######## LOGOUT CALLED ########");
+        iamService.logout(authorizationHeader);
+    }
 
     @PostMapping("/device-verify")
     public ResponseEntity<ApiResponse<DeviceVerifyResponse>> verifyDevice(

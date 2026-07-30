@@ -29,9 +29,11 @@ import com.redbank.iam.infrastructure.OtpChallengeRepository;
 import com.redbank.iam.infrastructure.UserRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,6 +52,7 @@ class IamServiceOtpChallengeTest {
     private final JwtTokenService jwtTokenService = mock(JwtTokenService.class);
     private final OtpService otpService = mock(OtpService.class);
     private final AccountCompletionClient accountCompletionClient = mock(AccountCompletionClient.class);
+    private final RedisService redisService = mock(RedisService.class);
     private final IamService iamService = new IamService(
             userRepository,
             credentialRepository,
@@ -65,7 +68,9 @@ class IamServiceOtpChallengeTest {
             mock(KycCompletionClient.class),
             mock(IamOutboxService.class),
             Clock.fixed(NOW, ZoneOffset.UTC),
-            new SimpleMeterRegistry()
+            new SimpleMeterRegistry(),
+            redisService
+
     );
 
     @Test
@@ -110,16 +115,41 @@ class IamServiceOtpChallengeTest {
         );
         verify(otpChallengeRepository, times(1)).save(any(OtpChallengeRecord.class));
     }
+    @Test
+    public void logoutAddsTokenToBlacklist(){
+        String jti = UUID.randomUUID().toString();
+        Instant expiresAt = NOW.plusSeconds(300);
+        UUID userId = UUID.randomUUID();
+        UUID deviceId = UUID.randomUUID();
+
+        when(jwtTokenService.verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_USER))
+                .thenReturn(new VerifiedToken(
+                                jti,
+                                expiresAt,
+                                userId,
+                                deviceId,
+                                List.of("USER"),
+                                List.of(JwtTokenService.SCOPE_USER)
+                        ));
+
+        iamService.logout("Bearer device-token");
+
+        verify(redisService).blacklistToken(eq(jti), eq(Duration.ofSeconds(300)));
+        verify(jwtTokenService).verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_USER);
+
+    }
 
     @Test
     void wrongOtpConsumesAttemptBeforeUnauthorizedResponse() {
+        String jti = UUID.randomUUID().toString();
+        Instant expiresAt = NOW.plusSeconds(300);
         UUID userId = UUID.randomUUID();
         UUID deviceId = UUID.randomUUID();
         UUID challengeId = UUID.randomUUID();
         OtpChallengeRecord challenge = challenge(userId, deviceId, challengeId, 4, 5);
 
         when(jwtTokenService.verifyBearerToken("Bearer device-token", JwtTokenService.SCOPE_DEVICE_VERIFY))
-                .thenReturn(new VerifiedToken(userId, deviceId, java.util.List.of("ONBOARDING"), java.util.List.of(JwtTokenService.SCOPE_DEVICE_VERIFY)));
+                .thenReturn(new VerifiedToken(jti, expiresAt, userId, deviceId, java.util.List.of("ONBOARDING"), java.util.List.of(JwtTokenService.SCOPE_DEVICE_VERIFY)));
         when(otpChallengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
         when(otpService.matches("000000", "otp-hash")).thenReturn(false);
 
