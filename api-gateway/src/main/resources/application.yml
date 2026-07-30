@@ -1,4 +1,8 @@
 spring:
+  data:
+    redis:
+      host: ${REDBANK_REDIS_HOST:localhost}
+      port: ${REDBANK_REDIS_PORT:6379}
   application:
     name: api-gateway
     version: ${REDBANK_SERVICE_VERSION:0.1.0-SNAPSHOT}
