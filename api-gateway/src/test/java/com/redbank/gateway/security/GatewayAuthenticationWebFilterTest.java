@@ -1,6 +1,7 @@
 package com.redbank.gateway.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.redbank.gateway.config.DebugProperties;
@@ -18,10 +19,12 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 class GatewayAuthenticationWebFilterTest {
     private static final String SECRET = "gateway-test-signing-secret-at-least-32-bytes";
-
+    TokenRevocationService tokenRevocationService = mock(TokenRevocationService.class);
     @Test
     void rejectsMissingTokenForProtectedRoute() {
         GatewayAuthenticationWebFilter filter = filter(new RejectingJwtService());
@@ -155,10 +158,13 @@ class GatewayAuthenticationWebFilterTest {
     }
 
     private GatewayAuthenticationWebFilter filter(GatewayJwtService jwtService) {
+        when(tokenRevocationService.isRevoked(anyString()))
+                .thenReturn(Mono.just(false));
         return new GatewayAuthenticationWebFilter(
                 jwtService,
                 new GatewayAccessPolicy(),
-                new GatewayResponseWriter(new ObjectMapper())
+                new GatewayResponseWriter(new ObjectMapper()),
+                tokenRevocationService
         );
     }
 
