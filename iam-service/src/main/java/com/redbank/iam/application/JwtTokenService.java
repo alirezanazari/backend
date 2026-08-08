@@ -19,8 +19,8 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.text.ParseException;
 import java.time.Clock;
-import java.util.Base64;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -125,15 +125,14 @@ public class JwtTokenService {
         JWTClaimsSet claims = verify(token);
 
         String jti = claims.getJWTID();
-        if(redisService.isBlacklisted(jti)){
-            throw new IamUnauthorizedException("token already is in blacklist");
+        if (redisService.isBlacklisted(jti)) {
+            throw new IamUnauthorizedException("Unauthorized");
         }
         Instant expiresAt = claims.getExpirationTime().toInstant();
         UUID userId = parseUuid(claims.getSubject());
         UUID deviceId = parseNullableUuid(stringClaim(claims, "device_id"));
         List<String> scopes = stringListClaim(claims, "scope");
         List<String> roles = stringListClaim(claims, "roles");
-
 
         VerifiedToken verifiedToken = new VerifiedToken(jti, expiresAt, userId, deviceId, roles, scopes);
         if (!verifiedToken.hasScope(requiredScope)) {

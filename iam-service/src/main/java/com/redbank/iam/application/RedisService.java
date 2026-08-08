@@ -1,26 +1,37 @@
 package com.redbank.iam.application;
 
-import org.springframework.data.redis.core.RedisTemplate;
+import java.time.Duration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-
 @Service
 public class RedisService {
+    private static final String BLACKLIST_PREFIX = "blacklist:";
+
     private final StringRedisTemplate redisTemplate;
+
     public RedisService(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 
-
-    public void blacklistToken(String jti, Duration ttl){
-        String key = "blacklist:" + jti;
-        String value = "revoked";
-        redisTemplate.opsForValue().set(key, "revoked", ttl);
+    public void blacklistToken(String jti, Duration ttl) {
+        if (jti == null || jti.isBlank()) {
+            throw new IllegalArgumentException("jti is required");
+        }
+        if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+            return;
+        }
+        redisTemplate.opsForValue().set(key(jti), "revoked", ttl);
     }
-    public Boolean isBlacklisted(String jti){
-        String key = "blacklist:" + jti;
-        return redisTemplate.hasKey(key);
+
+    public boolean isBlacklisted(String jti) {
+        if (jti == null || jti.isBlank()) {
+            return true;
+        }
+        return Boolean.TRUE.equals(redisTemplate.hasKey(key(jti)));
+    }
+
+    private String key(String jti) {
+        return BLACKLIST_PREFIX + jti;
     }
 }

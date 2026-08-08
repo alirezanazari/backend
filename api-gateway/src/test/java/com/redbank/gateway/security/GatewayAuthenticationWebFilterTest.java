@@ -157,6 +157,34 @@ class GatewayAuthenticationWebFilterTest {
                 .isEqualTo("onboarding-session-1");
     }
 
+    @Test
+    void rejectsRevokedTokenBeforeForwardingProtectedRoute() {
+        GatewayToken token = new GatewayToken(
+                "verified-user",
+                "verified-profile",
+                "verified-device",
+                "revoked-token",
+                List.of("USER"),
+                List.of("USER")
+        );
+        GatewayAuthenticationWebFilter filter = filter(new FixedJwtService(token));
+        AtomicReference<Boolean> forwarded = new AtomicReference<>(false);
+        ServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/v1/pfm/box-presets/list")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token")
+                        .build()
+        );
+        when(tokenRevocationService.isRevoked("revoked-token")).thenReturn(Mono.just(true));
+
+        StepVerifier.create(filter.filter(exchange, current -> {
+            forwarded.set(true);
+            return Mono.empty();
+        })).verifyComplete();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(forwarded.get()).isFalse();
+    }
+
     private GatewayAuthenticationWebFilter filter(GatewayJwtService jwtService) {
         when(tokenRevocationService.isRevoked(anyString()))
                 .thenReturn(Mono.just(false));

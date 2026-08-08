@@ -18,7 +18,7 @@ For token, admin, internal, and debug access rules, see [System Access](./system
 | IAM | `POST /api/v1/iam/register` | Public | Register user identity and initial credentials. |
 | IAM | `POST /api/v1/iam/login` | Public | Authenticate user with username and password, or start an anonymous onboarding session with `reason`. |
 | IAM | `POST /api/v1/iam/device-verify` | Conditional | Verify device using 6-digit OTP. |
-| IAM | `POST /api/v1/iam/logout` | Required | End current client login session. |
+| IAM | `POST /api/v1/iam/logout` | Required | Revoke the current bearer token. |
 | Account | `POST /api/v1/account/register` | Required | Create personal profile and default saving account. |
 | Account | `POST /api/v1/account/close` | Required | Close an owned account when allowed. |
 | Account | `POST /api/v1/account/open` | Required | Reopen a closed personal account/profile when login requires reopening. |
@@ -374,7 +374,7 @@ iam-service
 Purpose:
 
 ```text
-end current login session from client perspective
+revoke the current USER bearer token
 ```
 
 Authentication:
@@ -385,9 +385,11 @@ required
 
 Important rules:
 
-- Since JWT access tokens are stateless, logout mainly ends the current client session.
-- Server-side login session audit should be updated if login sessions are stored.
-- Token revocation before expiration is not guaranteed unless token deny-list is added later.
+- Send the USER access token to revoke in the `Authorization: Bearer <token>` header.
+- Logout revokes only the bearer token used for the request; it does not logout all devices.
+- The IAM service stores the token `jti` in Redis as `blacklist:<jti>` with a TTL ending at the original token expiration.
+- The IAM service and API Gateway reject deny-listed tokens with `401 Unauthorized`.
+- Request `data` is an empty object (`{}`); successful response `data` is `null`.
 
 ## Account Requests
 
