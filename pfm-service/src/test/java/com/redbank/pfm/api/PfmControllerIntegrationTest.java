@@ -527,6 +527,38 @@ class PfmControllerIntegrationTest {
                         }
                         """.formatted(contextAccountNumber, profileId, data)));
     }
+    @Test
+    void addFundsToBoxShouldTransferMoneySuccessfully() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.ACTIVE
+        );
+
+        String accountNumber = "888888888888888888";
+        when(ledgerPfmClient.getBalance(accountNumber))
+                .thenReturn(balance("25000000"));
+        api(
+                "/api/v1/pfm/addFundsToBox",
+                token(userId, profileId),
+                profileId,
+                accountNumber,
+                """
+                        {
+                        "boxId":"%s",
+                        "amount": %s,
+                        "idempotencyKey": "%s",
+                        "description": "add funds to box"
+                        }
+                        """.formatted(boxId, "25000000", UUID.randomUUID())
+        )
+                .andExpect(status().isOk());
+
+    }
 
     private UUID insertBox(
             UUID userId,

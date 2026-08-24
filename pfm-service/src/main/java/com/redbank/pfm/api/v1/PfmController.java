@@ -104,6 +104,23 @@ public class PfmController {
                 response
         ));
     }
+    @PostMapping("/addFundsToBox")
+    public ResponseEntity<ApiResponse<BoxTransferResponse>> addFundsToBox(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<BoxTransferRequest> request
+    ){
+        BoxTransferResponse response = pfmService.addFundsToBox(
+                authorizationHeader,
+                request.context(),
+                request.data()
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+                request.context().requestId(),
+                profileId(request),
+                response
+        ));
+
+    }
 
     @PostMapping("/transactions/list")
     public ResponseEntity<ApiResponse<ListPfmTransactionsResponse>> listTransactions(

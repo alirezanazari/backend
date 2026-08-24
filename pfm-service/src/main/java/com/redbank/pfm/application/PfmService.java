@@ -1,10 +1,14 @@
 package com.redbank.pfm.application;
 
+import com.redbank.account.api.v1.dto.GetAccountBalanceResponse;
+import com.redbank.account.application.LedgerBalanceClient;
+import com.redbank.account.domain.BankAccountRecord;
 import com.redbank.contracts.account.AccountStatus;
 import com.redbank.contracts.account.AccountSummary;
 import com.redbank.contracts.account.AccountType;
 import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.common.Image;
+import com.redbank.contracts.common.Money;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.pfm.BoxPresetSummary;
@@ -24,9 +28,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+
+import com.redbank.transfer.application.LedgerTransferClient;
+import com.redbank.transfer.application.LedgerTransferResult;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+
 
 @Service
 public class PfmService {
@@ -37,6 +46,9 @@ public class PfmService {
     private final LedgerPfmClient ledgerPfmClient;
     private final PfmProperties pfmProperties;
     private final Clock clock;
+    private final LedgerTransferClient ledgerTransferClient;
+
+
 
     public PfmService(
             BoxPresetRepository boxPresetRepository,
@@ -45,7 +57,8 @@ public class PfmService {
             VaultAccountClient vaultAccountClient,
             LedgerPfmClient ledgerPfmClient,
             PfmProperties pfmProperties,
-            Clock clock
+            Clock clock,
+            LedgerTransferClient ledgerTransferClient
     ) {
         this.boxPresetRepository = boxPresetRepository;
         this.boxRepository = boxRepository;
@@ -54,6 +67,8 @@ public class PfmService {
         this.ledgerPfmClient = ledgerPfmClient;
         this.pfmProperties = pfmProperties;
         this.clock = clock;
+        this.ledgerTransferClient = ledgerTransferClient;
+
     }
 
     @Transactional(readOnly = true)
@@ -194,6 +209,62 @@ public class PfmService {
 
 
     }
+    @Transactional
+    public BoxTransferResponse addFundsToBox(
+            String authorizationHeader,
+            RequestContext context,
+            BoxTransferRequest request){
+        //Auth
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        UUID profileId = resolveProfileId(token, context);
+
+        //box
+        UUID boxId = parseUuid(request.boxId(), "data.boxId", "BOX_ID_FORMAT");
+        BoxRecord box = boxRepository.findByIdAndOwner(boxId, token.userId(), profileId)
+                .orElseThrow(() -> new PfmNotFoundException("Box was not found"));
+        if (box.status() == BoxStatus.INACTIVE) {
+            throw new PfmBusinessRuleException("Box is already Inactive.");
+        }
+        String boxAccountNumber = box.accountNumber();
+
+
+        //the amount user give
+        BigDecimal amount = request.amount();
+
+
+        // getBalance
+        String accountNumber = context.account().accountNumber();
+        BalanceSummary balance = ledgerPfmClient.getBalance(accountNumber);
+        if(balance.availableBalance().amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PfmBusinessRuleException("Balance Shouldn't be zero.");
+        }
+        if(amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PfmBusinessRuleException("Amount Shouldn't be zero.");
+        }
+        if(amount.compareTo(balance.availableBalance().amount()) > 0 ){
+            throw new PfmBusinessRuleException("Amount Shouldn't be grater than balance.");
+        }
+
+        // Transfer
+        UUID transferId = UUID.randomUUID();
+        String idempotencyKey = UUID.randomUUID().toString();
+        String currency = balance.currentBalance().currency();
+        LedgerTransferResult result = ledgerTransferClient.post(
+                transferId.toString(),
+                accountNumber,
+                boxAccountNumber,
+                new Money(amount, currency),
+                idempotencyKey
+        );
+        if(result == null || result.ledgerTransactionId() == null || result.ledgerTransactionId().isBlank()){
+            throw new PfmBusinessRuleException("Transfer failed.");
+        }
+
+        return new BoxTransferResponse(transferId,
+                                       box.status(),
+                                       Instant.now());
+    }
+
     @Transactional
     public EditBoxResponse editBox(
             String authorizationHeader,
