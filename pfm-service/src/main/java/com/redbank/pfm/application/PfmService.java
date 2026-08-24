@@ -1,8 +1,4 @@
 package com.redbank.pfm.application;
-
-import com.redbank.account.api.v1.dto.GetAccountBalanceResponse;
-import com.redbank.account.application.LedgerBalanceClient;
-import com.redbank.account.domain.BankAccountRecord;
 import com.redbank.contracts.account.AccountStatus;
 import com.redbank.contracts.account.AccountSummary;
 import com.redbank.contracts.account.AccountType;
