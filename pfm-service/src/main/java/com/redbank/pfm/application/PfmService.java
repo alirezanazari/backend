@@ -11,6 +11,8 @@ import com.redbank.contracts.pfm.BoxPresetSummary;
 import com.redbank.contracts.pfm.BoxStatus;
 import com.redbank.contracts.pfm.BoxSummary;
 import com.redbank.contracts.pfm.PfmTransactionSummary;
+import com.redbank.contracts.transfer.DestinationType;
+import com.redbank.contracts.transfer.TransferMethod;
 import com.redbank.pfm.api.v1.dto.*;
 import com.redbank.pfm.config.PfmProperties;
 import com.redbank.pfm.domain.BoxPresetRecord;
@@ -30,7 +32,8 @@ import com.redbank.transfer.application.LedgerTransferResult;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.redbank.pfm.application.PfmTransferResult;
+import static com.sun.beans.introspect.PropertyInfo.Name.description;
 
 
 @Service
@@ -242,23 +245,27 @@ public class PfmService {
         }
 
         // Transfer
-        UUID transferId = UUID.randomUUID();
         String idempotencyKey = UUID.randomUUID().toString();
         String currency = balance.currentBalance().currency();
-        LedgerTransferResult result = ledgerTransferClient.post(
-                transferId.toString(),
+
+        PfmTransferResult result = pfmTransferClient.transfer(
                 accountNumber,
                 boxAccountNumber,
                 new Money(amount, currency),
                 idempotencyKey
         );
-        if(result == null || result.ledgerTransactionId() == null || result.ledgerTransactionId().isBlank()){
+
+        if (result == null
+                || result.ledgerTransactionId() == null
+                || result.ledgerTransactionId().isBlank()) {
             throw new PfmBusinessRuleException("Transfer failed.");
         }
 
-        return new BoxTransferResponse(transferId,
-                                       box.status(),
-                                       Instant.now());
+        return new BoxTransferResponse(
+                UUID.fromString(result.transferId()),
+                box.status(),
+                Instant.now()
+        );
     }
 
     @Transactional
