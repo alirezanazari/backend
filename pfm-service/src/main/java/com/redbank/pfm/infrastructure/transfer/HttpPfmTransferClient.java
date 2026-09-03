@@ -92,6 +92,8 @@ public class HttpPfmTransferClient implements PfmTransferClient {
         } catch (RestClientResponseException exception) {
             throw downstreamFailure(exception);
         } catch (RestClientException exception) {
+            exception.printStackTrace();
+
             throw new PfmExternalServiceException(
                     "Transfer service call failed",
                     exception
