@@ -192,18 +192,13 @@ public class PfmService {
                 closeBox.status(),
                 closeBox.closedAt()
         );
-
-
     }
-
     public BoxTransferResponse addFundsToBox(
             String authorizationHeader,
             RequestContext context,
             BoxTransferRequest request){
         //Auth
         VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
-        UUID profileId = resolveProfileId(token, context);
-
         // Validate context account
         if (context == null || context.account() == null) {
             throw validation(
@@ -212,8 +207,8 @@ public class PfmService {
                     "ACCOUNT_REQUIRED"
             );
         }
+        UUID profileId = resolveProfileId(token, context);
         String accountNumber = trimToNull(context.account().accountNumber());
-
         if (accountNumber == null) {
             throw validation(
                     "context.account.accountNumber",
@@ -238,7 +233,7 @@ public class PfmService {
             );
         }
         //the amount user give
-        BigDecimal amount = request.amount();
+        Money amount = request.amount();
 
         if (amount == null) {
             throw validation(
@@ -248,17 +243,18 @@ public class PfmService {
             );
         }
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+        if (amount.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new PfmBusinessRuleException(
                     "Amount must be greater than zero."
             );
         }
 
         // Transfer
+        String idempotencyKey = request.idempotencyKey();
         PfmTransferResult result = pfmTransferClient.transfer(
                 accountNumber,
                 boxAccountNumber,
-                new Money(amount, currency),
+                amount,
                 idempotencyKey
         );
 

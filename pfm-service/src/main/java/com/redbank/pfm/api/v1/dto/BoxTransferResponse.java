@@ -1,12 +1,9 @@
 package com.redbank.pfm.api.v1.dto;
-
-import com.redbank.contracts.pfm.BoxStatus;
-
+import com.redbank.contracts.transfer.TransferStatus;
 import java.time.Instant;
 import java.util.UUID;
-
 public record BoxTransferResponse(UUID transferId,
-                                  BoxStatus status,
+                                  TransferStatus status,
                                   Instant createdAt) {
 
 }
