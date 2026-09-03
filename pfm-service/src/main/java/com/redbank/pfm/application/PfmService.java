@@ -11,31 +11,21 @@ import com.redbank.contracts.pfm.BoxPresetSummary;
 import com.redbank.contracts.pfm.BoxStatus;
 import com.redbank.contracts.pfm.BoxSummary;
 import com.redbank.contracts.pfm.PfmTransactionSummary;
-import com.redbank.contracts.transfer.DestinationType;
-import com.redbank.contracts.transfer.TransferMethod;
 import com.redbank.pfm.api.v1.dto.*;
 import com.redbank.pfm.config.PfmProperties;
 import com.redbank.pfm.domain.BoxPresetRecord;
 import com.redbank.pfm.domain.BoxRecord;
 import com.redbank.pfm.infrastructure.BoxPresetRepository;
 import com.redbank.pfm.infrastructure.BoxRepository;
-
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-
-import com.redbank.transfer.application.LedgerTransferClient;
-import com.redbank.transfer.application.LedgerTransferResult;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.redbank.pfm.application.PfmTransferResult;
-import static com.sun.beans.introspect.PropertyInfo.Name.description;
-
-
 @Service
 public class PfmService {
     private final BoxPresetRepository boxPresetRepository;
@@ -45,9 +35,7 @@ public class PfmService {
     private final LedgerPfmClient ledgerPfmClient;
     private final PfmProperties pfmProperties;
     private final Clock clock;
-    private final LedgerTransferClient ledgerTransferClient;
-
-
+    private final PfmTransferClient pfmTransferClient;
 
     public PfmService(
             BoxPresetRepository boxPresetRepository,
@@ -56,8 +44,8 @@ public class PfmService {
             VaultAccountClient vaultAccountClient,
             LedgerPfmClient ledgerPfmClient,
             PfmProperties pfmProperties,
-            Clock clock,
-            LedgerTransferClient ledgerTransferClient
+            Clock clock, PfmTransferClient pfmTransferClient
+
     ) {
         this.boxPresetRepository = boxPresetRepository;
         this.boxRepository = boxRepository;
@@ -66,8 +54,7 @@ public class PfmService {
         this.ledgerPfmClient = ledgerPfmClient;
         this.pfmProperties = pfmProperties;
         this.clock = clock;
-        this.ledgerTransferClient = ledgerTransferClient;
-
+        this.pfmTransferClient = pfmTransferClient;
     }
 
     @Transactional(readOnly = true)
@@ -208,7 +195,7 @@ public class PfmService {
 
 
     }
-    @Transactional
+
     public BoxTransferResponse addFundsToBox(
             String authorizationHeader,
             RequestContext context,
@@ -216,6 +203,24 @@ public class PfmService {
         //Auth
         VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
         UUID profileId = resolveProfileId(token, context);
+
+        // Validate context account
+        if (context == null || context.account() == null) {
+            throw validation(
+                    "context.account",
+                    "account is required",
+                    "ACCOUNT_REQUIRED"
+            );
+        }
+        String accountNumber = trimToNull(context.account().accountNumber());
+
+        if (accountNumber == null) {
+            throw validation(
+                    "context.account.accountNumber",
+                    "account number is required",
+                    "ACCOUNT_NUMBER_REQUIRED"
+            );
+        }
 
         //box
         UUID boxId = parseUuid(request.boxId(), "data.boxId", "BOX_ID_FORMAT");
@@ -226,28 +231,30 @@ public class PfmService {
         }
         String boxAccountNumber = box.accountNumber();
 
-
+        // Prevent self-transfer
+        if (accountNumber.equals(boxAccountNumber)) {
+            throw new PfmBusinessRuleException(
+                    "Source account and box account cannot be the same."
+            );
+        }
         //the amount user give
         BigDecimal amount = request.amount();
 
+        if (amount == null) {
+            throw validation(
+                    "data.amount",
+                    "amount is required",
+                    "AMOUNT_REQUIRED"
+            );
+        }
 
-        // getBalance
-        String accountNumber = context.account().accountNumber();
-        BalanceSummary balance = ledgerPfmClient.getBalance(accountNumber);
-        if(balance.availableBalance().amount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PfmBusinessRuleException("Balance Shouldn't be zero.");
-        }
-        if(amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new PfmBusinessRuleException("Amount Shouldn't be zero.");
-        }
-        if(amount.compareTo(balance.availableBalance().amount()) > 0 ){
-            throw new PfmBusinessRuleException("Amount Shouldn't be grater than balance.");
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PfmBusinessRuleException(
+                    "Amount must be greater than zero."
+            );
         }
 
         // Transfer
-        String idempotencyKey = UUID.randomUUID().toString();
-        String currency = balance.currentBalance().currency();
-
         PfmTransferResult result = pfmTransferClient.transfer(
                 accountNumber,
                 boxAccountNumber,
@@ -255,16 +262,22 @@ public class PfmService {
                 idempotencyKey
         );
 
-        if (result == null
-                || result.ledgerTransactionId() == null
-                || result.ledgerTransactionId().isBlank()) {
-            throw new PfmBusinessRuleException("Transfer failed.");
+        if (result == null) {
+            throw new PfmBusinessRuleException(
+                    "Transfer failed."
+            );
+        }
+
+        if (result.transferId() == null || result.transferId().isBlank()) {
+            throw new PfmBusinessRuleException(
+                    "Transfer failed."
+            );
         }
 
         return new BoxTransferResponse(
                 UUID.fromString(result.transferId()),
-                box.status(),
-                Instant.now()
+                result.status(),
+                clock.instant()
         );
     }
 
