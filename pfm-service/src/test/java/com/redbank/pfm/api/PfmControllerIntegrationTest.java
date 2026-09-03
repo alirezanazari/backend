@@ -15,7 +15,10 @@ import com.redbank.contracts.common.PageRequest;
 import com.redbank.contracts.common.PageResponse;
 import com.redbank.contracts.ledger.LedgerDirection;
 import com.redbank.contracts.pfm.BoxStatus;
+import com.redbank.contracts.transfer.TransferStatus;
 import com.redbank.pfm.application.LedgerPfmClient;
+import com.redbank.pfm.application.PfmTransferClient;
+import com.redbank.pfm.application.PfmTransferResult;
 import com.redbank.pfm.application.VaultAccountClient;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -86,10 +90,13 @@ class PfmControllerIntegrationTest {
     @MockitoBean
     private LedgerPfmClient ledgerPfmClient;
 
+    @MockitoBean
+    private PfmTransferClient pfmTransferClient;
+
     @BeforeEach
     void clean() {
         dsl.deleteFrom(BOXES).execute();
-        reset(vaultAccountClient, ledgerPfmClient);
+        reset(vaultAccountClient, ledgerPfmClient, pfmTransferClient);
         when(ledgerPfmClient.getBalance(anyString())).thenReturn(balance("250000.00"));
     }
 
@@ -542,6 +549,20 @@ class PfmControllerIntegrationTest {
         String accountNumber = "888888888888888888";
         when(ledgerPfmClient.getBalance(accountNumber))
                 .thenReturn(balance("25000000"));
+
+        String transferId = UUID.randomUUID().toString();
+        when(pfmTransferClient.transfer(
+                eq(accountNumber),
+                eq(VAULT_ACCOUNT),
+                any(Money.class),
+                anyString()
+        )).thenReturn(
+                new PfmTransferResult(
+                        transferId,
+                        TransferStatus.SUCCESS,
+                        "ledger-transaction-1"
+                )
+        );
         api(
                 "/api/v1/pfm/addFundsToBox",
                 token(userId, profileId),
