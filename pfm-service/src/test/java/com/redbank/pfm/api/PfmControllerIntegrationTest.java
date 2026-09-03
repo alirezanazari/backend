@@ -550,7 +550,10 @@ class PfmControllerIntegrationTest {
                 """
                         {
                         "boxId":"%s",
-                        "amount": %s,
+                        "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                        },
                         "idempotencyKey": "%s",
                         "description": "add funds to box"
                         }
