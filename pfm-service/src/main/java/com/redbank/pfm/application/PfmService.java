@@ -277,6 +277,90 @@ public class PfmService {
         );
     }
 
+    public AccountTransferResponse addFundsToAccount(
+            String authorizationHeader,
+            RequestContext context,
+            AccountTransferRequest request
+    ){
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        if (context == null || context.account() == null) {
+            throw validation(
+                    "context.account",
+                    "account is required",
+                    "ACCOUNT_REQUIRED"
+            );
+        }
+        // Account
+        UUID profileId = resolveProfileId(token, context);
+        String accountNumber = trimToNull(context.account().accountNumber());
+        if (accountNumber == null) {
+            throw validation(
+                    "context.account.accountNumber",
+                    "account number is required",
+                    "ACCOUNT_NUMBER_REQUIRED"
+            );
+        }
+        //box
+        UUID boxId = parseUuid(request.boxId(), "data.boxId", "BOX_ID_FORMAT");
+        BoxRecord box = boxRepository.findByIdAndOwner(boxId, token.userId(), profileId)
+                .orElseThrow(() -> new PfmNotFoundException("Box was not found"));
+        if (box.status() == BoxStatus.INACTIVE) {
+            throw new PfmBusinessRuleException("Box is already Inactive.");
+        }
+        String boxAccountNumber = box.accountNumber();
+
+        // Prevent self-transfer
+        if (accountNumber.equals(boxAccountNumber)) {
+            throw new PfmBusinessRuleException(
+                    "Source account and box account cannot be the same."
+            );
+        }
+        //the amount user give
+        Money amount = request.amount();
+
+        if (amount == null) {
+            throw validation(
+                    "data.amount",
+                    "amount is required",
+                    "AMOUNT_REQUIRED"
+            );
+        }
+
+        if (amount.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PfmBusinessRuleException(
+                    "Amount must be greater than zero."
+            );
+        }
+        // Transfer
+        String idempotencyKey = request.idempotencyKey();
+        PfmTransferResult result = pfmTransferClient.transfer(
+                boxAccountNumber,
+                accountNumber,
+                amount,
+                idempotencyKey
+        );
+
+        if (result == null) {
+            throw new PfmBusinessRuleException(
+                    "Transfer failed."
+            );
+        }
+
+        if (result.transferId() == null || result.transferId().isBlank()) {
+            throw new PfmBusinessRuleException(
+                    "Transfer failed."
+            );
+        }
+
+        return new AccountTransferResponse(
+                UUID.fromString(result.transferId()),
+                result.status(),
+                clock.instant()
+        );
+
+
+    }
+
     @Transactional
     public EditBoxResponse editBox(
             String authorizationHeader,

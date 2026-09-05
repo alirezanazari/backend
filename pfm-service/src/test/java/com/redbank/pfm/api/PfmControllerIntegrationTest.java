@@ -576,6 +576,55 @@ class PfmControllerIntegrationTest {
                             "currency": "IRR"
                         },
                         "idempotencyKey": "%s",
+                        "description": "add funds to Account"
+                        }
+                        """.formatted(boxId, "25000000", UUID.randomUUID())
+        )
+                .andExpect(status().isOk());
+
+    }
+    @Test
+    void addFundsToAccountShouldTransferMoneySuccessfully() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.ACTIVE
+        );
+
+        String accountNumber = "888888888888888888";
+        when(ledgerPfmClient.getBalance(accountNumber))
+                .thenReturn(balance("25000000"));
+
+        String transferId = UUID.randomUUID().toString();
+        when(pfmTransferClient.transfer(
+                eq(VAULT_ACCOUNT),
+                eq(accountNumber),
+                any(Money.class),
+                anyString()
+        )).thenReturn(
+                new PfmTransferResult(
+                        transferId,
+                        TransferStatus.SUCCESS,
+                        "ledger-transaction-1"
+                )
+        );
+        api(
+                "/api/v1/pfm/addFundsToAccount",
+                token(userId, profileId),
+                profileId,
+                accountNumber,
+                """
+                        {
+                        "boxId":"%s",
+                        "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                        },
+                        "idempotencyKey": "%s",
                         "description": "add funds to box"
                         }
                         """.formatted(boxId, "25000000", UUID.randomUUID())

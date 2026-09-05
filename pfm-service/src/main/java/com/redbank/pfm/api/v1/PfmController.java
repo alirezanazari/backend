@@ -121,6 +121,23 @@ public class PfmController {
         ));
 
     }
+    @PostMapping("/addFundsToAccount")
+    public ResponseEntity<ApiResponse<AccountTransferResponse>> addFundsToAccount(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<AccountTransferRequest> request
+    ){
+        AccountTransferResponse response = pfmService.addFundsToAccount(
+                authorizationHeader,
+                request.context(),
+                request.data()
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+                request.context().requestId(),
+                profileId(request),
+                response
+        ));
+
+    }
 
     @PostMapping("/transactions/list")
     public ResponseEntity<ApiResponse<ListPfmTransactionsResponse>> listTransactions(
