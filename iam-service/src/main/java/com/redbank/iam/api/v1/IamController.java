@@ -8,6 +8,7 @@ import com.redbank.iam.api.v1.dto.DeviceVerifyRequest;
 import com.redbank.iam.api.v1.dto.DeviceVerifyResponse;
 import com.redbank.iam.api.v1.dto.LoginRequest;
 import com.redbank.iam.api.v1.dto.LoginResponse;
+import com.redbank.iam.api.v1.dto.LogoutRequest;
 import com.redbank.iam.api.v1.dto.RegisterRequest;
 import com.redbank.iam.api.v1.dto.RegisterResponse;
 import com.redbank.iam.application.IamService;
@@ -52,9 +53,12 @@ public class IamController {
                 .body(new ApiResponse<>(new ResponseContext(request.context().requestId(), null, status), response));
     }
     @PostMapping("/logout")
-    public void logout(@RequestHeader(name = "Authorization", required = false) String  authorizationHeader){
-        System.out.println("######## LOGOUT CALLED ########");
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<LogoutRequest> request
+    ) {
         iamService.logout(authorizationHeader);
+        return ResponseEntity.ok(ApiResponse.success(request.context().requestId(), null, null));
     }
 
     @PostMapping("/device-verify")

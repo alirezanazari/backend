@@ -469,15 +469,13 @@ Request:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `sessionId` | `String` | No | Current login session ID if tracked. |
-| `allDevices` | `Boolean` | No | Whether to logout all devices. Default `false`. |
+| `data` | `Object` | Yes | Empty object (`{}`). The bearer token to revoke comes from the `Authorization` header. |
 
 Response:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `loggedOut` | `Boolean` | Yes | Logout result. |
-| `loggedOutAt` | `Instant` | Yes | Logout timestamp. |
+| `data` | `null` | Yes | Always `null` when logout succeeds. |
 
 ## Account
 

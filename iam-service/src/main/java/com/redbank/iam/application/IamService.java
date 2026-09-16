@@ -24,6 +24,7 @@ import com.redbank.iam.infrastructure.CredentialRepository;
 import com.redbank.iam.infrastructure.DeviceRepository;
 import com.redbank.iam.infrastructure.OtpChallengeRepository;
 import com.redbank.iam.infrastructure.UserRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -31,13 +32,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-
 
 @Service
 public class IamService {
@@ -109,7 +107,7 @@ public class IamService {
         String username = normalizeUsername(request.username());
         ensureUniqueRegistration(username, request.phoneNumber(), request.nationalId());
 
-        final Location location = request.location() ;
+        final Location location = request.location();
 
         String countryCode = location == null ? "" : location.countryCode();
         String province = location == null ? "" : location.province();
@@ -130,7 +128,6 @@ public class IamService {
                 city,
                 address,
                 postalCode,
-
                 request.jobId(),
                 UserStatus.REGISTERED,
                 now,
@@ -258,17 +255,15 @@ public class IamService {
                 challenge.id().toString()
         );
     }
+
     @Transactional
     public void logout(String authorizationHeader) {
-
-
         VerifiedToken token = jwtTokenService.verifyBearerToken(authorizationHeader, JwtTokenService.SCOPE_USER);
         String jti = token.jti();
         Instant expiresAt = token.expiresAt();
         Instant now = clock.instant();
         Duration ttl = Duration.between(now, expiresAt);
         redisService.blacklistToken(jti, ttl);
-
     }
 
     @Transactional(noRollbackFor = IamUnauthorizedException.class)

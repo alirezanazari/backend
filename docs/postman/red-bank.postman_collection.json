@@ -506,6 +506,25 @@
         },
         {
           "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logout succeeds', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('logout response has success envelope with null data', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.context.status.code).to.eql('SUCCESS');",
+                  "  pm.expect(json.data).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -527,7 +546,7 @@
               "raw": "{\"context\":{\"requestId\":\"{{$guid}}\",\"account\":null,\"os\":{\"name\":\"Android\",\"version\":\"15\"},\"app\":{\"version\":\"1.0.0\",\"buildNumber\":\"100\",\"isRooted\":false,\"language\":\"en-US\",\"theme\":\"dark\"},\"device\":{\"deviceId\":\"{{clientDeviceId}}\",\"model\":\"Pixel 9\",\"fingerprint\":\"{{deviceFingerprint}}\"},\"network\":{\"ipAddress\":null,\"connectionType\":\"WIFI\",\"operator\":\"MCI\"}},\"data\":{}}"
             },
             "url": "{{gatewayBaseUrl}}/api/v1/iam/logout",
-            "description": "Revokes the current bearer token used in the Authorization header. Run after Device Verify or Login has stored accessToken."
+            "description": "Revokes the current USER bearer token in {{accessToken}} by writing its JWT jti to Redis until the token's original expiration. Run this after requests that still need {{accessToken}}; replaying the same token should return 401."
           }
         }
       ]
