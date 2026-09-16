@@ -126,6 +126,10 @@ public class PhoneOtpChallengeService {
     }
 
     private String validatePhoneNumber(String phoneNumber) {
+        System.out.println("SERVICE PHONE=[" + phoneNumber + "]");
+        System.out.println("SERVICE LENGTH=" + (phoneNumber == null ? "null" : phoneNumber.length()));
+        System.out.println("PHONE CODES=" + phoneNumber.chars().boxed().toList());
+        System.out.println("REGEX MATCH=" + (phoneNumber != null && PHONE_NUMBER.matcher(phoneNumber).matches()));
         if (phoneNumber == null || !PHONE_NUMBER.matcher(phoneNumber).matches()) {
             throw new IamValidationException(List.of(new StatusDetail(
                     "phoneNumber",

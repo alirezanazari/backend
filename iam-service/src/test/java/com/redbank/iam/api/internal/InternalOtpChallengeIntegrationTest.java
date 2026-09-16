@@ -3,6 +3,7 @@ package com.redbank.iam.api.internal;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jooq.DSLContext;
@@ -56,6 +57,8 @@ class InternalOtpChallengeIntegrationTest {
     void createsHashedPhoneChallengeWithResendCooldown() throws Exception {
         UUID sessionId = UUID.randomUUID();
         String phone = uniquePhone();
+
+        System.out.println("PHONE=[" + phone + "] LENGTH=" + phone.length());
         Instant before = Instant.now();
 
         String response = createChallenge(SERVICE_TOKEN, sessionId.toString(), phone)
@@ -149,6 +152,7 @@ class InternalOtpChallengeIntegrationTest {
 
     private void registerUser(String phone) throws Exception {
         int sequence = SEQUENCE.incrementAndGet();
+        String nationalId = String.format(Locale.ROOT, "%010d", sequence);
         mockMvc.perform(post("/api/v1/iam/register")
                         .contentType("application/json")
                         .content("""
@@ -162,7 +166,7 @@ class InternalOtpChallengeIntegrationTest {
                                     "network": null
                                   },
                                   "data": {
-                                    "nationalId": "%010d",
+                                    "nationalId": "%s",
                                     "phoneNumber": "%s",
                                     "username": "otpuser%s",
                                     "password": "Password%s!",
@@ -172,11 +176,16 @@ class InternalOtpChallengeIntegrationTest {
                                     "jobId": "job-engineer"
                                   }
                                 }
-                                """.formatted(sequence, sequence, phone, sequence, sequence)))
+                                """.formatted(sequence, nationalId, phone, sequence, sequence)))
+                .andDo(result -> System.out.println(result.getResponse().getContentAsString()))
                 .andExpect(status().isCreated());
     }
-
     private String uniquePhone() {
-        return "093" + "%08d".formatted(SEQUENCE.incrementAndGet());
+        return "093" + String.format(
+                Locale.ROOT,
+                "%08d",
+                SEQUENCE.incrementAndGet()
+        );
     }
+
 }

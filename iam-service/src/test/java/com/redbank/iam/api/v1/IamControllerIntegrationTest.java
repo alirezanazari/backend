@@ -13,6 +13,7 @@ import com.redbank.iam.domain.OutboxEventRecord;
 import com.redbank.iam.domain.OutboxEventStatus;
 import com.redbank.iam.infrastructure.OutboxEventRepository;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -407,7 +408,7 @@ class IamControllerIntegrationTest {
     @Test
     void onboardingPhoneChallengeVerifiesWithMockOtpAndBindsSession() throws Exception {
         AnonymousSession session = anonymousSession();
-        String phone = "0935%07d".formatted(SEQUENCE.incrementAndGet());
+        String phone = "0935" + String.format(Locale.ROOT, "%07d", SEQUENCE.incrementAndGet());
         String challengeId = createOnboardingPhoneChallenge(session.sessionId(), phone);
         String fingerprint = "fp-onboarding-" + session.sessionId();
 
@@ -433,7 +434,7 @@ class IamControllerIntegrationTest {
     void onboardingPhoneChallengeRejectsOtherSessionsAndMissingFingerprint() throws Exception {
         AnonymousSession owner = anonymousSession();
         AnonymousSession stranger = anonymousSession();
-        String phone = "0936%07d".formatted(SEQUENCE.incrementAndGet());
+        String phone = "0935" + String.format(Locale.ROOT, "%07d", SEQUENCE.incrementAndGet());
         String challengeId = createOnboardingPhoneChallenge(owner.sessionId(), phone);
 
         verifyDeviceWithFingerprint(stranger.accessToken(), challengeId, "111111", "fp-stranger")
@@ -452,7 +453,7 @@ class IamControllerIntegrationTest {
     @Test
     void onboardingPhoneChallengeWrongOtpConsumesAttempt() throws Exception {
         AnonymousSession session = anonymousSession();
-        String phone = "0937%07d".formatted(SEQUENCE.incrementAndGet());
+        String phone = "0935" + String.format(Locale.ROOT, "%07d", SEQUENCE.incrementAndGet());
         String challengeId = createOnboardingPhoneChallenge(session.sessionId(), phone);
 
         verifyDeviceWithFingerprint(session.accessToken(), challengeId, "000000", "fp-wrong-otp")
@@ -510,7 +511,7 @@ class IamControllerIntegrationTest {
     void registerWithMismatchedPhoneAgainstVerifiedSessionFails() throws Exception {
         RegistrationData data = registrationData();
         AnonymousSession session = anonymousSession();
-        String verifiedPhone = "0938%07d".formatted(SEQUENCE.incrementAndGet());
+        String verifiedPhone = "0938" + String.format(Locale.ROOT, "%07d", SEQUENCE.incrementAndGet());
         String challengeId = createOnboardingPhoneChallenge(session.sessionId(), verifiedPhone);
         verifyDeviceWithFingerprint(session.accessToken(), challengeId, "111111", "fp-mismatch-" + data.sequence())
                 .andExpect(status().isOk());
@@ -812,13 +813,13 @@ class IamControllerIntegrationTest {
 
     private RegistrationData registrationData() {
         int sequence = SEQUENCE.incrementAndGet();
-        String numeric = "%010d".formatted(sequence);
+        String numeric = String.format(Locale.ROOT, "%010d", sequence);
         return new RegistrationData(
                 sequence,
                 "user" + sequence,
                 "Password" + sequence + "!",
                 numeric,
-                "0912" + "%07d".formatted(sequence)
+                "0912" + String.format(Locale.ROOT, "%07d", sequence)
         );
     }
 

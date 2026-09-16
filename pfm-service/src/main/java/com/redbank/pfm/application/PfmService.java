@@ -46,7 +46,6 @@ public class PfmService {
             LedgerPfmClient ledgerPfmClient,
             PfmProperties pfmProperties,
             Clock clock, PfmTransferClient pfmTransferClient
-
     ) {
         this.boxPresetRepository = boxPresetRepository;
         this.boxRepository = boxRepository;
@@ -259,16 +258,8 @@ public class PfmService {
                 idempotencyKey
         );
 
-        if (result == null) {
-            throw new PfmBusinessRuleException(
-                    "Transfer failed."
-            );
-        }
-
-        if (result.transferId() == null || result.transferId().isBlank()) {
-            throw new PfmBusinessRuleException(
-                    "Transfer failed."
-            );
+        if (result == null || result.transferId() == null || result.transferId().isBlank()) {
+            throw new PfmBusinessRuleException("Transfer failed.");
         }
 
         return new BoxTransferResponse(
