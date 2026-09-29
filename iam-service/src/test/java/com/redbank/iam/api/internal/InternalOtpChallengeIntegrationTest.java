@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.Locale;
 
 @SpringBootTest(properties = {
         "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
@@ -149,6 +150,13 @@ class InternalOtpChallengeIntegrationTest {
 
     private void registerUser(String phone) throws Exception {
         int sequence = SEQUENCE.incrementAndGet();
+        String nationalId = String.format(Locale.ROOT, "%010d", sequence);
+        String username = "otpuser" + sequence;
+        String password = "Password" + sequence + "!";
+        System.out.println("PHONE = [" + phone + "]");
+        System.out.println("PHONE LENGTH = " + phone.length());
+        System.out.println("USERNAME = [" + username + "]");
+        System.out.println("NATIONAL ID = [" + nationalId + "]");
         mockMvc.perform(post("/api/v1/iam/register")
                         .contentType("application/json")
                         .content("""
@@ -162,9 +170,9 @@ class InternalOtpChallengeIntegrationTest {
                                     "network": null
                                   },
                                   "data": {
-                                    "nationalId": "%010d",
+                                    "nationalId": "%s",
                                     "phoneNumber": "%s",
-                                    "username": "otpuser%s",
+                                    "username": "%s",
                                     "password": "Password%s!",
                                     "firstName": "Otp",
                                     "lastName": "User",
@@ -172,11 +180,12 @@ class InternalOtpChallengeIntegrationTest {
                                     "jobId": "job-engineer"
                                   }
                                 }
-                                """.formatted(sequence, sequence, phone, sequence, sequence)))
+                                """.formatted(sequence, nationalId, phone, username, sequence)))
                 .andExpect(status().isCreated());
     }
 
     private String uniquePhone() {
-        return "093" + "%08d".formatted(SEQUENCE.incrementAndGet());
+        return "+9893" + String.format(Locale.ROOT, "%08d", SEQUENCE.incrementAndGet());
+
     }
 }

@@ -1,10 +1,10 @@
 package com.redbank.pfm.application;
-
 import com.redbank.contracts.account.AccountStatus;
 import com.redbank.contracts.account.AccountSummary;
 import com.redbank.contracts.account.AccountType;
 import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.common.Image;
+import com.redbank.contracts.common.Money;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.pfm.BoxPresetSummary;
@@ -17,7 +17,6 @@ import com.redbank.pfm.domain.BoxPresetRecord;
 import com.redbank.pfm.domain.BoxRecord;
 import com.redbank.pfm.infrastructure.BoxPresetRepository;
 import com.redbank.pfm.infrastructure.BoxRepository;
-
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -27,7 +26,6 @@ import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 @Service
 public class PfmService {
     private final BoxPresetRepository boxPresetRepository;
@@ -37,6 +35,7 @@ public class PfmService {
     private final LedgerPfmClient ledgerPfmClient;
     private final PfmProperties pfmProperties;
     private final Clock clock;
+    private final PfmTransferClient pfmTransferClient;
 
     public PfmService(
             BoxPresetRepository boxPresetRepository,
@@ -45,7 +44,8 @@ public class PfmService {
             VaultAccountClient vaultAccountClient,
             LedgerPfmClient ledgerPfmClient,
             PfmProperties pfmProperties,
-            Clock clock
+            Clock clock, PfmTransferClient pfmTransferClient
+
     ) {
         this.boxPresetRepository = boxPresetRepository;
         this.boxRepository = boxRepository;
@@ -54,6 +54,7 @@ public class PfmService {
         this.ledgerPfmClient = ledgerPfmClient;
         this.pfmProperties = pfmProperties;
         this.clock = clock;
+        this.pfmTransferClient = pfmTransferClient;
     }
 
     @Transactional(readOnly = true)
@@ -191,9 +192,181 @@ public class PfmService {
                 closeBox.status(),
                 closeBox.closedAt()
         );
+    }
+    public BoxTransferResponse addFundsToBox(
+            String authorizationHeader,
+            RequestContext context,
+            BoxTransferRequest request){
+        //Auth
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        // Validate context account
+        if (context == null || context.account() == null) {
+            throw validation(
+                    "context.account",
+                    "account is required",
+                    "ACCOUNT_REQUIRED"
+            );
+        }
+        UUID profileId = resolveProfileId(token, context);
+        String accountNumber = trimToNull(context.account().accountNumber());
+        if (accountNumber == null) {
+            throw validation(
+                    "context.account.accountNumber",
+                    "account number is required",
+                    "ACCOUNT_NUMBER_REQUIRED"
+            );
+        }
+
+        //box
+        UUID boxId = parseUuid(request.boxId(), "data.boxId", "BOX_ID_FORMAT");
+        BoxRecord box = boxRepository.findByIdAndOwner(boxId, token.userId(), profileId)
+                .orElseThrow(() -> new PfmNotFoundException("Box was not found"));
+        if (box.status() == BoxStatus.INACTIVE) {
+            throw new PfmBusinessRuleException("Box is already Inactive.");
+        }
+        String boxAccountNumber = box.accountNumber();
+
+        // Prevent self-transfer
+        if (accountNumber.equals(boxAccountNumber)) {
+            throw new PfmBusinessRuleException(
+                    "Source account and box account cannot be the same."
+            );
+        }
+        //the amount user give
+        Money amount = request.amount();
+
+        if (amount == null) {
+            throw validation(
+                    "data.amount",
+                    "amount is required",
+                    "AMOUNT_REQUIRED"
+            );
+        }
+
+        if (amount.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PfmBusinessRuleException(
+                    "Amount must be greater than zero."
+            );
+        }
+
+        // Transfer
+        String idempotencyKey = request.idempotencyKey();
+        PfmTransferResult result = pfmTransferClient.transfer(
+                authorizationHeader,
+                context,
+                accountNumber,
+                boxAccountNumber,
+                amount,
+                idempotencyKey,
+                request.description()
+        );
+
+        if (result == null) {
+            throw new PfmBusinessRuleException(
+                    "Transfer failed."
+            );
+        }
+
+        if (result.transferId() == null || result.transferId().isBlank()) {
+            throw new PfmBusinessRuleException(
+                    "Transfer failed."
+            );
+        }
+
+        return new BoxTransferResponse(
+                UUID.fromString(result.transferId()),
+                result.status(),
+                clock.instant()
+        );
+    }
+
+    public AccountTransferResponse addFundsToAccount(
+            String authorizationHeader,
+            RequestContext context,
+            AccountTransferRequest request
+    ){
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        if (context == null || context.account() == null) {
+            throw validation(
+                    "context.account",
+                    "account is required",
+                    "ACCOUNT_REQUIRED"
+            );
+        }
+        // Account
+        UUID profileId = resolveProfileId(token, context);
+        String accountNumber = trimToNull(context.account().accountNumber());
+        if (accountNumber == null) {
+            throw validation(
+                    "context.account.accountNumber",
+                    "account number is required",
+                    "ACCOUNT_NUMBER_REQUIRED"
+            );
+        }
+        //box
+        UUID boxId = parseUuid(request.boxId(), "data.boxId", "BOX_ID_FORMAT");
+        BoxRecord box = boxRepository.findByIdAndOwner(boxId, token.userId(), profileId)
+                .orElseThrow(() -> new PfmNotFoundException("Box was not found"));
+        if (box.status() == BoxStatus.INACTIVE) {
+            throw new PfmBusinessRuleException("Box is already Inactive.");
+        }
+        String boxAccountNumber = box.accountNumber();
+
+        // Prevent self-transfer
+        if (accountNumber.equals(boxAccountNumber)) {
+            throw new PfmBusinessRuleException(
+                    "Source account and box account cannot be the same."
+            );
+        }
+        //the amount user give
+        Money amount = request.amount();
+
+        if (amount == null) {
+            throw validation(
+                    "data.amount",
+                    "amount is required",
+                    "AMOUNT_REQUIRED"
+            );
+        }
+
+        if (amount.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new PfmBusinessRuleException(
+                    "Amount must be greater than zero."
+            );
+        }
+        // Transfer
+        String idempotencyKey = request.idempotencyKey();
+        PfmTransferResult result = pfmTransferClient.transfer(
+                authorizationHeader,
+                context,
+                boxAccountNumber,
+                accountNumber,
+                amount,
+                idempotencyKey,
+                request.description()
+        );
+
+        if (result == null) {
+            throw new PfmBusinessRuleException(
+                    "Transfer failed."
+            );
+        }
+
+        if (result.transferId() == null || result.transferId().isBlank()) {
+            throw new PfmBusinessRuleException(
+                    "Transfer failed."
+            );
+        }
+
+        return new AccountTransferResponse(
+                UUID.fromString(result.transferId()),
+                result.status(),
+                clock.instant()
+        );
 
 
     }
+
     @Transactional
     public EditBoxResponse editBox(
             String authorizationHeader,

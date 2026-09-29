@@ -46,6 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import java.util.Locale;
 
 @SpringBootTest(properties = {
         "redbank.jwt.signing-secret=test-jwt-signing-secret-change-me-32bytes",
@@ -454,7 +455,8 @@ class IamControllerIntegrationTest {
     @Test
     void onboardingPhoneChallengeVerifiesWithMockOtpAndBindsSession() throws Exception {
         AnonymousSession session = anonymousSession();
-        String phone = "0935%07d".formatted(SEQUENCE.incrementAndGet());
+        int sequence = SEQUENCE.incrementAndGet();
+        String phone = "+98935" + String.format(Locale.ROOT, "%07d", sequence);
         String challengeId = createOnboardingPhoneChallenge(session.sessionId(), phone);
         String fingerprint = "fp-onboarding-" + session.sessionId();
 
@@ -480,7 +482,8 @@ class IamControllerIntegrationTest {
     void onboardingPhoneChallengeRejectsOtherSessionsAndMissingFingerprint() throws Exception {
         AnonymousSession owner = anonymousSession();
         AnonymousSession stranger = anonymousSession();
-        String phone = "0936%07d".formatted(SEQUENCE.incrementAndGet());
+        int sequence = SEQUENCE.incrementAndGet();
+        String phone = "+98935" + String.format(Locale.ROOT, "%07d", sequence);
         String challengeId = createOnboardingPhoneChallenge(owner.sessionId(), phone);
 
         verifyDeviceWithFingerprint(stranger.accessToken(), challengeId, "111111", "fp-stranger")
@@ -499,7 +502,8 @@ class IamControllerIntegrationTest {
     @Test
     void onboardingPhoneChallengeWrongOtpConsumesAttempt() throws Exception {
         AnonymousSession session = anonymousSession();
-        String phone = "0937%07d".formatted(SEQUENCE.incrementAndGet());
+        int sequence = SEQUENCE.incrementAndGet();
+        String phone = "+98935" + String.format(Locale.ROOT, "%07d", sequence);
         String challengeId = createOnboardingPhoneChallenge(session.sessionId(), phone);
 
         verifyDeviceWithFingerprint(session.accessToken(), challengeId, "000000", "fp-wrong-otp")
@@ -557,7 +561,8 @@ class IamControllerIntegrationTest {
     void registerWithMismatchedPhoneAgainstVerifiedSessionFails() throws Exception {
         RegistrationData data = registrationData();
         AnonymousSession session = anonymousSession();
-        String verifiedPhone = "0938%07d".formatted(SEQUENCE.incrementAndGet());
+        int sequence = SEQUENCE.incrementAndGet();
+        String verifiedPhone = "+98938" + String.format(Locale.ROOT, "%07d", sequence);
         String challengeId = createOnboardingPhoneChallenge(session.sessionId(), verifiedPhone);
         verifyDeviceWithFingerprint(session.accessToken(), challengeId, "111111", "fp-mismatch-" + data.sequence())
                 .andExpect(status().isOk());
@@ -663,6 +668,7 @@ class IamControllerIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
+        System.out.println("OTP CHALLENGE RESPONSE = " + response);
         return objectMapper.readTree(response).path("data").path("challengeId").asText();
     }
 
@@ -859,13 +865,13 @@ class IamControllerIntegrationTest {
 
     private RegistrationData registrationData() {
         int sequence = SEQUENCE.incrementAndGet();
-        String numeric = "%010d".formatted(sequence);
+        String numeric = String.format(Locale.ROOT, "%010d", sequence);
         return new RegistrationData(
                 sequence,
                 "user" + sequence,
                 "Password" + sequence + "!",
                 numeric,
-                "0912" + "%07d".formatted(sequence)
+                "+98912" + String.format(Locale.ROOT, "%07d", sequence)
         );
     }
 
@@ -939,7 +945,7 @@ class IamControllerIntegrationTest {
     void registerSucceedsWhenLocationIsNull() throws Exception{
         RegisterRequest request = new RegisterRequest(
                 "1234328234",
-                "09387652314",
+                "+989387652314",
                 "shimo",
                 "45326743@Ei",
                 "shima",

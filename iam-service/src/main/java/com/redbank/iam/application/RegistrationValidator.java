@@ -16,7 +16,6 @@ public class RegistrationValidator {
 
     public void validate(RegisterRequest request) {
         List<StatusDetail> details = new ArrayList<>();
-
         if (!matches(USERNAME, request.username())) {
             details.add(detail("data.username", "username must be 3-80 letters, digits, dot, underscore, or dash", "USERNAME_PATTERN"));
         }

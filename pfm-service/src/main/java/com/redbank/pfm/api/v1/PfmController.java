@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+
 @RestController
 @RequestMapping("/api/v1/pfm")
 public class PfmController {
@@ -103,6 +104,40 @@ public class PfmController {
                 profileId(request),
                 response
         ));
+    }
+    @PostMapping("/addFundsToBox")
+    public ResponseEntity<ApiResponse<BoxTransferResponse>> addFundsToBox(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<BoxTransferRequest> request
+    ){
+        BoxTransferResponse response = pfmService.addFundsToBox(
+                authorizationHeader,
+                request.context(),
+                request.data()
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+                request.context().requestId(),
+                profileId(request),
+                response
+        ));
+
+    }
+    @PostMapping("/addFundsToAccount")
+    public ResponseEntity<ApiResponse<AccountTransferResponse>> addFundsToAccount(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<AccountTransferRequest> request
+    ){
+        AccountTransferResponse response = pfmService.addFundsToAccount(
+                authorizationHeader,
+                request.context(),
+                request.data()
+        );
+        return ResponseEntity.ok(ApiResponse.success(
+                request.context().requestId(),
+                profileId(request),
+                response
+        ));
+
     }
 
     @PostMapping("/transactions/list")

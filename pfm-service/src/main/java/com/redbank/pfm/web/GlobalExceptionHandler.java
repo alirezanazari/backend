@@ -8,7 +8,10 @@ import com.redbank.contracts.telemetry.TelemetryHeaders;
 import com.redbank.contracts.telemetry.TelemetryMdc;
 import com.redbank.pfm.application.PfmBusinessRuleException;
 import com.redbank.pfm.application.PfmConflictException;
+import com.redbank.pfm.application.PfmDuplicateRequestException;
 import com.redbank.pfm.application.PfmExternalServiceException;
+import com.redbank.pfm.application.PfmFeatureDisabledException;
+import com.redbank.pfm.application.PfmInsufficientFundsException;
 import com.redbank.pfm.application.PfmNotFoundException;
 import com.redbank.pfm.application.PfmUnauthorizedException;
 import com.redbank.pfm.application.PfmValidationException;
@@ -58,6 +61,35 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         return response(Status.conflict(exception.getMessage()), request);
+    }
+
+    @ExceptionHandler(PfmDuplicateRequestException.class)
+    ResponseEntity<ApiResponse<Void>> duplicate(
+            PfmDuplicateRequestException exception,
+            HttpServletRequest request
+    ) {
+        return response(new Status(
+                StatusCode.DUPLICATE_REQUEST,
+                exception.getMessage(),
+                409,
+                List.of()
+        ), request);
+    }
+
+    @ExceptionHandler(PfmFeatureDisabledException.class)
+    ResponseEntity<ApiResponse<Void>> featureDisabled(
+            PfmFeatureDisabledException exception,
+            HttpServletRequest request
+    ) {
+        return response(Status.featureDisabled(exception.getMessage()), request);
+    }
+
+    @ExceptionHandler(PfmInsufficientFundsException.class)
+    ResponseEntity<ApiResponse<Void>> insufficientFunds(
+            PfmInsufficientFundsException exception,
+            HttpServletRequest request
+    ) {
+        return response(Status.insufficientFunds(exception.getMessage()), request);
     }
 
     @ExceptionHandler(PfmBusinessRuleException.class)

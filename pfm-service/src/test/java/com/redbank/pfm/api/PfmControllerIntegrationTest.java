@@ -13,9 +13,13 @@ import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.common.Money;
 import com.redbank.contracts.common.PageRequest;
 import com.redbank.contracts.common.PageResponse;
+import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.ledger.LedgerDirection;
 import com.redbank.contracts.pfm.BoxStatus;
+import com.redbank.contracts.transfer.TransferStatus;
 import com.redbank.pfm.application.LedgerPfmClient;
+import com.redbank.pfm.application.PfmTransferClient;
+import com.redbank.pfm.application.PfmTransferResult;
 import com.redbank.pfm.application.VaultAccountClient;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -43,15 +48,12 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import static com.redbank.pfm.jooq.tables.Boxes.BOXES;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.notNullValue;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -86,10 +88,13 @@ class PfmControllerIntegrationTest {
     @MockitoBean
     private LedgerPfmClient ledgerPfmClient;
 
+    @MockitoBean
+    private PfmTransferClient pfmTransferClient;
+
     @BeforeEach
     void clean() {
         dsl.deleteFrom(BOXES).execute();
-        reset(vaultAccountClient, ledgerPfmClient);
+        reset(vaultAccountClient, ledgerPfmClient, pfmTransferClient);
         when(ledgerPfmClient.getBalance(anyString())).thenReturn(balance("250000.00"));
     }
 
@@ -526,6 +531,233 @@ class PfmControllerIntegrationTest {
                           "data": %s
                         }
                         """.formatted(contextAccountNumber, profileId, data)));
+    }
+    @Test
+    void addFundsToBoxShouldTransferMoneySuccessfully() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.ACTIVE
+        );
+
+        String accountNumber = "888888888888888888";
+        when(ledgerPfmClient.getBalance(accountNumber))
+                .thenReturn(balance("25000000"));
+
+        String transferId = UUID.randomUUID().toString();
+        when(pfmTransferClient.transfer(
+                anyString(),
+                any(RequestContext.class),
+                eq(accountNumber),
+                eq(VAULT_ACCOUNT),
+                any(Money.class),
+                anyString(),
+                anyString()
+        )).thenReturn(
+                new PfmTransferResult(
+                        transferId,
+                        TransferStatus.SUCCESS,
+                        "ledger-transaction-1"
+                )
+        );
+        api(
+                "/api/v1/pfm/addFundsToBox",
+                token(userId, profileId),
+                profileId,
+                accountNumber,
+                """
+                        {
+                        "boxId":"%s",
+                        "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                        },
+                        "idempotencyKey": "%s",
+                        "description": "add funds to Account"
+                        }
+                        """.formatted(boxId, "25000000", UUID.randomUUID())
+        )
+                .andExpect(status().isOk());
+
+    }
+    @Test
+    void addFundsToBoxButBoxNotFound() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = UUID.randomUUID();
+
+        String accountNumber = "888888888888888888";
+        api(
+                "/api/v1/pfm/addFundsToBox",
+                token(userId, profileId),
+                profileId,
+                accountNumber,
+                """
+                        {
+                        "boxId":"%s",
+                        "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                        },
+                        "idempotencyKey": "%s",
+                        "description": "add funds to Account"
+                        }
+                        """.formatted(boxId, "25000000", UUID.randomUUID())
+        )
+                .andExpect(status().isNotFound());
+
+    }
+    @Test
+    void addFundsToBoxWhenAmountIsZeroShouldFail() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.ACTIVE
+        );
+        String accountNumber = "888888888888888888";
+        api(
+                "/api/v1/pfm/addFundsToBox",
+                token(userId, profileId),
+                profileId,
+                accountNumber,
+                """
+                        {
+                        "boxId":"%s",
+                        "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                        },
+                        "idempotencyKey": "%s",
+                        "description": "add funds to Account"
+                        }
+                        """.formatted(boxId, "0", UUID.randomUUID())
+        )
+                .andExpect(status().isBadRequest());
+
+    }
+    @Test
+    void addFundsToBoxWithNegativeAmountShouldFail() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.ACTIVE
+        );
+        String accountNumber = "888888888888888888";
+        api(
+                "/api/v1/pfm/addFundsToBox",
+                token(userId, profileId),
+                profileId,
+                accountNumber,
+                """
+                        {
+                        "boxId":"%s",
+                        "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                        },
+                        "idempotencyKey": "%s",
+                        "description": "add funds to Account"
+                        }
+                        """.formatted(boxId, "-300000", UUID.randomUUID())
+        )
+                .andExpect(status().isBadRequest());
+
+    }
+
+    @Test
+    void addFundsToBoxWhenBoxStatusIsInactiveShouldFail() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.INACTIVE
+        );
+        String accountNumber = "888888888888888888";
+        api(
+                "/api/v1/pfm/addFundsToBox",
+                token(userId, profileId),
+                profileId,
+                accountNumber,
+                """
+                        {
+                        "boxId":"%s",
+                        "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                        },
+                        "idempotencyKey": "%s",
+                        "description": "add funds to Account"
+                        }
+                        """.formatted(boxId, "300000", UUID.randomUUID())
+        )
+                .andExpect(status().isBadRequest());
+    }
+    @Test
+    void addFundsToAccountShouldTransferMoneySuccessfully() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID boxId = insertBox(
+                userId,
+                profileId,
+                VAULT_ACCOUNT,
+                "Archived",
+                BoxStatus.ACTIVE
+        );
+
+        String accountNumber = "888888888888888888";
+        when(ledgerPfmClient.getBalance(accountNumber))
+                .thenReturn(balance("25000000"));
+
+        String transferId = UUID.randomUUID().toString();
+        when(pfmTransferClient.transfer(
+                anyString(),
+                any(RequestContext.class),
+                eq(VAULT_ACCOUNT),
+                eq(accountNumber),
+                any(Money.class),
+                anyString(),
+                anyString()
+        )).thenReturn(
+                new PfmTransferResult(
+                        transferId,
+                        TransferStatus.SUCCESS,
+                        "ledger-transaction-1"
+                )
+        );
+        api(
+                "/api/v1/pfm/addFundsToAccount",
+                token(userId, profileId),
+                profileId,
+                accountNumber,
+                """
+                        {
+                        "boxId":"%s",
+                        "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                        },
+                        "idempotencyKey": "%s",
+                        "description": "add funds to box"
+                        }
+                        """.formatted(boxId, "25000000", UUID.randomUUID())
+        )
+                .andExpect(status().isOk());
+
     }
 
     private UUID insertBox(
