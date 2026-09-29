@@ -6,8 +6,13 @@ import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.transfer.DestinationType;
 import com.redbank.contracts.transfer.TransferMethod;
 import com.redbank.pfm.application.PfmBusinessRuleException;
+import com.redbank.pfm.application.PfmConflictException;
+import com.redbank.pfm.application.PfmDuplicateRequestException;
 import com.redbank.pfm.application.PfmExternalServiceException;
+import com.redbank.pfm.application.PfmFeatureDisabledException;
+import com.redbank.pfm.application.PfmInsufficientFundsException;
 import com.redbank.pfm.application.PfmNotFoundException;
+import com.redbank.pfm.application.PfmUnauthorizedException;
 import com.redbank.pfm.application.PfmTransferClient;
 import com.redbank.pfm.application.PfmTransferResult;
 import com.redbank.pfm.config.TransferClientProperties;
@@ -121,17 +126,19 @@ public class HttpPfmTransferClient implements PfmTransferClient {
                 ? "Transfer service rejected transfer"
                 : error.message();
 
-        if (error.code() == com.redbank.contracts.envelope.StatusCode.NOT_FOUND) {
-            return new PfmNotFoundException(message);
+        if (error.code() == null) {
+            return new PfmExternalServiceException(message, exception);
         }
-
-        if (error.code() == com.redbank.contracts.envelope.StatusCode.BUSINESS_RULE_VIOLATION
-                || error.code() == com.redbank.contracts.envelope.StatusCode.CONFLICT
-                || error.code() == com.redbank.contracts.envelope.StatusCode.VALIDATION_ERROR) {
-            return new PfmBusinessRuleException(message);
-        }
-
-        return new PfmExternalServiceException(message, exception);
+        return switch (error.code()) {
+            case NOT_FOUND -> new PfmNotFoundException(message);
+            case UNAUTHORIZED, FORBIDDEN -> new PfmUnauthorizedException(message);
+            case INSUFFICIENT_FUNDS -> new PfmInsufficientFundsException(message);
+            case FEATURE_DISABLED -> new PfmFeatureDisabledException(message);
+            case DUPLICATE_REQUEST -> new PfmDuplicateRequestException(message);
+            case CONFLICT -> new PfmConflictException(message);
+            case BUSINESS_RULE_VIOLATION, VALIDATION_ERROR -> new PfmBusinessRuleException(message);
+            default -> new PfmExternalServiceException(message, exception);
+        };
     }
 
     private record CreateTransferRequest(
