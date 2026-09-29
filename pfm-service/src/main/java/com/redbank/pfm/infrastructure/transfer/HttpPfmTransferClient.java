@@ -12,13 +12,16 @@ import com.redbank.pfm.application.PfmTransferClient;
 import com.redbank.pfm.application.PfmTransferResult;
 import com.redbank.pfm.config.TransferClientProperties;
 import com.redbank.pfm.infrastructure.http.HttpApiError;
-import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import com.redbank.contracts.envelope.ApiRequest;
+import com.redbank.contracts.envelope.RequestContext;
 
 @Component
 @ConditionalOnProperty(
@@ -30,6 +33,7 @@ import org.springframework.web.client.RestClientResponseException;
 public class HttpPfmTransferClient implements PfmTransferClient {
 
     private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+    private static final Logger log = LoggerFactory.getLogger(HttpPfmTransferClient.class);
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -48,16 +52,22 @@ public class HttpPfmTransferClient implements PfmTransferClient {
 
     @Override
     public PfmTransferResult transfer(
+            String authorizationHeader,
+            RequestContext context,
             String sourceAccountNumber,
             String destinationAccountNumber,
             Money amount,
-            String idempotencyKey
+            String idempotencyKey,
+            String description
     ) {
         try {
             ApiResponse<CreateTransferResponse> response = restClient.post()
                     .uri("/api/v1/transfers/create")
+                    .header("Authorization", authorizationHeader)
                     .header(IDEMPOTENCY_KEY_HEADER, idempotencyKey)
-                    .body(new CreateTransferRequest(
+                    .body(new ApiRequest<>(
+                            context,
+                            new CreateTransferRequest(
                             idempotencyKey,
                             TransferMethod.ACCOUNT_TO_ACCOUNT,
                             DestinationType.ACCOUNT,
@@ -68,7 +78,8 @@ public class HttpPfmTransferClient implements PfmTransferClient {
                             null,
                             null,
                             amount,
-                            null
+                            description
+                            )
                     ))
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {
@@ -92,7 +103,7 @@ public class HttpPfmTransferClient implements PfmTransferClient {
         } catch (RestClientResponseException exception) {
             throw downstreamFailure(exception);
         } catch (RestClientException exception) {
-            exception.printStackTrace();
+            log.error("Transfer service call failed", exception);
 
             throw new PfmExternalServiceException(
                     "Transfer service call failed",

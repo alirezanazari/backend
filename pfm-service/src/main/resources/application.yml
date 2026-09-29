@@ -59,4 +59,4 @@ redbank:
     service-token: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
   transfer-client:
     enabled: ${REDBANK_PFM_TRANSFER_CLIENT_ENABLED:true}
-    base-url: ${TRANSFER_SERVICE_URL:http://localhost:8084}
+    base-url: ${TRANSFER_SERVICE_URL:http://localhost:8087}

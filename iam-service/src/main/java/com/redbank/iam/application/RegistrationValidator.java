@@ -16,7 +16,25 @@ public class RegistrationValidator {
 
     public void validate(RegisterRequest request) {
         List<StatusDetail> details = new ArrayList<>();
+        System.out.println("PHONE RECEIVED = [" + request.phoneNumber() + "]");
+        System.out.println("NATIONAL ID RECEIVED = [" + request.nationalId() + "]");
+        System.out.println("PHONE LENGTH = " + request.phoneNumber().length());
+        System.out.println("PHONE MATCH = " + PHONE_NUMBER.matcher(request.phoneNumber()).matches());
+        System.out.println("NATIONAL ID LENGTH = " + request.nationalId().length());
+        System.out.println("NATIONAL ID MATCH = " + NATIONAL_ID.matcher(request.nationalId()).matches());
+        System.out.println(
+                "PHONE CODEPOINTS = " +
+                        request.phoneNumber().codePoints()
+                                .mapToObj(Integer::toHexString)
+                                .toList()
+        );
 
+        System.out.println(
+                "NATIONAL ID CODEPOINTS = " +
+                        request.nationalId().codePoints()
+                                .mapToObj(Integer::toHexString)
+                                .toList()
+        );
         if (!matches(USERNAME, request.username())) {
             details.add(detail("data.username", "username must be 3-80 letters, digits, dot, underscore, or dash", "USERNAME_PATTERN"));
         }

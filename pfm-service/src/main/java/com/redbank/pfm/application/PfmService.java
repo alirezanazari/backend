@@ -26,7 +26,6 @@ import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 @Service
 public class PfmService {
     private final BoxPresetRepository boxPresetRepository;
@@ -253,10 +252,13 @@ public class PfmService {
         // Transfer
         String idempotencyKey = request.idempotencyKey();
         PfmTransferResult result = pfmTransferClient.transfer(
+                authorizationHeader,
+                context,
                 accountNumber,
                 boxAccountNumber,
                 amount,
-                idempotencyKey
+                idempotencyKey,
+                request.description()
         );
 
         if (result == null) {
@@ -335,10 +337,13 @@ public class PfmService {
         // Transfer
         String idempotencyKey = request.idempotencyKey();
         PfmTransferResult result = pfmTransferClient.transfer(
+                authorizationHeader,
+                context,
                 boxAccountNumber,
                 accountNumber,
                 amount,
-                idempotencyKey
+                idempotencyKey,
+                request.description()
         );
 
         if (result == null) {

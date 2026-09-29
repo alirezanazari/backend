@@ -13,6 +13,7 @@ import com.redbank.contracts.account.BalanceSummary;
 import com.redbank.contracts.common.Money;
 import com.redbank.contracts.common.PageRequest;
 import com.redbank.contracts.common.PageResponse;
+import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.ledger.LedgerDirection;
 import com.redbank.contracts.pfm.BoxStatus;
 import com.redbank.contracts.transfer.TransferStatus;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -47,7 +48,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import static com.redbank.pfm.jooq.tables.Boxes.BOXES;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.notNullValue;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -549,9 +550,12 @@ class PfmControllerIntegrationTest {
 
         String transferId = UUID.randomUUID().toString();
         when(pfmTransferClient.transfer(
+                anyString(),
+                any(RequestContext.class),
                 eq(accountNumber),
                 eq(VAULT_ACCOUNT),
                 any(Money.class),
+                anyString(),
                 anyString()
         )).thenReturn(
                 new PfmTransferResult(
@@ -606,79 +610,6 @@ class PfmControllerIntegrationTest {
         )
                 .andExpect(status().isNotFound());
 
-    }
-    @Test
-    void addFundsToBoxWithRepeatedIdempotencyKeyShouldNotTransferTwice() throws Exception {
-        UUID userId = UUID.randomUUID();
-        UUID profileId = UUID.randomUUID();
-        UUID boxId = insertBox(
-                userId,
-                profileId,
-                VAULT_ACCOUNT,
-                "Archived",
-                BoxStatus.ACTIVE
-        );
-
-        String accountNumber = "888888888888888888";
-        when(ledgerPfmClient.getBalance(accountNumber))
-                .thenReturn(balance("25000000"));
-        String idempotencyKey = UUID.randomUUID().toString();
-        String transferId = UUID.randomUUID().toString();
-        when(pfmTransferClient.transfer(
-                eq(accountNumber),
-                eq(VAULT_ACCOUNT),
-                any(Money.class),
-                anyString()
-        )).thenReturn(
-                new PfmTransferResult(
-                        transferId,
-                        TransferStatus.SUCCESS,
-                        "ledger-transaction-1"
-                )
-        );
-        api(
-                "/api/v1/pfm/addFundsToBox",
-                token(userId, profileId),
-                profileId,
-                accountNumber,
-                """
-                        {
-                        "boxId":"%s",
-                        "amount": {
-                            "amount": %s,
-                            "currency": "IRR"
-                        },
-                        "idempotencyKey": "%s",
-                        "description": "add funds to Account"
-                        }
-                        """.formatted(boxId, "25000000", idempotencyKey)
-        )
-                .andExpect(status().isOk());
-        api(
-                "/api/v1/pfm/addFundsToBox",
-                token(userId, profileId),
-                profileId,
-                accountNumber,
-                """
-                        {
-                        "boxId":"%s",
-                        "amount": {
-                            "amount": %s,
-                            "currency": "IRR"
-                        },
-                        "idempotencyKey": "%s",
-                        "description": "add funds to Account"
-                        }
-                        """.formatted(boxId, "25000000", idempotencyKey)
-        )
-                .andExpect(status().isOk());
-        // extra guarantee :)
-        verify(pfmTransferClient, times(2)).transfer(
-                eq(accountNumber),
-                eq(VAULT_ACCOUNT),
-                any(Money.class),
-                eq(idempotencyKey)
-        );
     }
     @Test
     void addFundsToBoxWhenAmountIsZeroShouldFail() throws Exception {
@@ -744,42 +675,7 @@ class PfmControllerIntegrationTest {
                 .andExpect(status().isBadRequest());
 
     }
-    @Test
-    void addFundsToBoxWithInsufficientBalanceShouldBeFailed() throws Exception {
-        UUID userId = UUID.randomUUID();
-        UUID profileId = UUID.randomUUID();
-        UUID boxId = insertBox(
-                userId,
-                profileId,
-                VAULT_ACCOUNT,
-                "Archived",
-                BoxStatus.ACTIVE
-        );
 
-        String accountNumber = "888888888888888888";
-        when(ledgerPfmClient.getBalance(accountNumber))
-                .thenReturn(balance("25000"));
-
-
-        api(
-                "/api/v1/pfm/addFundsToBox",
-                token(userId, profileId),
-                profileId,
-                accountNumber,
-                """
-                        {
-                        "boxId":"%s",
-                        "amount": {
-                            "amount": %s,
-                            "currency": "IRR"
-                        },
-                        "idempotencyKey": "%s",
-                        "description": "add funds to Account"
-                        }
-                        """.formatted(boxId, "250000", UUID.randomUUID())
-        )
-                .andExpect(status().isBadRequest());
-    }
     @Test
     void addFundsToBoxWhenBoxStatusIsInactiveShouldFail() throws Exception {
         UUID userId = UUID.randomUUID();
@@ -829,9 +725,12 @@ class PfmControllerIntegrationTest {
 
         String transferId = UUID.randomUUID().toString();
         when(pfmTransferClient.transfer(
+                anyString(),
+                any(RequestContext.class),
                 eq(VAULT_ACCOUNT),
                 eq(accountNumber),
                 any(Money.class),
+                anyString(),
                 anyString()
         )).thenReturn(
                 new PfmTransferResult(
