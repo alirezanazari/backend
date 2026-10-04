@@ -1,8 +1,8 @@
-# red-bank Backend
+# bank Backend
 
 Digital banking backend.
 
-This repository is designed as real microservices from the start, with production-grade boundaries, security, financial consistency, and operational concerns documented before implementation.
+This repository is designed as real microservices from the start, with boundaries, security, financial consistency, and operational concerns documented before implementation.
 
 ## Project Structure
 
