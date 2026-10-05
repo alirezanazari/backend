@@ -142,4 +142,17 @@ public class AccountController {
     private String profileId(ApiRequest<?> request) {
         return request.context().account() == null ? null : request.context().account().profileId();
     }
+
+    @PostMapping("/api/v1/account/top-up")
+    public ResponseEntity<ApiResponse> accountTopUp(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody ApiRequest<TopUpRequest> request
+    ) {
+        TopUpResponse response = accountService.topUp(authorizationHeader, request.context(), request.data());
+        return ResponseEntity.ok(ApiResponse.success(
+                request.context().requestId(),
+                response
+        ));
+    }
+
 }
