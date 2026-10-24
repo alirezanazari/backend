@@ -162,6 +162,11 @@ public class InternalLedgerController {
             throw new LedgerUnauthorizedException("Unauthorized");
         }
     }
+    private void authorizeAccountFunding(String serviceToken) {
+        if (!internalAccessProperties.accountFundingTokenSecret().equals(serviceToken)) {
+            throw new LedgerUnauthorizedException("Unauthorized");
+        }
+    }
 
     private <T> T processEvent(
             String eventId,

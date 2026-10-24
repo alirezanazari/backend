@@ -12,26 +12,7 @@ import com.redbank.account.api.internal.dto.GetReferralRewardAccountRequest;
 import com.redbank.account.api.internal.dto.GetReferralRewardAccountResponse;
 import com.redbank.account.api.internal.dto.ResolveTransferAccountRequest;
 import com.redbank.account.api.internal.dto.ResolveTransferAccountResponse;
-import com.redbank.account.api.v1.dto.CloseAccountRequest;
-import com.redbank.account.api.v1.dto.CloseAccountResponse;
-import com.redbank.account.api.v1.dto.CreateProfileRequest;
-import com.redbank.account.api.v1.dto.CreateProfileResponse;
-import com.redbank.account.api.v1.dto.EditProfileRequest;
-import com.redbank.account.api.v1.dto.EditProfileResponse;
-import com.redbank.account.api.v1.dto.GetAccountBalanceRequest;
-import com.redbank.account.api.v1.dto.GetAccountBalanceResponse;
-import com.redbank.account.api.v1.dto.GetAccountOwnerRequest;
-import com.redbank.account.api.v1.dto.GetAccountOwnerResponse;
-import com.redbank.account.api.v1.dto.ListAccountsRequest;
-import com.redbank.account.api.v1.dto.ListAccountsResponse;
-import com.redbank.account.api.v1.dto.ListProfilesRequest;
-import com.redbank.account.api.v1.dto.ListProfilesResponse;
-import com.redbank.account.api.v1.dto.OpenAccountRequest;
-import com.redbank.account.api.v1.dto.OpenAccountResponse;
-import com.redbank.account.api.v1.dto.RegisterAccountRequest;
-import com.redbank.account.api.v1.dto.RegisterAccountResponse;
-import com.redbank.account.api.v1.dto.SetActiveProfileRequest;
-import com.redbank.account.api.v1.dto.SetActiveProfileResponse;
+import com.redbank.account.api.v1.dto.*;
 import com.redbank.account.config.AccountProperties;
 import com.redbank.account.domain.AccountStatusHistoryRecord;
 import com.redbank.account.domain.BankAccountRecord;
@@ -48,15 +29,19 @@ import com.redbank.contracts.account.ProfileSummary;
 import com.redbank.contracts.account.ProfileType;
 import com.redbank.contracts.common.Image;
 import com.redbank.contracts.card.CardForm;
+import com.redbank.contracts.common.Money;
 import com.redbank.contracts.envelope.RequestContext;
 import com.redbank.contracts.envelope.StatusDetail;
 import com.redbank.contracts.identity.AccountCompletionStatus;
 import com.redbank.contracts.transfer.DestinationType;
 import com.redbank.contracts.transfer.TransferDestinationSummary;
+
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -646,6 +631,45 @@ public class AccountService {
                 balance == null ? null : balance.availableBalance().amount(),
                 balance == null ? null : balance.currentBalance().amount()
         );
+    }
+    public TopUpResponse topUp(String authorizationHeader, TopUpRequest request) {
+        VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
+        String accountNumber = request.accountNumber();
+        if (accountNumber == null) {
+            throw validation(
+                    "data.accountNumber",
+                    "provide exactly one account number",
+                    "TRANSFER_ACCOUNT_REFERENCE"
+            );
+        }
+        BankAccountRecord account = ownedAccount(token.userId(), request.accountNumber());
+        if(account.status() != AccountStatus.ACTIVE){
+            throw new AccountBusinessRuleException("Transfer account is not active");
+        }
+        Money amount = request.amount();
+        if(amount == null || amount.amount() == null || amount.amount().compareTo(BigDecimal.ZERO) <= 0){
+            throw validation(
+                    "data.amount",
+                    "Amount must be greater that zero.",
+                    "AMOUNT_INVALID"
+            );
+        }
+        if(amount.amount().compareTo(accountProperties.topUpMinAmount()) < 0|| amount.amount().compareTo(accountProperties.topUpMaxAmount()) > 0){
+            throw validation(
+                    "data.amount",
+                    "Amount must be between top-up-min-amount and top-up-max-amount.",
+                    "AMOUNT_INVALID"
+            );
+        }
+        if(amount.currency() == null || !amount.currency().equals(account.currency())){
+            throw validation(
+                    "data.amount.currency",
+                    "Amount currency must match account currency.",
+                    "CURRENCY_MISMATCH"
+            );
+
+        }
+
     }
 
     private BankAccountRecord createUniqueAccount(

@@ -46,6 +46,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import com.redbank.ledger.api.internal.dto.AccountFundingRequest;
 
 @Service
 public class LedgerService {
@@ -54,6 +55,7 @@ public class LedgerService {
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 200;
     private static final int MAX_OPTIMISTIC_LOCK_ATTEMPTS = 3;
+    private static final String SYSTEM_ACCOUNT_FUNDING_ACCOUNT_NUMBER = "000000000000000001";
 
     private final LedgerAccountRepository ledgerAccountRepository;
     private final LedgerBalanceRepository ledgerBalanceRepository;
@@ -64,6 +66,7 @@ public class LedgerService {
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
+
 
     public LedgerService(
             LedgerAccountRepository ledgerAccountRepository,
@@ -234,6 +237,83 @@ public class LedgerService {
                     List<LedgerEntryRecord> entries = List.of(
                             entry(transaction.id(), rewardPool.id(), LedgerDirection.DEBIT, amount, rewardPool.currency(), now),
                             entry(transaction.id(), referrer.id(), LedgerDirection.CREDIT, amount, referrer.currency(), now)
+                    );
+
+                    return postBalancedTransaction(transaction, entries);
+                }
+        );
+    }
+    public LedgerTransactionResponse postAccountFunding(AccountFundingRequest request) {
+        String fundingId = normalizeRequired(
+                request.fundingId(),
+                "data.fundingId",
+                "FUNDING_ID_REQUIRED"
+        );
+
+        BigDecimal amount = normalizeAmount(request.amount(), "data.amount");
+
+        return executePostingWithRetry(
+                LedgerReferenceType.ACCOUNT_FUNDING,
+                fundingId,
+                null,
+                () -> {
+                    LedgerTransactionResponse duplicate = ledgerTransactionRepository
+                            .findByReference(LedgerReferenceType.ACCOUNT_FUNDING, fundingId)
+                            .map(this::toTransactionResponse)
+                            .orElse(null);
+
+                    if (duplicate != null) {
+                        return duplicate;
+                    }
+
+                    LedgerAccountRecord fundingSource =
+                            activeAccount(SYSTEM_ACCOUNT_FUNDING_ACCOUNT_NUMBER);
+
+                    LedgerAccountRecord target =
+                            activeAccount(request.targetExternalAccountNumber());
+
+                    validateSameCurrency(
+                            fundingSource,
+                            request.amount().currency(),
+                            "Funding account currency does not match funding amount"
+                    );
+
+                    validateSameCurrency(
+                            target,
+                            request.amount().currency(),
+                            "Target account currency does not match funding amount"
+                    );
+
+                    Instant now = clock.instant();
+
+                    LedgerTransactionRecord transaction = new LedgerTransactionRecord(
+                            UUID.randomUUID(),
+                            LedgerReferenceType.ACCOUNT_FUNDING,
+                            fundingId,
+                            null,
+                            LedgerTransactionType.ACCOUNT_FUNDING,
+                            LedgerTransactionStatus.POSTED,
+                            now,
+                            now
+                    );
+
+                    List<LedgerEntryRecord> entries = List.of(
+                            entry(
+                                    transaction.id(),
+                                    fundingSource.id(),
+                                    LedgerDirection.DEBIT,
+                                    amount,
+                                    fundingSource.currency(),
+                                    now
+                            ),
+                            entry(
+                                    transaction.id(),
+                                    target.id(),
+                                    LedgerDirection.CREDIT,
+                                    amount,
+                                    target.currency(),
+                                    now
+                            )
                     );
 
                     return postBalancedTransaction(transaction, entries);
