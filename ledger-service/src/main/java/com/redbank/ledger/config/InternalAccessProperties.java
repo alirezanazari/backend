@@ -6,7 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record InternalAccessProperties(
         String serviceTokenSecret,
         String internalTransferTokenSecret,
-        String referralRewardTokenSecret
+        String referralRewardTokenSecret,
+        String accountFundingTokenSecret
 ) {
     public static final String DEVELOP_SERVICE_TOKEN_SECRET = "local-develop-internal-service-token-change-me";
 
@@ -19,6 +20,9 @@ public record InternalAccessProperties(
         }
         if (referralRewardTokenSecret == null || referralRewardTokenSecret.isBlank()) {
             referralRewardTokenSecret = DEVELOP_SERVICE_TOKEN_SECRET;
+        }
+        if (accountFundingTokenSecret == null || accountFundingTokenSecret.isBlank()) {
+            accountFundingTokenSecret = DEVELOP_SERVICE_TOKEN_SECRET;
         }
     }
 
@@ -40,5 +44,8 @@ public record InternalAccessProperties(
 
     public boolean referralRewardTokenReusesServiceTokenSecret() {
         return serviceTokenSecret.equals(referralRewardTokenSecret);
+    }
+    public boolean usesDevelopAccountFundingTokenSecret() {
+        return DEVELOP_SERVICE_TOKEN_SECRET.equals(accountFundingTokenSecret);
     }
 }

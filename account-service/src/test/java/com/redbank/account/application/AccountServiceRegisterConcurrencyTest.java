@@ -29,6 +29,8 @@ class AccountServiceRegisterConcurrencyTest {
     private final IbanGenerator ibanGenerator = mock(IbanGenerator.class);
     private final AccountOutboxService accountOutboxService = mock(AccountOutboxService.class);
     private final LedgerBalanceClient ledgerBalanceClient = mock(LedgerBalanceClient.class);
+    private final LedgerFundingClient ledgerFundingClient = mock(LedgerFundingClient.class);
+    private final TopUpFeatureFlagClient topUpFeatureFlagClient = mock(TopUpFeatureFlagClient.class);
     private final AccountService accountService = new AccountService(
             profileRepository,
             bankAccountRepository,
@@ -39,7 +41,9 @@ class AccountServiceRegisterConcurrencyTest {
             accountOutboxService,
             ledgerBalanceClient,
             new AccountProperties("IR", "0620", "IRR", 5, List.of("job-engineer")),
-            Clock.fixed(Instant.parse("2026-06-23T08:00:00Z"), ZoneOffset.UTC)
+            Clock.fixed(Instant.parse("2026-06-23T08:00:00Z"), ZoneOffset.UTC),
+            ledgerFundingClient,
+            topUpFeatureFlagClient
     );
 
     @Test

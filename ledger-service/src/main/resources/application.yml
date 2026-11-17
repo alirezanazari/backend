@@ -46,3 +46,4 @@ redbank:
     service-token-secret: ${REDBANK_INTERNAL_SERVICE_TOKEN_SECRET:local-develop-internal-service-token-change-me}
     internal-transfer-token-secret: ${REDBANK_LEDGER_INTERNAL_TRANSFER_TOKEN_SECRET:local-develop-internal-service-token-change-me}
     referral-reward-token-secret: ${REDBANK_LEDGER_REFERRAL_REWARD_TOKEN_SECRET:local-develop-internal-service-token-change-me}
+    account-funding-token-secret: ${REDBANK_LEDGER_ACCOUNT_FUNDING_TOKEN_SECRET:local-develop-internal-service-token-change-me}

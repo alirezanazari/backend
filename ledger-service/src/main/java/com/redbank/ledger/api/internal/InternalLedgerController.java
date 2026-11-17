@@ -2,19 +2,7 @@ package com.redbank.ledger.api.internal;
 
 import com.redbank.contracts.envelope.ApiResponse;
 import com.redbank.contracts.event.EventHeaders;
-import com.redbank.ledger.api.internal.dto.CloseLedgerAccountRequest;
-import com.redbank.ledger.api.internal.dto.CloseLedgerAccountResponse;
-import com.redbank.ledger.api.internal.dto.CreateLedgerAccountRequest;
-import com.redbank.ledger.api.internal.dto.CreateLedgerAccountResponse;
-import com.redbank.ledger.api.internal.dto.GetLedgerBalanceRequest;
-import com.redbank.ledger.api.internal.dto.GetLedgerBalanceResponse;
-import com.redbank.ledger.api.internal.dto.InternalTransferRequest;
-import com.redbank.ledger.api.internal.dto.LedgerTransactionResponse;
-import com.redbank.ledger.api.internal.dto.ListLedgerEntriesRequest;
-import com.redbank.ledger.api.internal.dto.ListLedgerEntriesResponse;
-import com.redbank.ledger.api.internal.dto.ReferralRewardRequest;
-import com.redbank.ledger.api.internal.dto.ReopenLedgerAccountRequest;
-import com.redbank.ledger.api.internal.dto.ReopenLedgerAccountResponse;
+import com.redbank.ledger.api.internal.dto.*;
 import com.redbank.ledger.application.LedgerService;
 import com.redbank.ledger.application.InboxEventProcessor;
 import com.redbank.ledger.application.LedgerBusinessRuleException;
@@ -144,6 +132,15 @@ public class InternalLedgerController {
         ListLedgerEntriesResponse response = ledgerService.listEntries(request);
         return ResponseEntity.ok(ApiResponse.success("internal", null, response));
     }
+    @PostMapping("/transactions/account-funding")
+    public ResponseEntity<ApiResponse<LedgerTransactionResponse>> accountFunding(
+            @RequestHeader(name = INTERNAL_SERVICE_TOKEN_HEADER, required = false) String serviceToken,
+            @Valid @RequestBody AccountFundingRequest request
+    ){
+        authorizeAccountFunding(serviceToken);
+        LedgerTransactionResponse response = ledgerService.postAccountFunding(request);
+        return ResponseEntity.ok(ApiResponse.success("internal", null, response));
+    }
 
     private void authorize(String serviceToken) {
         if (!internalAccessProperties.serviceTokenSecret().equals(serviceToken)) {
@@ -159,6 +156,11 @@ public class InternalLedgerController {
 
     private void authorizeReferralReward(String serviceToken) {
         if (!internalAccessProperties.referralRewardTokenSecret().equals(serviceToken)) {
+            throw new LedgerUnauthorizedException("Unauthorized");
+        }
+    }
+    private void authorizeAccountFunding(String serviceToken) {
+        if (!internalAccessProperties.accountFundingTokenSecret().equals(serviceToken)) {
             throw new LedgerUnauthorizedException("Unauthorized");
         }
     }

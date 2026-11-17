@@ -46,6 +46,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import com.redbank.ledger.api.internal.dto.AccountFundingRequest;
 
 @Service
 public class LedgerService {
@@ -54,6 +55,7 @@ public class LedgerService {
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 200;
     private static final int MAX_OPTIMISTIC_LOCK_ATTEMPTS = 3;
+    private static final String SYSTEM_ACCOUNT_FUNDING_ACCOUNT_NUMBER = "000000000000000001";
 
     private final LedgerAccountRepository ledgerAccountRepository;
     private final LedgerBalanceRepository ledgerBalanceRepository;
@@ -64,6 +66,7 @@ public class LedgerService {
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
+
 
     public LedgerService(
             LedgerAccountRepository ledgerAccountRepository,
@@ -240,6 +243,105 @@ public class LedgerService {
                 }
         );
     }
+    public LedgerTransactionResponse postAccountFunding(AccountFundingRequest request) {
+        String fundingId = normalizeRequired(
+                request.fundingId(),
+                "data.fundingId",
+                "FUNDING_ID_REQUIRED"
+        );
+
+        BigDecimal amount = normalizeAmount(request.amount(), "data.amount");
+
+        //change ledger balances, Two requests might try to update the same balance at the same time, two requests use the same fundingId
+        return executePostingWithRetry(
+                LedgerReferenceType.ACCOUNT_FUNDING,
+                fundingId,
+                null,
+                () -> {
+                    //Have we already saved an account-funding transaction with bla bla fundingId? So return duplicate sends back its previous result and stops this method here
+                    LedgerTransactionRecord duplicate = ledgerTransactionRepository
+                            .findByReference(LedgerReferenceType.ACCOUNT_FUNDING, fundingId)
+                            .orElse(null);
+
+                    if (duplicate != null) {
+                        //get debit and credit transaction
+                        List<LedgerEntryRecord> entries =
+                                ledgerEntryRepository.findByTransactionId(duplicate.id());
+
+                        LedgerEntryRecord credit = entries.stream()
+                                .filter(entry -> entry.direction() == LedgerDirection.CREDIT)
+                                .findFirst()
+                                .orElseThrow(() -> new LedgerConflictException(
+                                        "Existing funding transaction has no credit entry"));
+
+                        LedgerAccountRecord requestedTarget =
+                                ledgerAccount(request.targetExternalAccountNumber());
+
+                        if (!credit.ledgerAccountId().equals(requestedTarget.id())
+                                || credit.amount().compareTo(amount) != 0
+                                || !credit.currency().equals(normalizeCurrency(request.amount().currency()))) {
+                            throw new LedgerConflictException(
+                                    "Funding ID was already used for a different top-up");
+                        }
+
+                        return toTransactionResponse(duplicate);
+                    }
+
+                    LedgerAccountRecord fundingSource =
+                            activeAccount(SYSTEM_ACCOUNT_FUNDING_ACCOUNT_NUMBER);
+
+                    LedgerAccountRecord target =
+                            activeAccount(request.targetExternalAccountNumber());
+
+                    validateSameCurrency(
+                            fundingSource,
+                            request.amount().currency(),
+                            "Funding account currency does not match funding amount"
+                    );
+
+                    validateSameCurrency(
+                            target,
+                            request.amount().currency(),
+                            "Target account currency does not match funding amount"
+                    );
+
+                    Instant now = clock.instant();
+
+                    LedgerTransactionRecord transaction = new LedgerTransactionRecord(
+                            UUID.randomUUID(),
+                            LedgerReferenceType.ACCOUNT_FUNDING,
+                            fundingId,
+                            null,
+                            LedgerTransactionType.ACCOUNT_FUNDING,
+                            LedgerTransactionStatus.POSTED,
+                            now,
+                            now
+                    );
+
+                     //Both entries point to the same transaction,
+                    List<LedgerEntryRecord> entries = List.of(
+                            entry(
+                                    transaction.id(),
+                                    fundingSource.id(),
+                                    LedgerDirection.DEBIT,
+                                    amount,
+                                    fundingSource.currency(),
+                                    now
+                            ),
+                            entry(
+                                    transaction.id(),
+                                    target.id(),
+                                    LedgerDirection.CREDIT,
+                                    amount,
+                                    target.currency(),
+                                    now
+                            )
+                    );
+
+                    return postBalancedTransaction(transaction, entries);
+                }
+        );
+    }
 
     public GetLedgerBalanceResponse getBalance(GetLedgerBalanceRequest request) {
         LedgerAccountRecord account = activeAccount(request.externalAccountNumber());
@@ -389,6 +491,10 @@ public class LedgerService {
                 }
             } catch (DataIntegrityViolationException exception) {
                 recordLedgerPostingRetry(referenceType, "integrity_violation");
+                // if operation an account-funding operation
+                if (referenceType == LedgerReferenceType.ACCOUNT_FUNDING) {
+                    return transactionTemplate.execute(status -> operation.post());
+                }
                 return transactionTemplate.execute(status -> duplicateResponseAfterIntegrityViolation(
                         referenceType,
                         referenceId,
@@ -584,7 +690,7 @@ public class LedgerService {
     }
 
     private LedgerTransactionResponse toTransactionResponse(LedgerTransactionRecord transaction) {
-        return new LedgerTransactionResponse(transaction.id().toString(), transaction.status().name());
+        return new LedgerTransactionResponse(transaction.id().toString(), transaction.status().name(), transaction.createdAt());
     }
 
     private BalanceSummary toBalanceSummary(LedgerBalanceRecord balance) {

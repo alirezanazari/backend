@@ -116,7 +116,9 @@ public class FeatureFlagRepository {
                 Boolean.TRUE.equals(record.get(FEATURE_FLAGS.CLIENT_VISIBLE)),
                 record.get(FEATURE_FLAGS.UPDATED_BY),
                 record.get(FEATURE_FLAGS.CREATED_AT).toInstant(),
-                record.get(FEATURE_FLAGS.UPDATED_AT).toInstant()
+                record.get(FEATURE_FLAGS.UPDATED_AT).toInstant(),
+                record.get(FEATURE_FLAGS.MIN_AMOUNT),
+                record.get(FEATURE_FLAGS.MAX_AMOUNT)
         );
     }
 

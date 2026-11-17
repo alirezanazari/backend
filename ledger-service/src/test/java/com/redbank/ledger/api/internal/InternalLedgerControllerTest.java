@@ -16,6 +16,7 @@ import com.redbank.ledger.application.LedgerService;
 import com.redbank.ledger.application.LedgerUnauthorizedException;
 import com.redbank.ledger.config.InternalAccessProperties;
 import java.math.BigDecimal;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 class InternalLedgerControllerTest {
@@ -28,7 +29,7 @@ class InternalLedgerControllerTest {
     private final InternalLedgerController controller = new InternalLedgerController(
             ledgerService,
             inboxEventProcessor,
-            new InternalAccessProperties(GENERAL_TOKEN, INTERNAL_TRANSFER_TOKEN, REFERRAL_REWARD_TOKEN)
+            new InternalAccessProperties(GENERAL_TOKEN, INTERNAL_TRANSFER_TOKEN, REFERRAL_REWARD_TOKEN, "account-funding-token")
     );
 
     @Test
@@ -43,7 +44,7 @@ class InternalLedgerControllerTest {
     void internalTransferAcceptsDedicatedInternalTransferToken() {
         InternalTransferRequest request = internalTransferRequest();
         when(ledgerService.postInternalTransfer(request))
-                .thenReturn(new LedgerTransactionResponse("ledger-456", "POSTED"));
+                .thenReturn(new LedgerTransactionResponse("ledger-456", "POSTED", Instant.parse("2026-01-01T00:00:00Z")));
 
         var response = controller.internalTransfer(INTERNAL_TRANSFER_TOKEN, request);
 
@@ -64,7 +65,7 @@ class InternalLedgerControllerTest {
     void referralRewardAcceptsDedicatedReferralRewardToken() {
         ReferralRewardRequest request = referralRewardRequest();
         when(ledgerService.postReferralReward(request))
-                .thenReturn(new LedgerTransactionResponse("ledger-123", "POSTED"));
+                .thenReturn(new LedgerTransactionResponse("ledger-123", "POSTED", Instant.parse("2026-01-01T00:00:00Z")));
 
         var response = controller.referralReward(REFERRAL_REWARD_TOKEN, request);
 

@@ -34,7 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
-        "redbank.events.publisher.enabled=false"
+        "redbank.events.publisher.enabled=false",
+        "redbank.internal.account-funding-token-secret=test-account-funding-token"
 })
 @ActiveProfiles("develop")
 @AutoConfigureMockMvc
@@ -42,6 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class InternalLedgerControllerIntegrationTest {
     private static final String INTERNAL_TOKEN = "local-develop-internal-service-token-change-me";
     private static final String INTERNAL_TRANSFER_TOKEN = "local-develop-internal-service-token-change-me";
+    private static final String ACCOUNT_FUNDING_TOKEN = "test-account-funding-token";
     private static final AtomicLong ACCOUNT_SEQUENCE = new AtomicLong(100000000000000000L);
 
     @Container
@@ -233,6 +235,57 @@ class InternalLedgerControllerIntegrationTest {
     }
 
     @Test
+    void repeatedAccountFundingReturnsOriginalTransactionWithoutCreditingTwice() throws Exception {
+        String accountNumber = nextAccountNumber();
+        String fundingId = "funding-" + UUID.randomUUID();
+        createAccount(accountNumber, UUID.randomUUID()).andExpect(status().isOk());
+
+        JsonNode first = objectMapper.readTree(accountFunding(fundingId, accountNumber, "100.00")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("POSTED"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        accountFunding(fundingId, accountNumber, "100.00")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ledgerTransactionId")
+                        .value(first.path("data").path("ledgerTransactionId").asText()));
+
+        getBalance(accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.balance.availableBalance.amount").value(100.0))
+                .andExpect(jsonPath("$.data.balance.currentBalance.amount").value(100.0));
+        listEntries(accountNumber)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page.totalItems").value(1));
+    }
+
+    @Test
+    void accountFundingReferenceRejectsChangedAmountOrTarget() throws Exception {
+        String firstAccount = nextAccountNumber();
+        String secondAccount = nextAccountNumber();
+        String fundingId = "funding-" + UUID.randomUUID();
+        createAccount(firstAccount, UUID.randomUUID()).andExpect(status().isOk());
+        createAccount(secondAccount, UUID.randomUUID()).andExpect(status().isOk());
+        accountFunding(fundingId, firstAccount, "100.00").andExpect(status().isOk());
+
+        accountFunding(fundingId, firstAccount, "200.00")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
+        accountFunding(fundingId, secondAccount, "100.00")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.context.status.code").value("CONFLICT"));
+
+        getBalance(firstAccount)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.balance.currentBalance.amount").value(100.0));
+        getBalance(secondAccount)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.balance.currentBalance.amount").value(0.0));
+    }
+
+    @Test
     void concurrentTransfersKeepBalancesConsistent() throws Exception {
         String sourceAccount = nextAccountNumber();
         String firstDestination = nextAccountNumber();
@@ -334,6 +387,26 @@ class InternalLedgerControllerIntegrationTest {
                           }
                         }
                         """.formatted(referralRewardId, referrerAccount, amount)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions accountFunding(
+            String fundingId,
+            String targetAccount,
+            String amount
+    ) throws Exception {
+        return mockMvc.perform(post("/internal/v1/ledger/transactions/account-funding")
+                .header(InternalLedgerController.INTERNAL_SERVICE_TOKEN_HEADER, ACCOUNT_FUNDING_TOKEN)
+                .contentType("application/json")
+                .content("""
+                        {
+                          "fundingId": "%s",
+                          "targetExternalAccountNumber": "%s",
+                          "amount": {
+                            "amount": %s,
+                            "currency": "IRR"
+                          }
+                        }
+                        """.formatted(fundingId, targetAccount, amount)));
     }
 
     private org.springframework.test.web.servlet.ResultActions closeAccount(String accountNumber) throws Exception {

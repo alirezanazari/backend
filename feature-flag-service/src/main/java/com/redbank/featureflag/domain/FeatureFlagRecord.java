@@ -1,5 +1,6 @@
 package com.redbank.featureflag.domain;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,7 +12,9 @@ public record FeatureFlagRecord(
         boolean clientVisible,
         UUID updatedBy,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        BigDecimal minAmount,
+        BigDecimal maxAmount
 ) {
     public FeatureFlagRecord withUpdate(
             boolean nextEnabled,
@@ -28,7 +31,9 @@ public record FeatureFlagRecord(
                 nextClientVisible,
                 actorId,
                 createdAt,
-                nextUpdatedAt
+                nextUpdatedAt,
+                minAmount,
+                maxAmount
         );
     }
 }

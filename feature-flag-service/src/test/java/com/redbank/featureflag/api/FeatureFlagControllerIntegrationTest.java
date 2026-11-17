@@ -116,8 +116,9 @@ class FeatureFlagControllerIntegrationTest {
                 {"keys":null,"includeDisabled":false}
                 """)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.flags.length()").value(6))
-                .andExpect(jsonPath("$.data.flags[0].key").value("card.order.enabled"));
+                .andExpect(jsonPath("$.data.flags.length()").value(7))
+                .andExpect(jsonPath("$.data.flags[0].key").value("account.top-up.enabled"))
+                .andExpect(jsonPath("$.data.flags[1].key").value("card.order.enabled"));
 
         api("/api/v1/feature-flags/list", adminToken, null, """
                 {"keys":["referral.reward.enabled"],"includeDisabled":true}
