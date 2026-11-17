@@ -20,6 +20,8 @@ import com.redbank.account.api.v1.dto.RegisterAccountRequest;
 import com.redbank.account.api.v1.dto.RegisterAccountResponse;
 import com.redbank.account.api.v1.dto.SetActiveProfileRequest;
 import com.redbank.account.api.v1.dto.SetActiveProfileResponse;
+import com.redbank.account.api.v1.dto.TopUpRequest;
+import com.redbank.account.api.v1.dto.TopUpResponse;
 import com.redbank.account.application.AccountService;
 import com.redbank.contracts.envelope.ApiRequest;
 import com.redbank.contracts.envelope.ApiResponse;
@@ -144,13 +146,14 @@ public class AccountController {
     }
 
     @PostMapping("/api/v1/account/top-up")
-    public ResponseEntity<ApiResponse> accountTopUp(
+    public ResponseEntity<ApiResponse<TopUpResponse>> accountTopUp(
             @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
             @Valid @RequestBody ApiRequest<TopUpRequest> request
     ) {
         TopUpResponse response = accountService.topUp(authorizationHeader, request.context(), request.data());
         return ResponseEntity.ok(ApiResponse.success(
                 request.context().requestId(),
+                profileId(request),
                 response
         ));
     }

@@ -6,7 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record LedgerClientProperties(
         boolean enabled,
         String baseUrl,
-        String serviceToken
+        String serviceToken,
+        String accountFundingToken
 ) {
     private static final String DEVELOP_LEDGER_BASE_URL = "http://localhost:8083";
     private static final String DEVELOP_SERVICE_TOKEN = "local-develop-internal-service-token-change-me";
@@ -17,6 +18,9 @@ public record LedgerClientProperties(
         }
         if (serviceToken == null || serviceToken.isBlank()) {
             serviceToken = DEVELOP_SERVICE_TOKEN;
+        }
+        if (accountFundingToken == null || accountFundingToken.isBlank()){
+            accountFundingToken = DEVELOP_SERVICE_TOKEN;
         }
     }
 }

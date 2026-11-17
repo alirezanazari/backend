@@ -14,7 +14,8 @@ class ProdSafetyGuardTest {
                 new InternalAccessProperties(
                         "prod-general-token",
                         "prod-internal-transfer-token",
-                        InternalAccessProperties.DEVELOP_SERVICE_TOKEN_SECRET
+                        InternalAccessProperties.DEVELOP_SERVICE_TOKEN_SECRET,
+                        "prod-account-funding-token"
                 )
         );
 
@@ -27,7 +28,7 @@ class ProdSafetyGuardTest {
     void prodRejectsReferralRewardTokenReusingGeneralServiceToken() {
         ProdSafetyGuard guard = new ProdSafetyGuard(
                 new MockEnvironment().withProperty("spring.profiles.active", "prod"),
-                new InternalAccessProperties("shared-prod-token", "prod-internal-transfer-token", "shared-prod-token")
+                new InternalAccessProperties("shared-prod-token", "prod-internal-transfer-token", "shared-prod-token", "prod-account-funding-token")
         );
 
         assertThatThrownBy(() -> guard.run(null))
@@ -42,7 +43,8 @@ class ProdSafetyGuardTest {
                 new InternalAccessProperties(
                         "prod-general-token",
                         InternalAccessProperties.DEVELOP_SERVICE_TOKEN_SECRET,
-                        "prod-referral-reward-token"
+                        "prod-referral-reward-token",
+                        "prod-account-funding-token"
                 )
         );
 
@@ -55,7 +57,7 @@ class ProdSafetyGuardTest {
     void prodRejectsInternalTransferTokenReusingGeneralServiceToken() {
         ProdSafetyGuard guard = new ProdSafetyGuard(
                 new MockEnvironment().withProperty("spring.profiles.active", "prod"),
-                new InternalAccessProperties("shared-prod-token", "shared-prod-token", "prod-referral-reward-token")
+                new InternalAccessProperties("shared-prod-token", "shared-prod-token", "prod-referral-reward-token", "prod-account-funding-token")
         );
 
         assertThatThrownBy(() -> guard.run(null))
@@ -70,7 +72,8 @@ class ProdSafetyGuardTest {
                 new InternalAccessProperties(
                         "prod-general-token",
                         "prod-internal-transfer-token",
-                        "prod-referral-reward-token"
+                        "prod-referral-reward-token",
+                        "prod-account-funding-token"
                 )
         );
 

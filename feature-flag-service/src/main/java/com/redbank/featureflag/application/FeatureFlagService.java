@@ -140,7 +140,7 @@ public class FeatureFlagService {
                 context
         );
         return new EvaluateFeatureFlagsResponse(flags.stream()
-                .map(flag -> new EvaluatedFeatureFlag(flag.key(), values.get(flag.key())))
+                .map(flag -> new EvaluatedFeatureFlag(flag.key(), values.get(flag.key()), flag.minAmount(), flag.maxAmount()))
                 .toList());
     }
 

@@ -86,4 +86,10 @@ public class LedgerEntryRepository {
     private OffsetDateTime toOffsetDateTime(Instant instant) {
         return instant.atOffset(ZoneOffset.UTC);
     }
+
+    public List<LedgerEntryRecord> findByTransactionId(UUID transactionId) {
+        return dsl.selectFrom(LEDGER_ENTRIES)
+                .where(LEDGER_ENTRIES.LEDGER_TRANSACTION_ID.eq(transactionId))
+                .fetch(this::map);
+    }
 }

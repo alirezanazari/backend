@@ -252,18 +252,39 @@ public class LedgerService {
 
         BigDecimal amount = normalizeAmount(request.amount(), "data.amount");
 
+        //change ledger balances, Two requests might try to update the same balance at the same time, two requests use the same fundingId
         return executePostingWithRetry(
                 LedgerReferenceType.ACCOUNT_FUNDING,
                 fundingId,
                 null,
                 () -> {
-                    LedgerTransactionResponse duplicate = ledgerTransactionRepository
+                    //Have we already saved an account-funding transaction with bla bla fundingId? So return duplicate sends back its previous result and stops this method here
+                    LedgerTransactionRecord duplicate = ledgerTransactionRepository
                             .findByReference(LedgerReferenceType.ACCOUNT_FUNDING, fundingId)
-                            .map(this::toTransactionResponse)
                             .orElse(null);
 
                     if (duplicate != null) {
-                        return duplicate;
+                        //get debit and credit transaction
+                        List<LedgerEntryRecord> entries =
+                                ledgerEntryRepository.findByTransactionId(duplicate.id());
+
+                        LedgerEntryRecord credit = entries.stream()
+                                .filter(entry -> entry.direction() == LedgerDirection.CREDIT)
+                                .findFirst()
+                                .orElseThrow(() -> new LedgerConflictException(
+                                        "Existing funding transaction has no credit entry"));
+
+                        LedgerAccountRecord requestedTarget =
+                                ledgerAccount(request.targetExternalAccountNumber());
+
+                        if (!credit.ledgerAccountId().equals(requestedTarget.id())
+                                || credit.amount().compareTo(amount) != 0
+                                || !credit.currency().equals(normalizeCurrency(request.amount().currency()))) {
+                            throw new LedgerConflictException(
+                                    "Funding ID was already used for a different top-up");
+                        }
+
+                        return toTransactionResponse(duplicate);
                     }
 
                     LedgerAccountRecord fundingSource =
@@ -297,6 +318,7 @@ public class LedgerService {
                             now
                     );
 
+                     //Both entries point to the same transaction,
                     List<LedgerEntryRecord> entries = List.of(
                             entry(
                                     transaction.id(),
@@ -469,6 +491,10 @@ public class LedgerService {
                 }
             } catch (DataIntegrityViolationException exception) {
                 recordLedgerPostingRetry(referenceType, "integrity_violation");
+                // if operation an account-funding operation
+                if (referenceType == LedgerReferenceType.ACCOUNT_FUNDING) {
+                    return transactionTemplate.execute(status -> operation.post());
+                }
                 return transactionTemplate.execute(status -> duplicateResponseAfterIntegrityViolation(
                         referenceType,
                         referenceId,
@@ -664,7 +690,7 @@ public class LedgerService {
     }
 
     private LedgerTransactionResponse toTransactionResponse(LedgerTransactionRecord transaction) {
-        return new LedgerTransactionResponse(transaction.id().toString(), transaction.status().name());
+        return new LedgerTransactionResponse(transaction.id().toString(), transaction.status().name(), transaction.createdAt());
     }
 
     private BalanceSummary toBalanceSummary(LedgerBalanceRecord balance) {

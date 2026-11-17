@@ -1,6 +1,5 @@
 package com.redbank.account.config;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -11,26 +10,9 @@ public record AccountProperties(
         String bankCode,
         String defaultCurrency,
         int maxProfilesPerUser,
-        List<String> allowedJobIds,
-        BigDecimal topUpMinAmount,
-        BigDecimal topUpMaxAmount
+        List<String> allowedJobIds
 ) {
     public AccountProperties {
-        if(topUpMinAmount == null){
-            topUpMinAmount = new BigDecimal("1000");
-        }
-        if(topUpMaxAmount == null){
-            topUpMaxAmount = new BigDecimal("50000000");
-        }
-        if(topUpMinAmount.signum() <= 0){
-            throw new IllegalArgumentException("Minimum top-up amount must be positive");
-        }
-        if(topUpMaxAmount.signum() <= 0){
-            throw new IllegalArgumentException("Maximum top-up amount must be positive");
-        }
-        if(topUpMaxAmount.compareTo(topUpMinAmount) < 0){
-            throw new IllegalArgumentException("Maximum top-up amount must be greater than minimum top-up amount");
-        }
         if (ibanCountryCode == null || ibanCountryCode.isBlank()) {
             ibanCountryCode = "IR";
         }

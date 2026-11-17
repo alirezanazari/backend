@@ -61,6 +61,8 @@ public class AccountService {
     private final LedgerBalanceClient ledgerBalanceClient;
     private final AccountProperties accountProperties;
     private final Clock clock;
+    private final LedgerFundingClient ledgerFundingClient;
+    private final TopUpFeatureFlagClient  topUpFeatureFlagClient;
 
     public AccountService(
             ProfileRepository profileRepository,
@@ -72,7 +74,9 @@ public class AccountService {
             AccountOutboxService accountOutboxService,
             LedgerBalanceClient ledgerBalanceClient,
             AccountProperties accountProperties,
-            Clock clock
+            Clock clock,
+            LedgerFundingClient ledgerFundingClient,
+            TopUpFeatureFlagClient topUpFeatureFlagClient
     ) {
         this.profileRepository = profileRepository;
         this.bankAccountRepository = bankAccountRepository;
@@ -84,6 +88,8 @@ public class AccountService {
         this.ledgerBalanceClient = ledgerBalanceClient;
         this.accountProperties = accountProperties;
         this.clock = clock;
+        this.ledgerFundingClient = ledgerFundingClient;
+        this.topUpFeatureFlagClient = topUpFeatureFlagClient;
     }
 
     @Transactional
@@ -632,7 +638,7 @@ public class AccountService {
                 balance == null ? null : balance.currentBalance().amount()
         );
     }
-    public TopUpResponse topUp(String authorizationHeader, TopUpRequest request) {
+    public TopUpResponse topUp(String authorizationHeader, RequestContext context, TopUpRequest request) {
         VerifiedToken token = jwtTokenService.verifyUserToken(authorizationHeader);
         String accountNumber = request.accountNumber();
         if (accountNumber == null) {
@@ -643,8 +649,18 @@ public class AccountService {
             );
         }
         BankAccountRecord account = ownedAccount(token.userId(), request.accountNumber());
+        // account in the top-up request belong to the signed-in user’s selected profile?
+        ProfileRecord profile = resolveProfile(token, context);
+        validateProfileContext(account, profile);
         if(account.status() != AccountStatus.ACTIVE){
-            throw new AccountBusinessRuleException("Transfer account is not active");
+            throw new AccountBusinessRuleException("Top-up account is not active");
+        }
+        if(account.type() != AccountType.SAVING){
+            throw new AccountBusinessRuleException("Account type should be saving");
+        }
+        TopUpPolicy policy = topUpFeatureFlagClient.getTopUpPolicy(token.userId(), profile.id(), account.accountNumber());
+        if(!policy.enabled()){
+            throw new AccountBusinessRuleException("Account top-up is currently disabled");
         }
         Money amount = request.amount();
         if(amount == null || amount.amount() == null || amount.amount().compareTo(BigDecimal.ZERO) <= 0){
@@ -654,7 +670,7 @@ public class AccountService {
                     "AMOUNT_INVALID"
             );
         }
-        if(amount.amount().compareTo(accountProperties.topUpMinAmount()) < 0|| amount.amount().compareTo(accountProperties.topUpMaxAmount()) > 0){
+        if(amount.amount().compareTo(policy.minAmount()) < 0|| amount.amount().compareTo(policy.maxAmount()) > 0){
             throw validation(
                     "data.amount",
                     "Amount must be between top-up-min-amount and top-up-max-amount.",
@@ -669,6 +685,10 @@ public class AccountService {
             );
 
         }
+        String fundingId = token.userId() + ":" + request.idempotencyKey().trim();
+        LedgerFundingResult result = ledgerFundingClient.fund(fundingId, account.accountNumber(), amount);
+        TopUpResponse response = new TopUpResponse(account.accountNumber(), amount, account.currency(), result.ledgerTransactionId(), result.status(), result.createdAt());
+        return response;
 
     }
 
