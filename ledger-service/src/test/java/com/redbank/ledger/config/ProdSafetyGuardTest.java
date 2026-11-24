@@ -79,4 +79,21 @@ class ProdSafetyGuardTest {
 
         assertThatCode(() -> guard.run(null)).doesNotThrowAnyException();
     }
+
+    @Test
+    void prodRejectsMissingAccountFundingToken() {
+        ProdSafetyGuard guard = new ProdSafetyGuard(
+                new MockEnvironment().withProperty("spring.profiles.active", "prod"),
+                new InternalAccessProperties(
+                        "prod-general-token",
+                        "prod-internal-transfer-token",
+                        "prod-referral-reward-token",
+                        null
+                )
+        );
+
+        assertThatThrownBy(() -> guard.run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("ledger-service cannot start in prod with a develop account funding token");
+    }
 }

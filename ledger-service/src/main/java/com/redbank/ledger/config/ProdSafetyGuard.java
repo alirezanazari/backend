@@ -22,6 +22,9 @@ public class ProdSafetyGuard implements ApplicationRunner {
         if (!prod) {
             return;
         }
+        if (internalAccessProperties.usesDevelopAccountFundingTokenSecret()) {
+            throw new IllegalStateException("ledger-service cannot start in prod with a develop account funding token");
+        }
 
         if (internalAccessProperties.usesDevelopServiceTokenSecret()) {
             throw new IllegalStateException("ledger-service cannot start in prod with a develop internal service token");
